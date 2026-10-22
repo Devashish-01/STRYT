@@ -27,10 +27,12 @@ import WalkInModal from "@/components/appointments/WalkInModal";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { AppointmentNote } from "@/components/appointments/AppointmentNote";
+import { OrderLines } from "@/components/OrderLines";
 import { RecordPaymentModal } from "@/components/appointments/RecordPaymentModal";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { isLiveOrder } from "@/lib/orderLists";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import DeliveryOwnerPanels from "@/components/delivery/DeliveryOwnerPanels";
 import { deliveryService } from "@/services";
@@ -487,10 +489,14 @@ export default function BusinessAppointments() {
           </div>
         )}
 
-        {apt.packageName && (
-          <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
-            📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
-          </div>
+        {apt.items && apt.items.length > 0 ? (
+          <OrderLines lines={apt.items} />
+        ) : (
+          apt.packageName && (
+            <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
+              📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+            </div>
+          )
         )}
 
         <AppointmentNote note={apt.notes} />
@@ -606,7 +612,8 @@ export default function BusinessAppointments() {
           </div>
         )}
 
-        {apt.status === "COMPLETED" && (
+        {/* A no-show is a customer who didn't come to the shop. A delivery that didn't land is a rider's "can't deliver" (with a reason). */}
+        {apt.status === "COMPLETED" && apt.fulfillmentType !== "DELIVERY" && (
           <button
             type="button"
             className="row gap-4 center-v tiny semi"
@@ -632,6 +639,9 @@ export default function BusinessAppointments() {
             businessId={id}
             preloaded={deliveryMap ? ((deliveryMap as Record<string, import("@/services/engagement/deliveryService").AppointmentDelivery>)[apt.id] ?? null) : undefined}
             onChanged={() => { refetchDeliveryMap(); refetchAwaiting(); }}
+            packed={!!apt.readyAt}
+            // A finished order can't be sent out again: show who delivered it, without an "Assign" button that can only fail.
+            readOnly={apt.status !== "ACCEPTED"}
           />
         )}
       </div>
@@ -650,8 +660,9 @@ export default function BusinessAppointments() {
   // Newest-created first across every tab — a fresh booking request needs
   // attention regardless of when it's scheduled for, so it shouldn't get
   // buried wherever its scheduled time happens to sort it.
+  // Live = a slot booking until its time passes; a home-delivery order until it is delivered or cancelled, however late it runs.
   const upcomingList = appointments
-    .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > now)
+    .filter((a) => isLiveOrder(a, now))
     .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   const historyList = appointments

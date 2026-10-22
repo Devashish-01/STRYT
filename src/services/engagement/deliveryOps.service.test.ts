@@ -29,6 +29,21 @@ describe("pick-up and redelivery", () => {
     expect(track).toHaveBeenCalledWith("delivery_picked_up");
   });
 
+  it("says the shop hasn't packed the order in words a rider can act on", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "ORDER_NOT_READY" } });
+    await expect(deliveryService.markPickedUp("dlv_1")).rejects.toThrow(/hasn't marked this order packed/i);
+  });
+
+  it("reads whether the shop has packed it from the rider's list, and doesn't guess when the database predates the column", async () => {
+    const row = { id: "d1", appointment_id: "a1", business_id: "b1", status: "ASSIGNED" };
+    rpc.mockResolvedValue({ data: [row, { ...row, id: "d2", order_ready_at: null }, { ...row, id: "d3", order_ready_at: "2026-10-22T10:00:00Z", is_owner_delivery: true }], error: null });
+    const [old, notPacked, packedByOwner] = await deliveryService.myDeliveries();
+    expect(old.orderReadyAt).toBeUndefined();       // old database: the console must not hold the rider back
+    expect(notPacked.orderReadyAt).toBeNull();      // new database, not packed yet
+    expect(packedByOwner.orderReadyAt).toBe("2026-10-22T10:00:00Z");
+    expect(packedByOwner.isOwnerDelivery).toBe(true);
+  });
+
   it("tells the shop the customer is ready, and reports a throttled repeat as false", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
     expect(await deliveryService.readyForRedelivery("apt_1")).toBe(true);
@@ -143,7 +158,9 @@ describe("friendly delivery errors", () => {
   it("turns the server's refusal codes into words", () => {
     const cases: [string, RegExp][] = [
       ["NOT_A_DELIVERY_ORDER", /isn't a home delivery/i],
-      ["ORDER_NOT_ACCEPTED", /accept the order/i],
+      ["ORDER_NOT_ACCEPTED", /isn't open for delivery/i],
+      ["ORDER_NOT_READY", /hasn't marked this order packed/i],
+      ["ORDER_NOT_ACTIVE", /cancelled or closed/i],
       ["SOME_APPOINTMENTS_NOT_ELIGIBLE", /can't join a run/i],
       ["AGENT_NOT_TEAM_MEMBER", /no longer on your team/i],
       ['duplicate key value violates unique constraint "appointment_deliveries_one_active"', /just assigned to someone else/i],
@@ -160,7 +177,7 @@ describe("friendly delivery errors", () => {
 
   it("is applied when assigning, starting and accepting", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "ORDER_NOT_ACCEPTED" } });
-    await expect(deliveryService.assignDelivery("apt_1", "u_2")).rejects.toThrow(/accept the order/i);
+    await expect(deliveryService.assignDelivery("apt_1", "u_2")).rejects.toThrow(/isn't open for delivery/i);
     rpc.mockResolvedValue({ data: null, error: { message: "NOT_PICKED_UP" } });
     await expect(deliveryService.updateStatus("dlv_1", "ON_THE_WAY")).rejects.toThrow(/pick-up from the shop first/i);
     rpc.mockResolvedValue({ data: null, error: { message: "INVALID_STOP_ORDER" } });

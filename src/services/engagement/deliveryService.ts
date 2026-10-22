@@ -9,7 +9,9 @@ export function friendlyDeliveryError(e: unknown): unknown {
   const msg = typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e ?? "");
   const map: [RegExp, string][] = [
     [/NOT_A_DELIVERY_ORDER/, "That order isn't a home delivery."],
-    [/ORDER_NOT_ACCEPTED/, "Accept the order before assigning a rider."],
+    [/ORDER_NOT_ACCEPTED/, "This order isn't open for delivery — it may be finished, cancelled, or not accepted yet. Refresh the list."],
+    [/ORDER_NOT_READY/, "The shop hasn't marked this order packed yet."],
+    [/ORDER_NOT_ACTIVE/, "This order was cancelled or closed — stop the delivery."],
     [/SOME_APPOINTMENTS_NOT_ELIGIBLE/, "Some of the selected orders can't join a run — they may already be assigned, cancelled or not accepted yet. Refresh and try again."],
     [/AGENT_NOT_TEAM_MEMBER/, "That person is no longer on your team."],
     [/appointment_deliveries_one_active|duplicate key/i, "That order was just assigned to someone else. Refresh to see the latest."],
@@ -159,6 +161,10 @@ export interface DeliveryItem {
   items: { name: string; quantity: number }[];
   /** When the rider confirmed pick-up from the shop; null until they have (the delivery cannot start before). */
   pickedUpAt: string | null;
+  /** When the shop marked the order packed. null = not packed yet; undefined = the database predates this column, so don't gate on it. */
+  orderReadyAt?: string | null;
+  /** The rider is the shop's owner: they packed it themselves, so there is no waiting for the shop. */
+  isOwnerDelivery?: boolean;
   businessLat: number | null;
   businessLng: number | null;
   businessAddress: string | null;
@@ -307,6 +313,8 @@ function rowToItem(r: any): DeliveryItem {
     packageName: r.package_name ?? null,
     items: Array.isArray(r.items) ? r.items.map((i: any) => ({ name: String(i.name ?? "Item"), quantity: Number(i.quantity ?? 1) })) : [],
     pickedUpAt: r.picked_up_at ?? null,
+    orderReadyAt: "order_ready_at" in r ? (r.order_ready_at ?? null) : undefined,
+    isOwnerDelivery: "is_owner_delivery" in r ? !!r.is_owner_delivery : undefined,
     businessLat: r.business_lat ?? null,
     businessLng: r.business_lng ?? null,
     businessAddress: r.business_address ?? null,
@@ -350,7 +358,7 @@ export const deliveryService = {
   async markPickedUp(deliveryId: string): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("delivery_mark_picked_up" as any, { p_delivery_id: deliveryId });
-    if (error) throw toApiError(error);
+    if (error) throw friendlyDeliveryError(toApiError(error));
     track("delivery_picked_up");
   },
 

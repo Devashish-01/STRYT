@@ -555,7 +555,9 @@ export function AppointmentSheet({
             <div className="tiny muted" style={{ marginTop: 2 }}>
               {isReschedule
                 ? (vocabulary.sheetSubtitlePrefix ? `${vocabulary.sheetSubtitlePrefix.replace(/Select/i, "Change")} ` : "Pick a new slot with ")
-                : (vocabulary.sheetSubtitlePrefix || "Book a slot with ")}
+                : canOfferDelivery && fulfillmentType === "DELIVERY"
+                  ? `${t("sheet_delivery_from")} `
+                  : (vocabulary.sheetSubtitlePrefix || "Book a slot with ")}
               <strong style={{ color: "var(--brand-700)" }}>{targetName}</strong>
             </div>
           </div>

@@ -32,11 +32,24 @@ export default function DeliveryTrackingRunner() {
   const enabled = DELIVERY_AGENT_ENABLED && isAuthed && !!user.id;
 
   // A cheap count decides whether to load the full list outside the console; the console opening also turns it on.
-  const { data: activeCount } = useQuery(
+  const { data: activeCount, refetch: refetchCount } = useQuery(
     async () => (enabled ? deliveryService.countMyActiveDeliveries() : 0),
     [user.id, enabled],
     `delivery:active-count:${user.id}`,
   );
+
+  // The count used to be read once and then trusted. A rider who accepted work and left the console had a stale 0, so the watcher
+  // unmounted mid-delivery and location sharing stopped. Re-read it whenever the console opens or closes, every 30 s, and when the
+  // app comes back to the foreground.
+  useEffect(() => {
+    if (!enabled) return;
+    const tick = () => { if (document.visibilityState === "visible") refetchCount(); };
+    refetchCount();
+    const timer = setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, consoleOpen]);
 
   if (!enabled) return null;
   if ((activeCount ?? 0) === 0 && !consoleOpen) return null;

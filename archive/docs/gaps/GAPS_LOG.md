@@ -18,6 +18,56 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+## #36 — Tapping a notification silently throws the user into another part of the app
+
+**Reported:** "if on any part, like on the business page, then by clicking on it is throwing the user on the other part — the app should ask if user want to switch, then only the part should switch, and the user should be able to filter the notification from the notification menu."
+
+**Root cause:** `Notifications.tsx` `open()` and every notification action called `nav(n.deepLink)` directly, and the push-tap listeners in `App.tsx` did the same. The Home bell shows every part's notifications in one list (no `?scope=`), so a business or provider notification opened its console from the personal side (and a personal one pulled a shop owner out of the console) with no question asked, and without going through the active-context switch.
+
+**Status:** Fixed in the working tree 2026-10-22 (uncommitted, not deployed). `src/lib/partNavigation.ts` decides which part a path belongs to (business console, provider console, delivery, otherwise personal); `usePartNavigation` + `PartSwitchSheet` ask "Switch to X?" when a notification tap, a notification action or a push tap would cross parts, and "Switch" goes through `attemptSwitchContext` (so a business/provider password is still asked for). The Notifications screen has filter chips (All · Personal · each shop · provider · Delivery), built from the same hat list as the account switcher; opening it from a console's bell still starts on that console's filter. Tests: `partNavigation.test.ts`.
+
+## #35 — A "Buy in place" order reaches the shop as an appointment payment, not as the items bought
+
+**Reported:** "the order of any item buy in place is coming to the business as the appointment payment, it should come with the item they have bought."
+
+**Root cause:** `appointment_create_walk_in_payment` stores the item lines in `appointment_items` but names the order from a caller-supplied string (the cart sent "3 items"); its insert fired `notify_on_appointment_created`, which sent the shop "New booking request — requested Walk-in — 3 items" with Accept/Decline on an already-accepted order. The appointment lists never read `appointment_items`, so the shop's card showed only "📦 3 items • ₹…". `appointment_items_select` also allowed only the owner and the customer, so team members with the appointments scope could not read the lines.
+
+**Status:** App half fixed in the working tree 2026-10-22 (uncommitted): the lists load the item lines, `OrderLines` shows them on the shop's and the customer's cards, and both pay sheets send the real item names. DB half written, **not applied**: `supabase/migrations/20261007_instore_order_items.sql` (order named from its items on the server, "Purchase to confirm" notification listing the items with no Accept/Decline, staff with the appointments scope can read the lines) with rollback and `supabase/tests/instore_order_items.test.sql`; dry run in `archive/output/instore_items_dryrun.sql` (expect `ALL_INSTORE_ITEM_CHECKS_PASSED`).
+
+---
+
+
+## #34 — A delivery order disappears right after "Mark packed" and can't be assigned, picked up or delivered
+
+**Status:** Database half **fixed and live in production (2026-10-22)**: `supabase/migrations/20261005_delivery_order_lifecycle.sql`, applied by the
+owner in the SQL editor (APPLY_LOG row 69). Behaviour test `supabase/tests/delivery_lifecycle.test.sql` run against production in a rolled-back
+transaction ended `ALL_DELIVERY_CHECKS_PASSED`. The app half (live lists, customer progress line, pick-up gate, polling) is in the working tree,
+**uncommitted and not deployed** — until it ships, the web/Android apps still show the old lists, though the vanishing-order cause is already
+closed server-side. Not yet tested by a person on a phone. What was changed, defect by defect: `DELIVERY_SYSTEM_AS_BUILT.md` Part 7.
+Full walkthrough and evidence: `archive/docs/engineering/DELIVERY_SYSTEM_AS_BUILT.md` (Part 1 and Part 5, defects D1–D13).
+
+**Reported:** "as soon as the owner press button for the item packed the order goes from the customer and business eyes and so many problem".
+
+**What it looked like:** owner taps **Mark packed** on an accepted home-delivery order; shortly after, the order is gone from the
+owner's Upcoming list and from the customer's Upcoming tab, and the owner can no longer send a rider.
+
+**Root cause:** not Mark packed. `mark_order_ready` only stamps `ready_at` and notifies the customer. The order is closed by the clock:
+`sweep_my_appointments()` (run by the app on the first list read and then every 2 minutes, by either the customer's or the owner's
+side) sets every `ACCEPTED` order whose `scheduled_for` has passed to `COMPLETED`, and cancels `PENDING` ones ("business not
+responded"), with **no exception for delivery orders**. An ASAP order's `scheduled_for` is only prep time + 1 minute after it is placed.
+Once `COMPLETED`, every delivery step refuses it (`ORDER_NOT_ACCEPTED` / `ORDER_NOT_ACTIVE`), it drops out of `business_delivery_queue`,
+and no notification is sent. Production rows `apt_9d95…` and `apt_fb63…` are `COMPLETED` with zero deliveries; the only two functions that
+can set an order `COMPLETED` are the sweep and the DELIVERED trigger, and no delivery exists.
+
+**Also found (same area):** the sweep makes the "expires in 20 minutes" ASAP message false (D2); both "Upcoming" lists hide an accepted
+delivery after its scheduled time (D3); reassigning a delivery keeps the previous rider's pick-up/start timestamps (D5); delivery realtime
+subscriptions are on tables that are not in the realtime publication (D7); customers can't see the "packed" state in the app (D8).
+
+**Fix direction (not done):** stop `sweep_my_appointments` completing/cancelling `fulfillment_type = 'DELIVERY'` orders by time; keep accepted,
+undelivered delivery orders in the live lists; then address D5–D8.
+
+---
+
 ## #33 — Location access sometimes takes very long, or never finishes loading
 
 **Status:** Fixed in the working tree (2026-10-20, uncommitted). Not yet confirmed on a real phone — that is the one check that

@@ -152,9 +152,13 @@ export default function DeliveryConsole() {
   // and refresh, so the card flips to "Cancelled" instead of leaving a dead button.
   function riderError(e: unknown, fallback: string): string {
     const msg = errorMessage(e, "");
-    if (/ORDER_NOT_ACTIVE|INVALID_TRANSITION/i.test(msg)) {
+    if (/ORDER_NOT_ACTIVE|INVALID_TRANSITION|cancelled or closed/i.test(msg)) {
       refetch();
-      return /ORDER_NOT_ACTIVE/i.test(msg) ? t("dlv_err_order_cancelled") : fallback;
+      return /ORDER_NOT_ACTIVE|cancelled or closed/i.test(msg) ? t("dlv_err_order_cancelled") : fallback;
+    }
+    if (/ORDER_NOT_READY|hasn't marked this order packed/i.test(msg)) {
+      refetch();
+      return t("dlv_err_not_packed");
     }
     return errorMessage(e, fallback);
   }
@@ -170,6 +174,22 @@ export default function DeliveryConsole() {
   const [cancelBusy, setCancelBusy] = useState(false);
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
+
+  // New assignments, a shop marking an order packed, and a cancelled order all arrive as database changes the rider's phone is not
+  // pushed (delivery rows aren't in the realtime feed), so the list refreshes itself while the screen is open and visible, and the
+  // moment the rider comes back to the app. Without this a rider sat on a stale list until they pulled to refresh.
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === "visible" && navigator.onLine) refetch(); };
+    const timer = setInterval(tick, 15_000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const items = useMemo(() => data ?? [], [data]);
   const soloItems = items.filter((d) => !d.batchId);
@@ -768,17 +788,21 @@ function ActionControls({
   // Nothing leaves the shop unconfirmed: before the delivery can start, the rider confirms they have the order.
   if (current.status === "ASSIGNED" && !current.pickedUpAt) {
     const shopRoutable = current.businessLat != null && current.businessLng != null;
+    // The shop signals "packed" before a courier collects (a shop owner delivering their own order packed it themselves).
+    // `orderReadyAt === undefined` means the database predates the rule, so don't hold the rider back.
+    const waitingForShop = current.orderReadyAt === null && !current.isOwnerDelivery;
     return (
       <div className="col gap-8">
         {current.businessAddress && <div className="tiny muted">{t("dlv_pickup_at")}: {current.businessAddress}</div>}
+        {waitingForShop && <div className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("dlv_wait_pack_hint")}</div>}
         <div className="row gap-8">
           {shopRoutable && (
             <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, padding: 0 }} aria-label={t("dlv_navigate_to_shop")} onClick={() => openNativeDirections(current.businessLat!, current.businessLng!)}>
               <Navigation size={16} />
             </button>
           )}
-          <button className="btn btn-primary grow" disabled={busy} onClick={() => onPickUp(current)}>
-            {busy ? "…" : t("dlv_picked_up_btn")}
+          <button className="btn btn-primary grow" disabled={busy || waitingForShop} onClick={() => onPickUp(current)}>
+            {busy ? "…" : waitingForShop ? t("dlv_wait_pack") : t("dlv_picked_up_btn")}
           </button>
         </div>
       </div>

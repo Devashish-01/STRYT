@@ -37,6 +37,7 @@ import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import { MAX_QUEUE_PARTY_SIZE, isQueuePayable } from "@/lib/queueMath";
 import { haptics } from "@/lib/haptics";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import MiniMap from "@/components/MiniMap";
 import { useI18n } from "@/lib/i18n";
 import { openExternal } from "@/lib/openExternal";
@@ -97,6 +98,8 @@ export default function BusinessDetail() {
   const [schedulingPkg, setSchedulingPkg] = useState<{ id: string; name: string; price: number; duration?: string } | null>(null);
   const [cartSheet, setCartSheet] = useState(false);
   const [checkoutMode, setCheckoutMode] = useState(false);
+  /** Set when the customer picked "Home delivery" on the cart sheet, so the order sheet opens with delivery already chosen. */
+  const [checkoutDelivery, setCheckoutDelivery] = useState(false);
   const [checkoutNotes, setCheckoutNotes] = useState("");
   const [checkoutItems, setCheckoutItems] = useState<AppointmentRecord["items"]>(undefined);
 
@@ -300,8 +303,9 @@ export default function BusinessDetail() {
   // Checkout reuses the exact same booking + UPI/Cash payment flow as "Book
   // appointment" — the cart becomes a single locked-in package, itemized in
   // the notes, and the customer picks a pickup/collection slot to confirm.
-  function checkout() {
+  function checkout(delivery = false) {
     const lines = cartLines();
+    setCheckoutDelivery(delivery);
     setCheckoutNotes(`Order: ${cartSummary()}`);
     setCheckoutItems(cartLineItems());
     setSchedulingPkg({
@@ -1052,6 +1056,7 @@ export default function BusinessDetail() {
           summary={cartSummary()}
           items={cartLineItems()}
           onSchedule={() => { setCartSheet(false); checkout(); }}
+          onDelivery={DELIVERY_AGENT_ENABLED && b.deliveryEnabled === true ? () => { setCartSheet(false); checkout(true); } : undefined}
           onPaid={() => { setCart({}); refetchMyAppointments(); }}
           onClose={() => setCartSheet(false)}
         />
@@ -1158,6 +1163,7 @@ export default function BusinessDetail() {
           depositPercent={(b as any).depositPercent}
           outOfRange={outOfRange}
           deliveryEnabled={b.deliveryEnabled === true}
+          initialFulfillmentType={checkoutDelivery ? "DELIVERY" : undefined}
           deliveryTime={b.deliveryTime}
           deliveryTerms={termsFromBusiness(b)}
           shopLat={b.lat}
@@ -1166,7 +1172,7 @@ export default function BusinessDetail() {
           vocabulary={bizTheme.vocabulary}
           targetPackageKey={bizThemeKey}
           onBooked={() => { if (checkoutMode) setCart({}); }}
-          onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
+          onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutDelivery(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />
       )}
     </div>

@@ -17,13 +17,17 @@ const STATUS_LABEL: Record<string, string> = {
  * active team member, and see the live status once assigned. Rendered
  * only when the delivery feature is enabled (gated at the call site).
  */
-export default function DeliveryAssignControl({ appointmentId, businessId, preloaded, onChanged }: {
+export default function DeliveryAssignControl({ appointmentId, businessId, preloaded, onChanged, packed, readOnly }: {
   appointmentId: string;
   businessId: string;
   /** The order's latest delivery as the parent already fetched it (null = none yet). Undefined = fetch it here. */
   preloaded?: AppointmentDelivery | null;
   /** Called after an assignment so a parent that supplied `preloaded` can reload it. */
   onChanged?: () => void;
+  /** Whether the shop has marked the order packed (false shows a hint: the rider can't pick it up before). Omit when unknown. */
+  packed?: boolean;
+  /** Show who has/had the delivery but offer no way to assign or reassign (the order is finished). */
+  readOnly?: boolean;
 }) {
   const { showToast } = useApp();
   const { t } = useI18n();
@@ -80,11 +84,11 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
             <span className="semi">{delivery.agentName}</span>
             <span className="muted"> · {STATUS_LABEL[delivery.status] ?? delivery.status}</span>
           </div>
-          {active && !picking && (
+          {active && !picking && !readOnly && (
             <button className="tiny semi" style={{ color: "var(--delivery-600)" }} onClick={() => setPicking(true)}>Reassign</button>
           )}
         </div>
-      ) : !picking ? (
+      ) : readOnly ? null : !picking ? (
         <button className="btn btn-outline btn-sm row gap-6 center" style={{ borderColor: "var(--delivery-600)", color: "var(--delivery-600)" }} onClick={() => setPicking(true)}>
           <Package size={14} /> Assign delivery
         </button>
@@ -93,8 +97,9 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
       {picking && (
         <div className="col gap-6">
           {isReassign && (
-            <div className="tiny muted">Reassigning generates a new handoff code — the current one stops working.</div>
+            <div className="tiny muted">Reassigning starts the delivery over: a new handoff code, and the current rider is told to stop.</div>
           )}
+          {packed === false && <div className="tiny" style={{ color: "var(--amber-700)" }}>{t("dlv_assign_not_packed")}</div>}
           {(team ?? []).length === 0 ? (
             <div className="tiny muted">No delivery team members yet. Add one in Team &amp; access with the Delivery role.</div>
           ) : (

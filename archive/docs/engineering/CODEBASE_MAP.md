@@ -122,6 +122,7 @@ Wallet itself is now unrouted, see below. Catalog items support FINITE/INFINITE 
 
 **Delivery agent console:** `/delivery` `DeliveryConsole` (own hat, behind `RequireDeliveryAgent`,
 active `delivery` grant + feature flag) — Active/Assigned/History, multi-stop runs, OTP handoff.
+**The whole delivery system, action by action (tables, RPCs, triggers, screens, defects): `archive/docs/engineering/DELIVERY_SYSTEM_AS_BUILT.md`.**
 
 **Safety:** `/safety` `SafetyHub` · `/safety/contacts` `EmergencyContacts` (live location sharing)
 

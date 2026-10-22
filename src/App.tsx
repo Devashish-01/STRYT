@@ -20,6 +20,7 @@ import PinGateSheet from "./components/PinGateSheet";
 import BatteryOptimizationSheet from "./components/BatteryOptimizationSheet";
 import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
+import { usePartNavigation } from "./hooks/usePartNavigation";
 import { returnTo } from "./lib/returnTo";
 import { clearDeliveredNotifications } from "./lib/pushNotifications";
 import { contextHomePath } from "./lib/contextHome";
@@ -474,6 +475,8 @@ export default function App() {
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
   const navigate = useNavigate();
+  // A push tap that points into another part of the app (a shop's console from the personal side, say) asks first.
+  const { go: goGuarded, sheet: partSheet } = usePartNavigation();
 
   // Warm the map chunk (~320 KB gzipped, maplibre-gl dominating) during idle
   // time so tapping the Map tab doesn't start a cold download + parse. See
@@ -529,11 +532,11 @@ export default function App() {
   useEffect(() => {
     const onPushNav = (e: Event) => {
       const url = (e as CustomEvent<string>).detail;
-      if (url && url.startsWith("/")) navigate(url);
+      if (url && url.startsWith("/")) goGuarded(url);
     };
     const onSwMessage = (e: MessageEvent) => {
       if (e.data?.type === "NAVIGATE" && typeof e.data.path === "string" && e.data.path.startsWith("/")) {
-        navigate(e.data.path);
+        goGuarded(e.data.path);
       }
     };
     window.addEventListener("push-nav", onPushNav);
@@ -542,7 +545,7 @@ export default function App() {
       window.removeEventListener("push-nav", onPushNav);
       navigator.serviceWorker?.removeEventListener("message", onSwMessage);
     };
-  }, [navigate]);
+  }, [goGuarded]);
 
   // Once the app is in the foreground, tray copies of push notifications are
   // stale — the in-app Notifications screen is the live source of truth.
@@ -819,6 +822,7 @@ export default function App() {
       <BatteryOptimizationSheet />
       {/* Delivery location sharing outlives any one screen (it used to stop when the rider left the console). */}
       <DeliveryTrackingRunner />
+      {partSheet}
       {toast && <div className="toast">{toast}</div>}
       {notifExplainerPending && location.pathname === "/home" && (
         <NotificationPermissionExplainer onConfirm={confirmNotifExplainer} onClose={dismissNotifExplainer} />

@@ -54,10 +54,13 @@ jobs:
 
       # VITE_SENTRY_DSN: src/lib/sentry.ts starts Sentry only when this is non-empty. An unset secret
       # expands to "", which leaves it off — so the line is safe before the Sentry project exists.
+      # VITE_DELIVERY_AGENT_ENABLED: src/lib/features.ts. Home delivery (shop terms, the "Home delivery" order option, the
+      # rider console) is on in the app as well as on the web (2026-10-22). Remove the line to switch it off in the next build.
       - name: Create .env file
         run: |
           cat > .env << 'EOF'
           VITE_USE_MOCKS=false
+          VITE_DELIVERY_AGENT_ENABLED=true
           VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}

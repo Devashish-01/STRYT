@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Plus, Minus } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
+import { summarizeLines } from "@/lib/orderLines";
 import { appointmentService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
@@ -47,7 +48,7 @@ export function WalkInPaySheet({ targetId, businessName, businessUpiId, catalog,
     })
     .filter((l): l is { item: CatalogItem; qty: number } => !!l);
   const total = lines.reduce((sum, l) => sum + (l.item.salePrice ?? l.item.price) * l.qty, 0);
-  const packageName = lines.length === 1 ? `${lines[0].item.name} x${lines[0].qty}` : `${lines.length} items`;
+  const packageName = summarizeLines(lines.map((l) => ({ catalogItemId: l.item.id, name: l.item.name, price: l.item.salePrice ?? l.item.price, quantity: l.qty })));
 
   async function claim(method: PaymentMethod, reference: string | null) {
     if (total <= 0) return;

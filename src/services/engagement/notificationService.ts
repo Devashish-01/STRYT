@@ -32,13 +32,15 @@ function toNotif(row: Record<string, unknown>): AppNotification {
 
 /** Which context's notifications to show. CUSTOMER also includes legacy/system
  *  rows that have no scope. Omit entirely for the unfiltered "everything" view. */
-export type NotifScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string };
+export type NotifScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER" | "DELIVERY"; id?: string };
 
 /** How many notifications one page holds (NOTIF-5: the list used to stop at this many, with no way to see older). */
 export const NOTIFICATION_PAGE_SIZE = 50;
 
 function applyScope(q: any, scope?: NotifScope) {
   if (!scope) return q;
+  // The rider's work: its notifications are filed under the rider, not under a shop, so they are found by where they open.
+  if (scope.scope === "DELIVERY") return q.like("deep_link", "/delivery%");
   if (scope.scope === "BUSINESS" || scope.scope === "PROVIDER") {
     return q.eq("entity_type", scope.scope).eq("entity_id", scope.id ?? "");
   }

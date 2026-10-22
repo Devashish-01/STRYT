@@ -102,17 +102,22 @@ export default function BusinessDeliveries() {
     [all],
   );
 
-  // Polling fallback while deliveries are in progress so courier movement during
-  // batched runs refreshes automatically.
+  // The realtime subscription above is on a table that isn't in the realtime feed, so this poll IS the live update. It runs for as
+  // long as the board is open — not only once a delivery is already active, which meant the first assignment of the day never
+  // appeared until the owner reopened the screen.
   useEffect(() => {
-    if (active.length === 0) return;
-    const interval = setInterval(() => {
+    const tick = () => {
       // A hidden tab/backgrounded app doesn't need a full-list refetch every 12 s.
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       refetch();
-    }, 12000);
-    return () => clearInterval(interval);
-  }, [active.length, refetch]);
+    };
+    const interval = setInterval(tick, 12000);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", tick);
+    };
+  }, [refetch]);
 
   // "N min ago" lines age on their own between refreshes.
   const [now, setNow] = useState(() => Date.now());

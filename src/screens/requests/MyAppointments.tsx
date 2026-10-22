@@ -17,7 +17,9 @@ import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { OrderLines } from "@/components/OrderLines";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { isLiveOrder } from "@/lib/orderLists";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
@@ -27,10 +29,10 @@ import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
 
-// A booking counts as "upcoming" while it is still live and in the future.
+// A booking counts as "upcoming" while it is still live: a slot booking until its time passes, a home-delivery order until it is
+// delivered or cancelled — however late it runs (see isLiveOrder).
 function isUpcoming(a: AppointmentRecord): boolean {
-  const future = new Date(a.scheduledForISO).getTime() > Date.now();
-  return (a.status === "PENDING" || a.status === "ACCEPTED") && future;
+  return isLiveOrder(a);
 }
 
 // Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
@@ -183,8 +185,10 @@ export default function MyAppointments() {
       haptics.warning();
       showToast(`${vocabForRow(apt).nounCap} cancelled`);
       refetch();
-    } catch {
-      showToast("Couldn't cancel. Try again.");
+    } catch (e) {
+      // Once the rider has the order the server refuses a cancel; say so instead of "try again", which can never work.
+      showToast(/DELIVERY_IN_PROGRESS/i.test(errorMessage(e, "")) ? t("apt_err_with_rider") : "Couldn't cancel. Try again.");
+      refetch();
     } finally {
       setCancelling(null);
     }
@@ -397,11 +401,15 @@ export default function MyAppointments() {
 
                     {(apt.packageName || apt.notes || apt.photoUrl) && (
                       <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
-                        {apt.packageName && (
-                          <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
-                            📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
-                            {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
-                          </div>
+                        {apt.items && apt.items.length > 0 ? (
+                          <OrderLines lines={apt.items} />
+                        ) : (
+                          apt.packageName && (
+                            <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
+                              📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+                              {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
+                            </div>
+                          )
                         )}
                         {apt.notes && (
                           <div className="tiny" style={{ color: "var(--ink-700)" }}>
@@ -425,8 +433,8 @@ export default function MyAppointments() {
 
                     {/* Delivery tracking — live link + handoff code. Feature-gated, and only
                         for bookings the customer actually asked to have delivered. */}
-                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} />
+                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "PENDING" || apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} orderStatus={apt.status} readyAt={apt.readyAt} />
                     )}
 
                     {/* Payment status — shown for PENDING too (seller may require
@@ -493,16 +501,19 @@ export default function MyAppointments() {
                           >
                             <XIcon size={14} /> {cancelling === apt.id ? t("cancelling_ellipsis") : t("cancel_action")}
                           </button>
-                          <button
-                            type="button"
-                            // Tonal, not solid: "Pay" is the card's one primary action, and two solid purple buttons competed.
-                            className="btn grow btn-sm row gap-4 center"
-                            style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)", boxShadow: "none" }}
-                            disabled={busy}
-                            onClick={() => openRebook(apt, "RESCHEDULE")}
-                          >
-                            <CalendarClock size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("reschedule_word")}
-                          </button>
+                          {/* An "as soon as possible" order has no later slot to move to — cancel it and order again. */}
+                          {!apt.isAsap && (
+                            <button
+                              type="button"
+                              // Tonal, not solid: "Pay" is the card's one primary action, and two solid purple buttons competed.
+                              className="btn grow btn-sm row gap-4 center"
+                              style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)", boxShadow: "none" }}
+                              disabled={busy}
+                              onClick={() => openRebook(apt, "RESCHEDULE")}
+                            >
+                              <CalendarClock size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("reschedule_word")}
+                            </button>
+                          )}
                         </>
                       ) : (
                         <button

@@ -23,10 +23,10 @@ const ROOT = path.join(__dirname, "..");
 const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
 const APPLY_LOG_PATH = path.join(ROOT, "supabase", "APPLY_LOG.md");
 
-// All migrations up to 20261003 are applied to production (see supabase/APPLY_LOG.md rows 60-66). The marker had stopped at
+// All migrations up to 20261006 are applied to production (see supabase/APPLY_LOG.md rows 60-69). The marker had stopped at
 // 20260964, so --all judged 14 already-applied, since-locked-down migrations (20260980-20260997) as new and failed CI on them.
 // Applied files are immutable, so the fix belongs here, not in them.
-export const LATEST_APPLIED_MIGRATION = "20261003_delivery_operations.sql";
+export const LATEST_APPLIED_MIGRATION = "20261006_team_access_fixes.sql";
 
 export const PII_TABLES = new Set([
   "users",

@@ -3,7 +3,9 @@ import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
 import { SafeImg } from "@/components/common";
 import { Package, Phone, CheckCircle, Share2 } from "@/components/Icons";
-import DeliveryStepper from "@/components/delivery/DeliveryStepper";
+import OrderProgress from "@/components/delivery/OrderProgress";
+import { ORDER_STAGES, orderStageIndex, stageLineKey } from "@/lib/deliveryStage";
+import type { AppointmentRecord } from "@/types";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
@@ -21,7 +23,13 @@ import { trackingUrl } from "@/lib/trackingLink";
  * The agent's name/phone/photo appear only once THIS delivery is actually under
  * way, so an assigned-but-not-started order discloses nothing about who's coming.
  */
-export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }: { appointmentId: string; fallbackEtaText?: string | null }) {
+export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, orderStatus = "ACCEPTED", readyAt }: {
+  appointmentId: string;
+  fallbackEtaText?: string | null;
+  /** The order's own status and when the shop packed it: the progress line starts when the order is placed, not when a rider exists. */
+  orderStatus?: AppointmentRecord["status"];
+  readyAt?: string | null;
+}) {
   const { showToast } = useApp();
   const { t, tf } = useI18n();
   const [sharing, setSharing] = useState(false);
@@ -32,10 +40,14 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
     `delivery:my-progress:${appointmentId}`,
   );
 
-  // Active polling while delivery is underway so status transitions
-  // (such as ARRIVED, revealing the handoff PIN) appear live without manual reload.
+  // Keep the card current for as long as the order is live — including the long wait for a shop to accept, pack and send someone,
+  // when there is no delivery row yet (the old version only started once one existed, so the customer saw nothing change until
+  // they reopened the app) and after a failed attempt, when a new rider is about to be sent. Delivery rows are not pushed to the
+  // customer (they can't read that table), so this poll plus the notifications are what keep it live.
+  const orderOver = orderStatus === "COMPLETED" || orderStatus === "CANCELLED" || orderStatus === "REJECTED" || orderStatus === "NO_SHOW";
+  const finished = orderOver || d?.status === "DELIVERED";
   useEffect(() => {
-    if (!d || d.status === "DELIVERED" || d.status === "CANCELLED") return;
+    if (finished) return;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       refetch();
@@ -50,7 +62,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
       clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [d, refetch]);
+  }, [finished, refetch]);
 
   async function handleShare() {
     if (sharing) return;
@@ -93,13 +105,19 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
   // Without this, the customer sees nothing at all for however long that gap
   // lasts, even though the ETA they were told about is already sitting on
   // the appointment record.
+  // No delivery yet: the order is waiting for the shop to accept, pack it, or send someone. Say which, with the same progress line
+  // the rest of the journey uses (it used to show nothing at all unless the owner had typed an ETA).
+  const stageIdx = orderStageIndex({ status: orderStatus, readyAt }, d ? { status: d.status, pickedUp: d.pickedUp } : null);
   if (!d) {
-    if (!fallbackEtaText) return null;
+    if (stageIdx < 0 || orderStatus === "COMPLETED") return null;
     return (
-      <div className="card row gap-8 center-v" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
-        <Package size={15} color="var(--delivery-600)" />
-        <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{t("dlv_trk_accepted")}</span>
-        <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{fallbackEtaText}</span>
+      <div className="card col gap-8" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
+        <div className="row gap-8 center-v">
+          <Package size={15} color="var(--delivery-600)" />
+          <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{t(stageLineKey(ORDER_STAGES[stageIdx]))}</span>
+          {fallbackEtaText && stageIdx >= 1 && <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{fallbackEtaText}</span>}
+        </div>
+        <OrderProgress index={stageIdx} compact />
       </div>
     );
   }
@@ -171,8 +189,8 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
         </button>
       </div>
 
-      {/* Progress stepper — the only "tracking" a customer gets. */}
-      <DeliveryStepper status={d.status} compact />
+      {/* Progress line — the only "tracking" a customer gets. It starts at the order, not at the rider. */}
+      <OrderProgress index={stageIdx} compact />
 
       {/* Queue position while they wait their turn on a multi-stop run. */}
       {d.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (

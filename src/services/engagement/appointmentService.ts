@@ -4,6 +4,7 @@ import { notificationService } from "@/services/engagement/notificationService";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 import { errorCode, errorMessage } from "@/lib/errorMessage";
 import { track } from "@/lib/analytics";
+import { linesFromRows } from "@/lib/orderLines";
 
 const STORAGE_KEY = "stryt_appointments";
 
@@ -180,6 +181,8 @@ function localHousekeeping(list: AppointmentRecord[]): AppointmentRecord[] {
   return list.map((apt) => {
     const isPast = new Date(apt.scheduledForISO).getTime() <= now;
     if (!isPast) return apt;
+    // A delivery order is finished by a rider handing it over, never by the clock (the server's sweep makes the same exception).
+    if (apt.fulfillmentType === "DELIVERY") return apt;
     if (apt.status === "PENDING") {
       const patched = { ...apt, status: "CANCELLED" as const, responseNote: "business not responded", cancelledBy: "SYSTEM" as const };
       upsertLocal(patched);
@@ -238,8 +241,13 @@ function rowToRecord(r: any): AppointmentRecord {
     readyAt: r.ready_at ?? null,
     cashCollectedAt: r.cash_collected_at ?? null,
     cashSettledAt: r.cash_settled_at ?? null,
+    items: linesFromRows(r.items),
   };
 }
+
+// An appointment row plus the items that were bought with it (appointment_items,
+// oldest first via created_at), so a shop and a customer see what was ordered.
+const ITEMS_EMBED = "items:appointment_items(catalog_item_id,item_name,unit_price,quantity,created_at)";
 
 /** Resolve the owning user of the target so the owner can see the booking. */
 export async function resolveTargetOwner(targetType: "PROVIDER" | "BUSINESS", targetId: string): Promise<string | null> {
@@ -426,6 +434,24 @@ export const appointmentService = {
       if (/DELIVERY_IN_PROGRESS/i.test(msg)) {
         throw new Error("Your order is already on its way, so it can't be changed here. Please contact the shop or your rider.");
       }
+      if (/PRICE_CHANGED/i.test(msg)) {
+        throw new Error("A price changed since you added these items. Please review your order and try again.");
+      }
+      if (/ITEM_NOT_FOUND|ITEM_UNAVAILABLE/i.test(msg)) {
+        throw new Error("One of the items is no longer available. Please update your cart and try again.");
+      }
+      if (/INVALID_QUANTITY/i.test(msg)) {
+        throw new Error("Please check the quantities in your order (1 to 99 of each item).");
+      }
+      if (/INVALID_LOCATION/i.test(msg)) {
+        throw new Error("That delivery location isn't valid. Pin your address on the map and try again.");
+      }
+      if (/TOO_MANY_OPEN_ORDERS/i.test(msg)) {
+        throw new Error("You have several open delivery orders already. Wait for one to finish before ordering again.");
+      }
+      if (/ASAP_CANNOT_RESCHEDULE/i.test(msg)) {
+        throw new Error("An as-soon-as-possible order can't be rescheduled. Cancel it and place a new one.");
+      }
       if (/DELIVERY_MIN_ORDER/i.test(msg)) {
         throw new Error("This order is below the shop's minimum for home delivery. Add more items or choose store pickup.");
       }
@@ -471,7 +497,7 @@ export const appointmentService = {
           const sb = getSupabase();
           const { data, error } = await sb
             .from("appointments")
-            .select("*")
+            .select(`*, ${ITEMS_EMBED}`)
             .eq("customer_user_id", uid)
             .order("created_at", { ascending: false });
           if (error) throw error;
@@ -504,7 +530,7 @@ export const appointmentService = {
         const sb = getSupabase();
         const { data, error } = await sb
           .from("appointments")
-          .select("*, customer:users!customer_user_id(alias)")
+          .select(`*, customer:users!customer_user_id(alias), ${ITEMS_EMBED}`)
           .eq("target_id", targetId)
           .order("created_at", { ascending: false });
         if (error) throw error;

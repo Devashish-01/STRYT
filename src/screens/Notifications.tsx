@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, type NavigateFunction, type NavigateOptions } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains, Star, Ticket, Wallet, Shield } from "@/components/Icons";
 import { notificationService, appointmentService, deliveryService, bulkService, locationService, customPaymentService, walletService, requestService } from "@/services";
 import { openCalendarEvent } from "@/lib/calendarExport";
@@ -16,8 +16,22 @@ import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
 import { notificationActions } from "@/screens/notifications/actions";
 import { errorMessage } from "@/lib/errorMessage";
+import { haptics } from "@/lib/haptics";
+import { usePartNavigation } from "@/hooks/usePartNavigation";
+import { useAccountOptions } from "@/hooks/useAccountOptions";
 
 const Handshake = HandshakeIcon as any;
+
+/** Which slice of the user's notifications the list shows — everything, or one part of the app (personal, a shop, the provider, delivery). */
+type FilterKey = "all" | "personal" | "delivery" | `business:${string}` | `provider:${string}`;
+
+function scopeOfFilter(f: FilterKey): NotifScope | undefined {
+  if (f === "all") return undefined;
+  if (f === "personal") return { scope: "CUSTOMER" };
+  if (f === "delivery") return { scope: "DELIVERY" };
+  const i = f.indexOf(":");
+  return { scope: f.slice(0, i) === "business" ? "BUSINESS" : "PROVIDER", id: f.slice(i + 1) };
+}
 
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
   NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "var(--orange-50)" },
@@ -121,16 +135,41 @@ export default function Notifications() {
   const { showToast, user } = useApp();
   const { t, lang } = useI18n();
   const [params] = useSearchParams();
+  // Tapping a notification that belongs to another part of the app asks "Switch to X?" first instead of just going there.
+  const { go, sheet: partSheet } = usePartNavigation();
+  const { options } = useAccountOptions();
+  const guardedNav = ((to: Parameters<NavigateFunction>[0], opts?: NavigateOptions) => {
+    if (typeof to === "string") go(to, opts);
+    else nav(to as never, opts);
+  }) as NavigateFunction;
 
-  // Scope the feed to the context that opened it: a specific business, a
-  // specific provider, or the customer's personal + system notifications.
+  // The feed opens scoped to the context that opened it (a specific business, a specific provider, the customer's
+  // personal + system notifications), or unfiltered; the chips under the title move between those slices.
   const rawScope = params.get("scope");
-  const scope: NotifScope | undefined =
-    rawScope === "BUSINESS" ? { scope: "BUSINESS", id: params.get("id") ?? "" }
-    : rawScope === "PROVIDER" ? { scope: "PROVIDER", id: params.get("id") ?? "" }
-    : rawScope === "CUSTOMER" ? { scope: "CUSTOMER" }
-    : undefined;
-  const scopeKey = `${rawScope ?? "all"}:${params.get("id") ?? ""}`;
+  const paramId = params.get("id") ?? "";
+  const urlFilter: FilterKey =
+    rawScope === "BUSINESS" ? `business:${paramId}`
+    : rawScope === "PROVIDER" ? `provider:${paramId}`
+    : rawScope === "CUSTOMER" ? "personal"
+    : rawScope === "DELIVERY" ? "delivery"
+    : "all";
+  const [filter, setFilter] = useState<FilterKey>(urlFilter);
+  useEffect(() => { setFilter(urlFilter); }, [urlFilter]);
+  const scope = scopeOfFilter(filter);
+  const scopeKey = filter;
+  const chips = useMemo(() => {
+    if (options.length < 2) return []; // only the personal side — nothing to filter between
+    const list: { key: FilterKey; label: string }[] = [
+      { key: "all", label: t("notif_filter_all") },
+      { key: "personal", label: t("personal_word") },
+    ];
+    for (const o of options) {
+      if (o.type === "business" && o.id) list.push({ key: `business:${o.id}`, label: o.name });
+      else if (o.type === "provider" && o.id) list.push({ key: `provider:${o.id}`, label: o.name });
+      else if (o.type === "delivery") list.push({ key: "delivery", label: t("part_delivery") });
+    }
+    return list;
+  }, [options, t]);
   // Same cache-key convention the origin screen's own unread-count query uses
   // (Home.tsx/Profile.tsx "notif:customer", ManageDashboard.tsx
   // `notif:business:${id}`, ProviderDashboard.tsx `notif:provider:${id}`) — so
@@ -142,6 +181,11 @@ export default function Notifications() {
     // No ?scope= is the customer's own bell (Home, Profile, desktop sidebar), which is the badge to refresh —
     // leaving it undefined meant marking read here never updated it (NOTIF-4).
     : "notif:customer";
+  // The unfiltered view spans every part, so every part's badge changes with it.
+  const invalidateBadges = () => {
+    if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+    if (!scope) for (const o of options) if (o.id && (o.type === "business" || o.type === "provider")) invalidateQueryCache(`notif:${o.type}:${o.id}`);
+  };
   const subtitle = scope?.scope === "BUSINESS" ? t("for_this_business")
     : scope?.scope === "PROVIDER" ? t("for_this_service")
     : scope?.scope === "CUSTOMER" ? t("personal_word") : undefined;
@@ -220,7 +264,7 @@ export default function Notifications() {
 
   function open(n: AppNotification) {
     if (!n.isRead) {
-      if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      invalidateBadges();
       locallyReadRef.current.add(n.id);
       setItems((p) => p.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
       notificationService.markRead(n.id).catch(() => {
@@ -232,7 +276,7 @@ export default function Notifications() {
         showToast("Couldn't mark as read — try again");
       });
     }
-    if (n.deepLink) nav(n.deepLink);
+    if (n.deepLink) guardedNav(n.deepLink);
   }
 
   // Optimistic remove with a brief collapse animation, reverting + toasting
@@ -250,7 +294,7 @@ export default function Notifications() {
         return next;
       });
     }, 220);
-    if (!n.isRead && badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+    if (!n.isRead) invalidateBadges();
     notificationService.remove(n.id).catch(() => {
       // Back where it was, not at the end — appending it broke the day grouping it belongs to (NOTIF-6).
       setItems((p) => {
@@ -266,7 +310,7 @@ export default function Notifications() {
   async function handleAction(action: string, meta: any, n: AppNotification) {
     const run = notificationActions[action];
     if (!run) return;
-    await run({ n, meta, nav, showToast, t, setItems, refetch, badgeCacheKey, setDeclining, setDeclineNote });
+    await run({ n, meta, nav: guardedNav, showToast, t, setItems, refetch, badgeCacheKey, setDeclining, setDeclineNote });
   }
 
   async function confirmDecline() {
@@ -295,7 +339,7 @@ export default function Notifications() {
       // No note → the customer gets the server's "Try another slot." wording.
       await appointmentService.updateStatus(aptId, "REJECTED", note || undefined);
       showToast(t("notif_apt_declined_toast"));
-      if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      invalidateBadges();
     } catch (err) {
       showToast(errorMessage(err, "Couldn't decline appointment"));
       refetch();
@@ -317,7 +361,7 @@ export default function Notifications() {
                 const unreadIds = visible.filter((n) => !n.isRead).map((n) => n.id);
                 unreadIds.forEach((id) => locallyReadRef.current.add(id));
                 setItems((p) => p.map((n) => ({ ...n, isRead: true })));
-                if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+                invalidateBadges();
                 notificationService.markAllRead(scope).catch(() => {
                   unreadIds.forEach((id) => locallyReadRef.current.delete(id));
                   refetch();
@@ -330,6 +374,22 @@ export default function Notifications() {
           ) : undefined
         }
       />
+      {chips.length > 1 && (
+        <div className="hscroll" role="tablist" aria-label={t("notif_filter_label")} style={{ flexShrink: 0, gap: 8, padding: "8px 16px" }}>
+          {chips.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === c.key}
+              className={`chip ${filter === c.key ? "active" : ""}`}
+              onClick={() => { haptics.selection(); setFilter(c.key); }}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={containerRef} className="screen-scroll">
         <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
         {loading ? (
@@ -383,6 +443,8 @@ export default function Notifications() {
           </div>
         )}
       </div>
+
+      {partSheet}
 
       {declining && (
         <div className="overlay" onClick={() => setDeclining(null)}>

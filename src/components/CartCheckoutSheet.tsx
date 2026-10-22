@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import { inr } from "@/lib/format";
-import { CalendarClock, IndianRupee, ChevronRight } from "@/components/Icons";
+import { summarizeLines } from "@/lib/orderLines";
+import { CalendarClock, IndianRupee, ChevronRight, Package } from "@/components/Icons";
+import { useI18n } from "@/lib/i18n";
 import { appointmentService } from "@/services";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
@@ -18,6 +20,8 @@ interface CartCheckoutSheetProps {
   items: AppointmentRecord["items"];
   /** Switch to the scheduled-booking flow (the existing AppointmentSheet). */
   onSchedule: () => void;
+  /** Only passed when this shop offers home delivery (and delivery is switched on): opens the order sheet with delivery already chosen. */
+  onDelivery?: () => void;
   /** Fired after a successful direct purchase. */
   onPaid: () => void;
   onClose: () => void;
@@ -35,9 +39,10 @@ interface CartCheckoutSheetProps {
 export default function CartCheckoutSheet({
   businessId, businessName, businessUpiId,
   itemCount, total, summary, items,
-  onSchedule, onPaid, onClose,
+  onSchedule, onDelivery, onPaid, onClose,
 }: CartCheckoutSheetProps) {
   const { showToast } = useApp();
+  const { t } = useI18n();
   const [mode, setMode] = useState<"choose" | "pay">("choose");
   const [claiming, setClaiming] = useState(false);
 
@@ -46,7 +51,7 @@ export default function CartCheckoutSheet({
     try {
       await appointmentService.createWalkInPayment({
         targetId: businessId,
-        packageName: itemCount === 1 ? summary : `${itemCount} items`,
+        packageName: items && items.length > 0 ? summarizeLines(items) : summary,
         packagePrice: total,
         method,
         reference,
@@ -96,6 +101,23 @@ export default function CartCheckoutSheet({
               <ChevronRight size={17} color="var(--ink-300)" />
             </button>
 
+            {onDelivery && (
+              <button
+                className="card row gap-12 center-v"
+                style={{ padding: 14, textAlign: "left", border: "1.5px solid var(--delivery-500)" }}
+                onClick={() => { haptics.selection(); onDelivery(); }}
+              >
+                <span style={{ width: 38, height: 38, borderRadius: 10, background: "var(--delivery-50)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <Package size={19} color="var(--delivery-600)" />
+                </span>
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="semi small">{t("cart_home_delivery")}</div>
+                  <div className="tiny muted">{t("cart_home_delivery_sub")}</div>
+                </div>
+                <ChevronRight size={17} color="var(--ink-300)" />
+              </button>
+            )}
+
             <button
               className="card row gap-12 center-v"
               style={{ padding: 14, textAlign: "left" }}
@@ -106,7 +128,7 @@ export default function CartCheckoutSheet({
               </span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="semi small">Book for another time</div>
-                <div className="tiny muted">Pick a slot — or have it delivered, if the shop offers it</div>
+                <div className="tiny muted">{onDelivery ? t("cart_book_later_sub") : "Pick a slot — or have it delivered, if the shop offers it"}</div>
               </div>
               <ChevronRight size={17} color="var(--ink-300)" />
             </button>
