@@ -119,6 +119,7 @@ const BUSINESS_COLUMNS = new Set([
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
   "verificationStatus","verificationDocumentUrl","upiId","paymentTiming","depositPercent",
   "email","showPhonePublicly","showEmailPublicly","locationPublic","deliveryEnabled",
+  "deliveryRadiusKm","deliveryFee","freeDeliveryAbove","minOrderAmount","deliveryPrepMin","deliveryProofAllowed",
   "defaultSlotCapacity","maxConcurrentBookings","packageKey","bookingsEnabled",
 ]);
 

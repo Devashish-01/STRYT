@@ -1,8 +1,61 @@
-import { getSupabase } from "@/lib/supabaseClient";
+import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { businessAccessService } from "@/services/marketplace/businessAccessService";
 import { aliasName } from "@/lib/publicName";
+import { track } from "@/lib/analytics";
+import { toApiError } from "@/lib/supabasePage";
+
+/** The server's delivery refusal codes, in words an owner or rider can act on. Anything unrecognised is thrown untouched. */
+export function friendlyDeliveryError(e: unknown): unknown {
+  const msg = typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e ?? "");
+  const map: [RegExp, string][] = [
+    [/NOT_A_DELIVERY_ORDER/, "That order isn't a home delivery."],
+    [/ORDER_NOT_ACCEPTED/, "Accept the order before assigning a rider."],
+    [/SOME_APPOINTMENTS_NOT_ELIGIBLE/, "Some of the selected orders can't join a run — they may already be assigned, cancelled or not accepted yet. Refresh and try again."],
+    [/AGENT_NOT_TEAM_MEMBER/, "That person is no longer on your team."],
+    [/appointment_deliveries_one_active|duplicate key/i, "That order was just assigned to someone else. Refresh to see the latest."],
+    [/NOT_PICKED_UP/, "Confirm pick-up from the shop first."],
+    [/INVALID_STOP_ORDER/, "The route couldn't be saved. Please try again."],
+    [/BATCH_NOT_ACCEPTED/, "Accept the run before starting its stops."],
+    [/PROOF_NOT_ALLOWED/, "This shop doesn't allow leaving orders at the door."],
+    [/PROOF_REQUIRES_PREPAID/, "Only prepaid orders can be left at the door — this one still has money to collect."],
+    [/PROOF_TOO_EARLY/, "Wait a few more minutes for the customer before leaving the order."],
+    [/INVALID_PROOF_PHOTO/, "That photo couldn't be used. Take it again."],
+    [/ALREADY_HANDED_OFF/, "The customer already gave the code — just complete the delivery."],
+  ];
+  for (const [re, text] of map) if (re.test(msg)) return new Error(text);
+  return e;
+}
+
+/** Where a delivery stands on leave-at-the-door proof. The photo is only present for the rider, or once delivered. */
+export interface DeliveryProofInfo {
+  allowed: boolean;
+  canRecord: boolean;
+  waitedMin: number | null;
+  photoUrl: string | null;
+  note: string | null;
+  at: string | null;
+}
 
 /** A delivery-scoped team member the owner can dispatch a delivery to. */
+/** A delivered order that is still unpaid. */
+export interface CashOutstanding {
+  appointmentId: string;
+  customerName: string;
+  amount: number;
+  deliveredAt: string | null;
+  agentName: string;
+}
+
+export interface AdminDeliveryOverview {
+  active: number;
+  delivered7d: number;
+  failed7d: number;
+  awaitingRider: number;
+  cashOutstanding: number;
+  cashUnsettled: number;
+  attention: { deliveryId: string; appointmentId: string; businessId: string; businessName: string; status: string; issue: string; since: string | null }[];
+}
+
 export interface DeliveryTeamMember {
   userId: string;
   name: string;
@@ -11,6 +64,8 @@ export interface DeliveryTeamMember {
    *  auto-dispatch anywhere in this app to gate), it just shows a tag in the
    *  picker so the owner isn't surprised when nobody responds right away. */
   onDuty: boolean;
+  /** The signed-in owner, offered so a one-person shop can deliver its own orders without inviting itself. */
+  isSelf?: boolean;
 }
 
 /** The delivery attached to an appointment (owner/customer view). */
@@ -87,6 +142,62 @@ export interface DeliveryItem {
   batchLng: number | null;
   createdAt: string | null;
   deliveredAt: string | null;
+  /** Cash the rider still has to collect (0 once paid). Whole rupees as a number. */
+  amountDue: number;
+  deliveryFee: number;
+  paymentMethod: string | null;
+  paymentStatus: string | null;
+  cashCollectedAt: string | null;
+  /** The customer's number — only present once the rider is on the way to them. */
+  customerPhone: string | null;
+  businessPhone: string | null;
+  /** What the customer wrote on the order, and the window they asked for. */
+  orderNotes: string | null;
+  requestedWindow: string | null;
+  packageName: string | null;
+  /** What to pick up and hand over. */
+  items: { name: string; quantity: number }[];
+  /** When the rider confirmed pick-up from the shop; null until they have (the delivery cannot start before). */
+  pickedUpAt: string | null;
+  businessLat: number | null;
+  businessLng: number | null;
+  businessAddress: string | null;
+}
+
+/** An order waiting for a rider — accepted, delivery, nobody assigned yet. */
+export interface AwaitingDriverOrder {
+  appointmentId: string;
+  customerName: string;
+  deliveryAddressLine: string | null;
+  scheduledFor: string | null;
+  timeLabel: string | null;
+  isAsap: boolean;
+  packageName: string | null;
+  packagePrice: number | null;
+  deliveryFee: number;
+  readyAt: string | null;
+  paymentMethod: string | null;
+  paymentStatus: string | null;
+  isOutOfRange: boolean;
+  createdAt: string | null;
+}
+
+/** Cash a rider has collected and not yet handed to the shop. */
+export interface CashToSettle {
+  agentUserId: string;
+  agentName: string;
+  orders: number;
+  amount: number;
+  oldest: string | null;
+}
+
+export interface DeliveryStats {
+  days: number;
+  delivered: number;
+  cancelled: number;
+  avgMinutes: number | null;
+  feesCollected: number;
+  perAgent: { agentUserId: string; name: string; delivered: number }[];
 }
 
 /** What the CUSTOMER is allowed to see about their delivery: progress, their
@@ -110,6 +221,11 @@ export interface CustomerDeliveryProgress {
   stopsBefore: number | null;
   cancelReason?: CancelReason | null;
   cancelNote?: string | null;
+  /** Minutes away, computed on the server from a fresh rider position (null when unknown). No coordinates are sent. */
+  etaMinutes?: number | null;
+  businessPhone?: string | null;
+  /** The rider has collected the order from the shop. */
+  pickedUp?: boolean;
 }
 
 /** One delivery as the BUSINESS OWNER sees it — adds the agent's real identity
@@ -142,6 +258,14 @@ export interface BusinessDeliveryItem {
   handoffVerified: boolean;
   createdAt: string | null;
   deliveredAt: string | null;
+  /** When the agent's position was last written; null before the first fix. Old = lost, not "live". */
+  positionAt: string | null;
+  pickedUpAt: string | null;
+  startedAt: string | null;
+  arrivedAt: string | null;
+  cancelReason: CancelReason | null;
+  cancelNote: string | null;
+  cancelledBy: "AGENT" | "BUSINESS" | "SYSTEM" | null;
 }
 
 function rowToItem(r: any): DeliveryItem {
@@ -171,6 +295,21 @@ function rowToItem(r: any): DeliveryItem {
     batchLng: r.batch_lng ?? null,
     createdAt: r.created_at ?? null,
     deliveredAt: r.delivered_at ?? null,
+    amountDue: Number(r.amount_due ?? 0),
+    deliveryFee: Number(r.delivery_fee ?? 0),
+    paymentMethod: r.payment_method ?? null,
+    paymentStatus: r.payment_status ?? null,
+    cashCollectedAt: r.cash_collected_at ?? null,
+    customerPhone: r.customer_phone ?? null,
+    businessPhone: r.business_phone ?? null,
+    orderNotes: r.order_notes ?? null,
+    requestedWindow: r.requested_window ?? null,
+    packageName: r.package_name ?? null,
+    items: Array.isArray(r.items) ? r.items.map((i: any) => ({ name: String(i.name ?? "Item"), quantity: Number(i.quantity ?? 1) })) : [],
+    pickedUpAt: r.picked_up_at ?? null,
+    businessLat: r.business_lat ?? null,
+    businessLng: r.business_lng ?? null,
+    businessAddress: r.business_address ?? null,
   };
 }
 
@@ -181,7 +320,7 @@ export const deliveryService = {
     const { data, error } = await sb.rpc("count_my_active_deliveries", {
       p_business_id: businessId ?? undefined,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
     return typeof data === "number" ? data : Number(data ?? 0);
   },
 
@@ -189,7 +328,7 @@ export const deliveryService = {
   async myDeliveries(): Promise<DeliveryItem[]> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("my_deliveries");
-    if (error) throw error;
+    if (error) throw toApiError(error);
     return (data ?? []).map(rowToItem);
   },
 
@@ -203,7 +342,111 @@ export const deliveryService = {
       p_lat: lat ?? undefined,
       p_lng: lng ?? undefined,
     });
-    if (error) throw error;
+    if (error) throw friendlyDeliveryError(toApiError(error));
+    track(status === "ARRIVED" ? "delivery_arrived" : status === "DONE" ? "delivery_delivered" : "delivery_started");
+  },
+
+  /** Rider confirms they have the order from the shop. A run is picked up once, for every stop on it. */
+  async markPickedUp(deliveryId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("delivery_mark_picked_up" as any, { p_delivery_id: deliveryId });
+    if (error) throw toApiError(error);
+    track("delivery_picked_up");
+  },
+
+  /**
+   * Leave-at-the-door proof (shops that allow it, prepaid orders, after waiting five minutes). Records the photo; the ordinary
+   * "delivered" step then accepts it in place of the customer's code.
+   */
+  async recordProof(deliveryId: string, photoUrl: string, note?: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("delivery_record_proof" as any, { p_delivery_id: deliveryId, p_photo_url: photoUrl, p_note: note?.trim() || null });
+    if (error) throw friendlyDeliveryError(toApiError(error));
+  },
+
+  /** What the proof screens need: whether the shop allows it, whether the rider can record it now, and (once delivered) the photo. */
+  async proofInfo(deliveryId: string): Promise<DeliveryProofInfo> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("delivery_proof" as any, { p_delivery_id: deliveryId });
+    if (error) throw toApiError(error);
+    const r = (Array.isArray(data) ? data[0] : data) as Record<string, any> | null;
+    return {
+      allowed: !!r?.proof_allowed,
+      canRecord: !!r?.can_record,
+      waitedMin: r?.waited_min == null ? null : Number(r.waited_min),
+      photoUrl: r?.proof_photo_url ?? null,
+      note: r?.proof_note ?? null,
+      at: r?.proof_at ?? null,
+    };
+  },
+
+  /** After a failed attempt the customer caused: "I'm available now — send a rider again". Returns false if throttled. */
+  async readyForRedelivery(appointmentId: string): Promise<boolean> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("customer_ready_for_redelivery" as any, { p_appointment_id: appointmentId });
+    if (error) throw toApiError(error);
+    return data !== false;
+  },
+
+  /** Delivered orders that are still unpaid — money the shop has to chase. */
+  async cashOutstanding(businessId: string): Promise<CashOutstanding[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("business_cash_outstanding" as any, { p_business_id: businessId });
+    if (error) throw toApiError(error);
+    return ((data ?? []) as any[]).map((r) => ({
+      appointmentId: r.appointment_id,
+      customerName: r.customer_name ?? "Customer",
+      amount: Number(r.amount ?? 0),
+      deliveredAt: r.delivered_at ?? null,
+      agentName: r.agent_name ?? "Rider",
+    }));
+  },
+
+  async markOutstandingPaid(appointmentId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("mark_outstanding_paid" as any, { p_appointment_id: appointmentId });
+    if (error) throw toApiError(error);
+  },
+
+  /** Admin only: counts and the deliveries that need a human. */
+  async adminOverview(): Promise<AdminDeliveryOverview> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("admin_delivery_overview" as any);
+    if (error) throw toApiError(error);
+    const d: any = data ?? {};
+    return {
+      active: Number(d.active ?? 0),
+      delivered7d: Number(d.delivered_7d ?? 0),
+      failed7d: Number(d.failed_7d ?? 0),
+      awaitingRider: Number(d.awaiting_rider ?? 0),
+      cashOutstanding: Number(d.cash_outstanding ?? 0),
+      cashUnsettled: Number(d.cash_unsettled ?? 0),
+      attention: ((d.attention ?? []) as any[]).map((a) => ({
+        deliveryId: a.delivery_id, appointmentId: a.appointment_id, businessId: a.business_id,
+        businessName: a.business_name ?? "Business", status: a.status, issue: a.issue, since: a.since ?? null,
+      })),
+    };
+  },
+
+  /** Several appointments' latest delivery in one query — the dispatch list used to fire one query per card. */
+  async forAppointments(appointmentIds: string[]): Promise<Record<string, AppointmentDelivery>> {
+    if (appointmentIds.length === 0) return {};
+    const sb = getSupabase();
+    const { data } = await (sb as any)
+      .from("appointment_deliveries")
+      .select("id, appointment_id, status, live_status, handoff_verified, agent_user_id, lat, lng, created_at, agent:users!agent_user_id(alias, avatar)")
+      .in("appointment_id", appointmentIds)
+      .order("created_at", { ascending: false });
+    const out: Record<string, AppointmentDelivery> = {};
+    for (const r of (data ?? []) as any[]) {
+      if (out[r.appointment_id]) continue; // newest first, so the first one seen is the latest
+      out[r.appointment_id] = {
+        id: r.id, appointmentId: r.appointment_id, status: r.status, liveStatus: r.live_status ?? null, handoffCode: null,
+        handoffVerified: !!r.handoff_verified, agentUserId: r.agent_user_id ?? null,
+        agentName: aliasName({ alias: r.agent?.alias }, "Delivery agent"), lat: r.lat ?? null, lng: r.lng ?? null,
+      };
+    }
+    return out;
   },
 
   /**
@@ -219,7 +462,8 @@ export const deliveryService = {
       p_reason: reason,
       p_note: note?.trim() || undefined,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
+    track("delivery_failed", { reason: reason });
   },
 
   /**
@@ -231,7 +475,7 @@ export const deliveryService = {
   async dutyBlockers(): Promise<DutyBlockers> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("my_duty_blockers");
-    if (error) throw error;
+    if (error) throw toApiError(error);
     const r = Array.isArray(data) ? data[0] : data;
     return {
       count: Number(r?.blocking_count ?? 0),
@@ -247,7 +491,7 @@ export const deliveryService = {
       p_delivery_id: deliveryId,
       p_code: code,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
     return data === true;
   },
 
@@ -261,8 +505,9 @@ export const deliveryService = {
   async myProgress(appointmentId: string): Promise<CustomerDeliveryProgress | null> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("my_delivery_progress", { p_appointment_id: appointmentId });
-    if (error) throw error;
-    const r = Array.isArray(data) ? data[0] : data;
+    if (error) throw toApiError(error);
+    // Cast: the columns added in 20261003 are not in the generated types until they are regenerated.
+    const r: any = Array.isArray(data) ? data[0] : data;
     if (!r) return null;
     return {
       id: r.id,
@@ -280,6 +525,9 @@ export const deliveryService = {
       stopsBefore: r.stops_before ?? null,
       cancelReason: (r.cancel_reason ?? null) as CancelReason | null,
       cancelNote: r.cancel_note ?? null,
+      etaMinutes: r.eta_minutes == null ? null : Number(r.eta_minutes),
+      businessPhone: r.business_phone ?? null,
+      pickedUp: !!r.picked_up,
     };
   },
 
@@ -292,7 +540,7 @@ export const deliveryService = {
     const { data, error } = await sb.rpc("appointment_create_tracking_token", {
       p_appointment_id: appointmentId,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
     return String(data);
   },
 
@@ -305,14 +553,15 @@ export const deliveryService = {
       p_batch_id: batchId,
       p_stop_order: stopOrder && stopOrder.length > 0 ? stopOrder : undefined,
     });
-    if (error) throw error;
+    if (error) throw friendlyDeliveryError(toApiError(error));
   },
 
   /** Agent declines the whole run — every stop is unassigned so the owner can reassign. */
   async declineBatch(batchId: string): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("decline_delivery_batch", { p_batch_id: batchId });
-    if (error) throw error;
+    if (error) throw toApiError(error);
+    track("delivery_declined", { kind: "run" });
   },
 
   /**
@@ -334,7 +583,7 @@ export const deliveryService = {
       p_accuracy: accuracy ?? undefined,
       p_heading: heading ?? undefined,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
   },
 
   /** Pure GPS push for the whole active run — separate from discrete stop-status changes,
@@ -348,7 +597,7 @@ export const deliveryService = {
       p_accuracy: accuracy ?? undefined,
       p_heading: heading ?? undefined,
     });
-    if (error) throw error;
+    if (error) throw toApiError(error);
   },
 
   /**
@@ -360,8 +609,8 @@ export const deliveryService = {
   async businessDeliveries(businessId: string): Promise<BusinessDeliveryItem[]> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("business_active_deliveries", { p_business_id: businessId });
-    if (error) throw error;
-    return (data ?? []).map((r) => ({
+    if (error) throw toApiError(error);
+    return ((data ?? []) as any[]).map((r) => ({
       id: r.id,
       appointmentId: r.appointment_id,
       // appointment_deliveries_status_check and _live_status_check constrain both columns to exactly the
@@ -389,6 +638,13 @@ export const deliveryService = {
       handoffVerified: !!r.handoff_verified,
       createdAt: r.created_at ?? null,
       deliveredAt: r.delivered_at ?? null,
+      positionAt: r.position_at ?? null,
+      pickedUpAt: r.picked_up_at ?? null,
+      startedAt: r.started_at ?? null,
+      arrivedAt: r.arrived_at ?? null,
+      cancelReason: (r.cancel_reason ?? null) as CancelReason | null,
+      cancelNote: r.cancel_note ?? null,
+      cancelledBy: (r.cancelled_by ?? null) as "AGENT" | "BUSINESS" | "SYSTEM" | null,
     }));
   },
 
@@ -397,9 +653,19 @@ export const deliveryService = {
   /** The business's ACTIVE team members — any grantee may be assigned a delivery. */
   async deliveryTeam(businessId: string): Promise<DeliveryTeamMember[]> {
     const sessions = await businessAccessService.ownerSessions(businessId);
-    const members = sessions
+    const members: { userId: string; name: string; avatar?: string; isSelf?: boolean }[] = sessions
       .filter((s) => s.status === "ACTIVE" && s.granteeUserId)
       .map((s) => ({ userId: s.granteeUserId as string, name: s.granteeName, avatar: s.granteeAvatar }));
+
+    // A one-person shop delivers its own orders. assign_delivery already accepts the owner as the agent
+    // (has_business_access includes the owner); the list just never offered them.
+    try {
+      const me = await currentUserId();
+      const { data: biz } = await getSupabase().from("businesses").select("owner_user_id").eq("id", businessId).maybeSingle();
+      if (me && biz?.owner_user_id === me && !members.some((m) => m.userId === me)) {
+        members.unshift({ userId: me, name: "Me", isSelf: true });
+      }
+    } catch { /* offer the team as before */ }
     if (members.length === 0) return [];
 
     // Duty is informational only here (no auto-dispatch to gate) — best-effort,
@@ -418,11 +684,97 @@ export const deliveryService = {
     }
   },
 
+  /** Rider turns down a single (non-run) assignment that hasn't started; the order returns to the dispatch list. */
+  async declineSolo(deliveryId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("decline_solo_delivery" as any, { p_delivery_id: deliveryId });
+    if (error) throw toApiError(error);
+    track("delivery_declined", { kind: "single" });
+  },
+
+  /** Orders accepted for delivery that no rider has been assigned to yet — the dispatch board. */
+  async awaitingDriver(businessId: string): Promise<AwaitingDriverOrder[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("business_delivery_queue" as any, { p_business_id: businessId });
+    if (error) throw toApiError(error);
+    return ((data ?? []) as any[]).map((r) => ({
+      appointmentId: r.appointment_id,
+      customerName: r.customer_name ?? "Customer",
+      deliveryAddressLine: r.delivery_address_line ?? null,
+      scheduledFor: r.scheduled_for ?? null,
+      timeLabel: r.time_label ?? null,
+      isAsap: !!r.is_asap,
+      packageName: r.package_name ?? null,
+      packagePrice: r.package_price == null ? null : Number(r.package_price),
+      deliveryFee: Number(r.delivery_fee ?? 0),
+      readyAt: r.ready_at ?? null,
+      paymentMethod: r.payment_method ?? null,
+      paymentStatus: r.payment_status ?? null,
+      isOutOfRange: !!r.is_out_of_range,
+      createdAt: r.created_at ?? null,
+    }));
+  },
+
+  /** Shop marks an accepted order packed / ready; the customer is told. Idempotent. */
+  async markOrderReady(appointmentId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("mark_order_ready" as any, { p_appointment_id: appointmentId });
+    if (error) throw toApiError(error);
+    track("delivery_packed");
+  },
+
+  /** Rider records the cash taken at the door. Returns the amount. */
+  async collectCash(deliveryId: string): Promise<number> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("delivery_collect_cash" as any, { p_delivery_id: deliveryId });
+    if (error) throw toApiError(error);
+    track("delivery_cash_collected");
+    return Number(data ?? 0);
+  },
+
+  /** Cash riders are holding that the shop hasn't taken yet, per rider. */
+  async cashToSettle(businessId: string): Promise<CashToSettle[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("business_cash_to_settle" as any, { p_business_id: businessId });
+    if (error) throw toApiError(error);
+    return ((data ?? []) as any[]).map((r) => ({
+      agentUserId: r.agent_user_id,
+      agentName: r.agent_name ?? "Rider",
+      orders: Number(r.orders ?? 0),
+      amount: Number(r.amount ?? 0),
+      oldest: r.oldest ?? null,
+    }));
+  },
+
+  /** The shop has received the cash a rider collected. Returns the amount settled. */
+  async settleCash(businessId: string, agentUserId: string): Promise<number> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("settle_agent_cash" as any, { p_business_id: businessId, p_agent_user_id: agentUserId });
+    if (error) throw toApiError(error);
+    track("delivery_cash_settled");
+    return Number(data ?? 0);
+  },
+
+  async stats(businessId: string, days = 30): Promise<DeliveryStats> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("business_delivery_stats" as any, { p_business_id: businessId, p_days: days });
+    if (error) throw toApiError(error);
+    const d: any = data ?? {};
+    return {
+      days: Number(d.days ?? days),
+      delivered: Number(d.delivered ?? 0),
+      cancelled: Number(d.cancelled ?? 0),
+      avgMinutes: d.avg_minutes == null ? null : Number(d.avg_minutes),
+      feesCollected: Number(d.fees_collected ?? 0),
+      perAgent: ((d.per_agent ?? []) as any[]).map((a) => ({ agentUserId: a.agent_user_id, name: a.name ?? "Rider", delivered: Number(a.delivered ?? 0) })),
+    };
+  },
+
   /** The signed-in agent's own duty status. */
   async myDutyStatus(): Promise<boolean> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("get_delivery_duty");
-    if (error) throw error;
+    if (error) throw toApiError(error);
     return data !== false;
   },
 
@@ -431,7 +783,7 @@ export const deliveryService = {
   async setDuty(onDuty: boolean): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("set_delivery_duty", { p_on_duty: onDuty });
-    if (error) throw error;
+    if (error) throw toApiError(error);
   },
 
   /** Owner/manager assigns (or reassigns) a delivery for an appointment. */
@@ -441,7 +793,8 @@ export const deliveryService = {
       p_appointment_id: appointmentId,
       p_agent_user_id: agentUserId,
     });
-    if (error) throw error;
+    if (error) throw friendlyDeliveryError(toApiError(error));
+    track("delivery_assigned", { kind: "single" });
   },
 
   /** Owner/manager assigns N eligible appointments to one agent in a single run — the agent
@@ -452,7 +805,8 @@ export const deliveryService = {
       p_appointment_ids: appointmentIds,
       p_agent_user_id: agentUserId,
     });
-    if (error) throw error;
+    if (error) throw friendlyDeliveryError(toApiError(error));
+    track("delivery_assigned", { kind: "run", stops: appointmentIds.length });
   },
 
   /** Read the delivery for an appointment (owner + customer, RLS-scoped). */

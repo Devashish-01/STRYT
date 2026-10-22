@@ -13,7 +13,7 @@ import { dirname } from "node:path";
  *     label. Those are real and worth fixing.
  *   - It does **not** prove the app is usable with a screen reader. axe cannot tell you that the booking
  *     flow makes sense when read aloud, or that focus goes somewhere sensible after a sheet closes. That is
- *     §6 of docs/qa/DEVICE_QA_CHECKLIST.md, on a device, with TalkBack on.
+ *     §6 of archive/docs/qa/DEVICE_QA_CHECKLIST.md, on a device, with TalkBack on.
  *
  * Roughly half of real accessibility problems are invisible to a tool like this. Treating a green run as
  * "accessible" would be the mistake; this is a floor, not a ceiling.

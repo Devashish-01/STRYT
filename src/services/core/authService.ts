@@ -3,9 +3,11 @@
  *
  * Application-level authentication service.
  *
- * Supabase is the single auth + data backend. This service wraps all sign-in
- * methods and exposes a uniform API to the UI layer. Platform-specific details
- * (Firebase popup, Capacitor native picker, Custom Tab) are encapsulated in
+ * Two ways in, both proven by Firebase and both ending in a Supabase session:
+ *   • Google        — Firebase returns a Google ID token → supabase.auth.signInWithIdToken.
+ *   • Phone (SMS)   — Firebase verifies the OTP → edge function `firebase-phone-auth` mints the session.
+ * (Email + password exists only for staff on /admin/login.) Supabase is the single data backend; it never
+ * sends an SMS or an email for sign-in. Platform details (Firebase popup, Capacitor native picker) live in
  * src/lib/nativeAuth.ts and src/lib/firebaseWeb.ts.
  *
  * Session management principles
@@ -23,13 +25,23 @@ import { tokenStore }  from "@/lib/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError }  from "@/lib/supabasePage";
 import { beginLoginAcceptance, cancelLoginAcceptance } from "@/lib/loginAcceptance";
+import { OtpError, otpErrorKey, providerErrorLabel } from "@/lib/authErrors";
+import { canSendOtp, recordOtpSent } from "@/lib/otpThrottle";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { track } from "@/lib/analytics";
 import {
   isNativePlatform,
   nativeGoogleSignInViaFirebase,
+  nativeSendPhoneOtp,
+  nativeVerifyPhoneOtp,
+  nativeFinishPhoneSignIn,
+  nativeSignOut,
   hasFirebaseWebConfig,
   firebaseGoogleSignIn,
   firebaseSignOut,
-  supabaseOAuthReturnUrl,
+  firebaseSendPhoneOtp,
+  firebaseVerifyPhoneOtp,
+  firebaseFinishPhoneSignIn,
 } from "@/lib/nativeAuth";
 
 // ---------------------------------------------------------------------------
@@ -45,18 +57,23 @@ function mirrorSession(accessToken?: string | null, refreshToken?: string | null
 }
 
 /**
- * Normalise a user-entered phone string to E.164 (+91XXXXXXXXXX).
- *
- * Supabase / Twilio require E.164. The Supabase test-phone entries use the raw
- * 10-digit form, so we leave 10-digit strings intact — they match the test
- * numbers directly and are rejected by the live provider for real numbers
- * (preventing accidental cross-environment interference).
+ * supabase-js hides the edge function's JSON body behind a generic "non-2xx" error: on HTTP failures the real
+ * response is on `error.context`. Read it so a 429 shows "too many attempts" rather than "Edge Function
+ * returned a non-2xx status code" (and so a network drop is told apart from a server fault).
  */
-function normalizePhone(input: string): string {
-  const digits = (input || "").replace(/\D/g, "");
-  if (digits.length === 12 && digits.startsWith("91")) return "+" + digits;
-  if (digits.length === 10) return "+91" + digits;
-  return input.startsWith("+") ? input : "+" + digits;
+async function edgeFailure(edgeErr: unknown, edgeData: { code?: string; message?: string } | null): Promise<OtpError> {
+  const ctx = (edgeErr as { context?: unknown } | null)?.context;
+  if (ctx && typeof (ctx as Response).json === "function") {
+    try {
+      const body = (await (ctx as Response).clone().json()) as { code?: string } | null;
+      return new OtpError(otpErrorKey({ code: body?.code }), undefined, { cause: edgeErr });
+    } catch { /* body wasn't JSON — fall through */ }
+  }
+  if (edgeData?.code) return new OtpError(otpErrorKey({ code: edgeData.code }), undefined, { cause: edgeErr });
+  if ((edgeErr as { name?: string } | null)?.name === "FunctionsFetchError") {
+    return new OtpError("otp_err_network", undefined, { cause: edgeErr });
+  }
+  return new OtpError("otp_err_generic", undefined, { cause: edgeErr });
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +94,8 @@ export async function ensureProfile(
 ): Promise<void> {
   if (!userId) return;
   const sb   = getSupabase();
-  const name = fullName || email || phone || "New user";
+  // Never seed a contact detail as the display name (20260876): "New user" prompts for a real one.
+  const name = fullName || "New user";
   const { error } = await sb
     .from("users")
     .upsert(
@@ -93,43 +111,110 @@ export async function ensureProfile(
 // ---------------------------------------------------------------------------
 
 export const authService = {
-  // ── Phone OTP ─────────────────────────────────────────────────────────────
+  // ── Phone OTP (Firebase SMS → Supabase session) ────────────────────────────
 
-  async sendOtp(phone: string) {
-    const sb = getSupabase();
-    const { error } = await sb.auth.signInWithOtp({ phone: normalizePhone(phone) });
-    if (error) throw toApiError(error);
-    return { ok: true, ttl: 300 };
+  /**
+   * Sends the SMS code. `autoVerified` is true only on Android when Google verified the SIM instantly or
+   * the SMS was auto-read — the caller should then skip the code screen and call verifyOtp(phone, null).
+   * Throws OtpError (i18n key + params); raw provider text never reaches the UI.
+   */
+  async sendOtp(phone: string, opts: { resend?: boolean } = {}) {
+    const normalized = normalizePhone(phone);
+    if (!isValidPhone(normalized)) throw new OtpError("otp_err_invalid_phone");
+
+    const gate = canSendOtp(normalized);
+    if (!gate.ok) {
+      throw gate.reason === "limit"
+        ? new OtpError("otp_send_limit")
+        : new OtpError("otp_cooldown_wait", { n: gate.seconds });
+    }
+
+    try {
+      let autoVerified = false;
+      if (isNativePlatform()) {
+        autoVerified = (await nativeSendPhoneOtp(normalized, opts)).autoVerified;
+      } else {
+        if (!hasFirebaseWebConfig) {
+          throw new Error("Phone sign-in is unavailable — Firebase is not configured for this build.");
+        }
+        await firebaseSendPhoneOtp(normalized);
+      }
+      recordOtpSent(normalized);
+      track("otp_sent", { native: isNativePlatform(), resend: opts.resend === true });
+      return { ok: true, ttl: 300, autoVerified };
+    } catch (e) {
+      console.warn("sendOtp failed:", e);
+      const key = otpErrorKey(e);
+      track("otp_failed", { step: "send", code: key, provider: providerErrorLabel(e), native: isNativePlatform() });
+      throw new OtpError(key, undefined, { cause: e });
+    }
   },
 
-  async verifyOtp(phoneOrEmail: string, otp: string) {
-    const isEmail = phoneOrEmail.includes("@");
+  /**
+   * `otp` is the typed 6-digit code, or null when Android already verified the number without one
+   * (see sendOtp → autoVerified).
+   */
+  async verifyOtp(rawPhone: string, otp: string | null) {
     const sb = getSupabase();
-    const { data, error } = isEmail
-      ? await sb.auth.verifyOtp({ email: phoneOrEmail, token: otp, type: "email" })
-      : await sb.auth.verifyOtp({ phone: normalizePhone(phoneOrEmail), token: otp, type: "sms" });
-    if (error) throw toApiError(error);
-    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+
+    // ── Phone OTP via Firebase ───────────────────────────────────────────────
+    const phone = normalizePhone(rawPhone);
+
+    let idToken: string;
+    try {
+      ({ idToken } = isNativePlatform()
+        ? await nativeVerifyPhoneOtp(otp)
+        : await firebaseVerifyPhoneOtp(otp ?? ""));
+    } catch (e) {
+      console.warn("verifyOtp (firebase) failed:", e);
+      const key = otpErrorKey(e);
+      track("otp_failed", { step: "verify", code: key, provider: providerErrorLabel(e), native: isNativePlatform() });
+      throw new OtpError(key, undefined, { cause: e });
+    }
+    if (!idToken) throw new OtpError("otp_err_generic");
+
+    // Bridge the Firebase ID token to a Supabase session via the edge function.
+    const { data: edgeData, error: edgeErr } = await sb.functions.invoke("firebase-phone-auth", {
+      body: { idToken },
+    });
+    if (edgeErr || !edgeData?.session) {
+      const failure = await edgeFailure(edgeErr, edgeData);
+      track("otp_failed", { step: "bridge", code: failure.key });
+      throw failure;
+    }
+
+    const session = edgeData.session;
+    const { error: sessionError } = await sb.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (sessionError) {
+      console.warn("verifyOtp (setSession) failed:", sessionError);
+      track("otp_failed", { step: "session", code: "otp_err_generic" });
+      throw new OtpError("otp_err_generic", undefined, { cause: sessionError });
+    }
+
+    mirrorSession(session.access_token, session.refresh_token);
+
+    const user = edgeData.user || session.user;
+    if (user?.id) {
+      await ensureProfile(user.id, phone, null, null);
+    }
+
+    track("otp_verified", { native: isNativePlatform(), auto: otp === null });
+
+    // Firebase proved the number; its own session is no longer needed on the device.
+    void (isNativePlatform() ? nativeFinishPhoneSignIn() : firebaseFinishPhoneSignIn());
+
     return {
-      access_token:  data.session?.access_token  ?? "",
-      refresh_token: data.session?.refresh_token ?? "",
-      user: data.user,
+      access_token:  session.access_token  ?? "",
+      refresh_token: session.refresh_token ?? "",
+      user,
     };
   },
 
-  // ── Email OTP (magic link) ─────────────────────────────────────────────────
-
-  async sendEmailOtp(email: string) {
-    const sb = getSupabase();
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: supabaseOAuthReturnUrl() },
-    });
-    if (error) throw toApiError(error);
-    return { ok: true, ttl: 300 };
-  },
-
-  // ── Email + password ───────────────────────────────────────────────────────
+  // ── Email + password — staff only (/admin/login) ───────────────────────────
+  // Customers never use this: they sign in with Google or a phone OTP.
 
   async signInWithPassword(email: string, password: string) {
     const sb = getSupabase();
@@ -140,25 +225,6 @@ export const authService = {
       access_token:  data.session?.access_token  ?? "",
       refresh_token: data.session?.refresh_token ?? "",
       user: data.user,
-      hasSession: !!data.session,
-    };
-  },
-
-  async signUpWithPassword(email: string, password: string) {
-    const sb = getSupabase();
-    const { data, error } = await sb.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: supabaseOAuthReturnUrl() },
-    });
-    if (error) throw toApiError(error);
-    mirrorSession(data.session?.access_token, data.session?.refresh_token);
-    return {
-      access_token:  data.session?.access_token  ?? "",
-      refresh_token: data.session?.refresh_token ?? "",
-      user: data.user,
-      // When email confirmation is required, Supabase returns a user but no
-      // session — the caller must prompt the user to check their inbox.
       hasSession: !!data.session,
     };
   },
@@ -224,24 +290,8 @@ export const authService = {
     // Sign out of Firebase so a stale Google account does not ghost-persist
     // in the browser's IndexedDB and re-appear on the next direct navigation.
     await firebaseSignOut();
+    // Native: the plugin keeps its own Firebase session (skipNativeAuth=false) that the web SDK call can't reach.
+    await nativeSignOut();
     return { ok: true };
-  },
-
-  // ── Compatibility shim ────────────────────────────────────────────────────
-
-  /**
-   * Legacy refresh method kept for API compatibility with existing callers.
-   * Supabase's autoRefreshToken handles this automatically; this is a manual
-   * escape hatch for callers that need a synchronous boolean result.
-   */
-  async refresh(): Promise<boolean> {
-    const sb = getSupabase();
-    const { data, error } = await sb.auth.refreshSession();
-    if (error || !data.session) {
-      tokenStore.clear();
-      return false;
-    }
-    mirrorSession(data.session.access_token, data.session.refresh_token);
-    return true;
   },
 };

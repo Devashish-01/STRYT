@@ -226,8 +226,17 @@ export const discoveryService = {
         sb.rpc("search_providers_nearby", { ...args, in_limit: provLimit, in_offset: provFrom }),
       ]);
       if (!bizRpc.error && !provRpc.error) {
-        const bizRows = toCamel<Business[]>(bizRpc.data ?? []).map((b) => withDistance(b, opts.lat!, opts.lng!));
-        const provRows = toCamel<Provider[]>(provRpc.data ?? []).map((p) => withDistance(p, opts.lat!, opts.lng!));
+        // Same photo enrichment as the Explore feeds: without it a shop that has no cover photo is a blank tile here
+        // but a curated image in Explore.
+        const bizRows = toCamel<Business[]>(bizRpc.data ?? []).map((b) => ({
+          ...withDistance(b, opts.lat!, opts.lng!),
+          coverImage: getRelatableBusinessCover(b),
+          gallery: getRelatableBusinessGallery(b),
+        }));
+        const provRows = toCamel<Provider[]>(provRpc.data ?? []).map((p) => ({
+          ...withDistance(p, opts.lat!, opts.lng!),
+          avatar: getRelatableProviderAvatar(p),
+        }));
         // A page shorter than the limit is the last one — the RPC doesn't count the whole set, and counting it would
         // cost a second scan for a number the UI only uses to decide whether to offer "Load more".
         const pageOf = <T,>(rows: T[], from: number, limit: number): Page<T> => ({
@@ -250,10 +259,14 @@ export const discoveryService = {
     const userLng = opts.lng ?? DEFAULT_LNG;
 
     const bizPage = toPage<Business>(bizRes.data, bizRes.count, bizFrom, bizLimit);
-    bizPage.data = bizPage.data.map((b) => withDistance(b, userLat, userLng));
+    bizPage.data = bizPage.data.map((b) => ({
+      ...withDistance(b, userLat, userLng),
+      coverImage: getRelatableBusinessCover(b),
+      gallery: getRelatableBusinessGallery(b),
+    }));
 
     const provPage = toPage<Provider>(provRes.data, provRes.count, provFrom, provLimit);
-    provPage.data = provPage.data.map((prov) => withDistance(prov, userLat, userLng));
+    provPage.data = provPage.data.map((prov) => ({ ...withDistance(prov, userLat, userLng), avatar: getRelatableProviderAvatar(prov) }));
 
     return { businesses: bizPage, providers: provPage };
   },

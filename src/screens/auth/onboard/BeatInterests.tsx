@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { catalogService } from "@/services";
 import { useI18n } from "@/lib/i18n";
+import { Check } from "@/components/Icons";
 import { Skeleton } from "@/components/states";
 import { BeatFrame } from "./BeatFrame";
 
@@ -35,7 +36,7 @@ export function BeatInterests({
   onDone: (categoryIds: string[]) => void;
   onSkip: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const { data, loading } = useQuery(() => catalogService.getCategories(), [], "categories");
   const groups = (data ?? []).filter((c) => c.parentId === null);
   const [picked, setPicked] = useState<string[]>(initial ?? []);
@@ -69,10 +70,12 @@ export function BeatInterests({
             >
               <span className="ob-interest-icon">{c.icon}</span>
               <span className="ob-interest-name">{c.name}</span>
+              {picked.includes(c.id) && <Check size={15} aria-hidden="true" />}
             </button>
           ))}
         </div>
       )}
+      {picked.length > 0 && <p className="ob-hint" aria-live="polite">{tf("ob_picked_count", { n: picked.length })}</p>}
     </BeatFrame>
   );
 }

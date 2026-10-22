@@ -8,6 +8,8 @@ vi.mock("@/services", () => ({
   deliveryService: {
     acceptBatch: vi.fn().mockResolvedValue(undefined),
     declineBatch: vi.fn().mockResolvedValue(undefined),
+    declineSolo: vi.fn().mockResolvedValue(undefined),
+    readyForRedelivery: vi.fn().mockResolvedValue(true),
   },
   bulkService: {
     confirmDeposit: vi.fn().mockResolvedValue(undefined),
@@ -83,6 +85,8 @@ describe("the registry covers the chain it replaced", () => {
     "ACCEPT_COUNTER", "DECLINE_COUNTER", "COUNTER_QUOTE", "VIEW_QUOTE", "VIEW_AGREEMENT", "CONFIRM_PAYMENT",
     "REJECT_PAYMENT", "PAY", "JOIN_DEAL", "VIEW_REQUEST", "SEND_QUOTE", "SWITCH_BUSINESS", "RESUBMIT_VERIFY",
     "REPLY_CHAT", "ANSWER_QNA", "VIEW_QNA", "VIEW_DETAILS",
+    // Added after the refactor (DLV-027): "I'm ready now" after a failed delivery the customer caused.
+    "READY_FOR_REDELIVERY",
   ];
 
   it("registers every action name the chain matched, and no others", () => {
@@ -166,10 +170,14 @@ describe("guards that used to live in the else-if condition", () => {
     expect(ctx.setDeclining).not.toHaveBeenCalled();
   });
 
-  it("ACCEPT_DELIVERY does nothing without a batchId", async () => {
+  it("ACCEPT_DELIVERY and DECLINE_DELIVERY do nothing without a batchId or a deliveryId", async () => {
     const ctx = makeCtx({ meta: {} });
     await notificationActions["ACCEPT_DELIVERY"](ctx);
+    await notificationActions["DECLINE_DELIVERY"](ctx);
     expect(deliveryService.acceptBatch).not.toHaveBeenCalled();
+    expect(deliveryService.declineBatch).not.toHaveBeenCalled();
+    expect(deliveryService.declineSolo).not.toHaveBeenCalled();
+    expect(ctx.nav).not.toHaveBeenCalled();
   });
 });
 
@@ -207,6 +215,55 @@ describe("optimistic update, server call, rollback", () => {
     await notificationActions["ACCEPT_DELIVERY"](ctx);
     expect(deliveryService.acceptBatch).toHaveBeenCalledWith("b1");
     expect(ctx.showToast).toHaveBeenCalledWith("notif_dlv_accepted_toast");
+  });
+
+  // DLV-016: a single assignment has a deliveryId and no batchId; its buttons used to do nothing at all.
+  it("ACCEPT_DELIVERY on a single assignment opens the rider console (there is no acceptance step to call)", async () => {
+    const ctx = makeCtx({ meta: { deliveryId: "d1" } });
+    await notificationActions["ACCEPT_DELIVERY"](ctx);
+    expect(ctx.nav).toHaveBeenCalledWith("/delivery");
+    expect(deliveryService.acceptBatch).not.toHaveBeenCalled();
+    expect(notificationService.markRead).toHaveBeenCalledWith("n1");
+  });
+
+  it("DECLINE_DELIVERY on a single assignment declines that delivery, not a batch", async () => {
+    const ctx = makeCtx({ meta: { deliveryId: "d1" } });
+    await notificationActions["DECLINE_DELIVERY"](ctx);
+    expect(deliveryService.declineSolo).toHaveBeenCalledWith("d1");
+    expect(deliveryService.declineBatch).not.toHaveBeenCalled();
+    expect(ctx.showToast).toHaveBeenCalledWith("notif_dlv_declined_toast");
+  });
+
+  it("DECLINE_DELIVERY on a run still declines the batch", async () => {
+    const ctx = makeCtx({ meta: { batchId: "b1", deliveryId: "d1" } });
+    await notificationActions["DECLINE_DELIVERY"](ctx);
+    expect(deliveryService.declineBatch).toHaveBeenCalledWith("b1");
+    expect(deliveryService.declineSolo).not.toHaveBeenCalled();
+  });
+
+  it("READY_FOR_REDELIVERY tells the shop and confirms; a throttled repeat says so", async () => {
+    const ctx = makeCtx({ meta: { appointmentId: "a1" } });
+    await notificationActions["READY_FOR_REDELIVERY"](ctx);
+    expect(deliveryService.readyForRedelivery).toHaveBeenCalledWith("a1");
+    expect(ctx.showToast).toHaveBeenCalledWith("dlv_trk_ready_sent");
+
+    vi.mocked(deliveryService.readyForRedelivery).mockResolvedValueOnce(false);
+    const again = makeCtx({ meta: { appointmentId: "a1" } });
+    await notificationActions["READY_FOR_REDELIVERY"](again);
+    expect(again.showToast).toHaveBeenCalledWith("dlv_trk_ready_throttled");
+  });
+
+  it("READY_FOR_REDELIVERY does nothing without an appointmentId", async () => {
+    const ctx = makeCtx({ meta: {} });
+    await notificationActions["READY_FOR_REDELIVERY"](ctx);
+    expect(deliveryService.readyForRedelivery).not.toHaveBeenCalled();
+  });
+
+  it("DECLINE_DELIVERY rolls back with the server's message when it fails", async () => {
+    vi.mocked(deliveryService.declineSolo).mockRejectedValueOnce(new Error("INVALID_STATE"));
+    const ctx = makeCtx({ meta: { deliveryId: "d1" } });
+    await notificationActions["DECLINE_DELIVERY"](ctx);
+    expect(ctx.refetch).toHaveBeenCalledTimes(1);
   });
 
   it("DECLINE opens the decline sheet instead of calling a service", async () => {

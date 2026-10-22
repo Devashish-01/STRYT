@@ -63,19 +63,19 @@ export default function AdminLogin() {
         >
           <Shield size={28} color="#fff" />
         </div>
-        <h1 className="h1">Admin Console</h1>
+        <h1 className="h1" style={{ color: "#fff" }}>Admin Console</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>Restricted access — authorized administrators only</p>
       </div>
 
       <div className="col gap-12" style={{ maxWidth: 340, width: "100%", margin: "0 auto" }}>
         <div
-          className="row"
+          className="row admin-field"
           style={{ background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.12)", borderRadius: 14, overflow: "hidden", alignItems: "center" }}
         >
           <span style={{ paddingLeft: 14, display: "flex", color: "rgba(255,255,255,0.4)" }}><User size={16} /></span>
           <input
             className="input"
-            style={{ border: "none", background: "transparent", flex: 1, padding: "14px", fontSize: 15, color: "#fff", outline: "none" }}
+            style={{ border: "none", background: "transparent", flex: 1, padding: "14px", fontSize: 15, color: "#fff", outline: "none", boxShadow: "none" }}
             placeholder="Admin ID"
             value={adminId}
             onChange={(e) => setAdminId(e.target.value)}
@@ -85,14 +85,14 @@ export default function AdminLogin() {
           />
         </div>
         <div
-          className="row"
+          className="row admin-field"
           style={{ background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.12)", borderRadius: 14, overflow: "hidden", alignItems: "center" }}
         >
           <span style={{ paddingLeft: 14, display: "flex", color: "rgba(255,255,255,0.4)" }}><Lock size={16} /></span>
           <input
             type="password"
             className="input"
-            style={{ border: "none", background: "transparent", flex: 1, padding: "14px", fontSize: 15, color: "#fff", outline: "none" }}
+            style={{ border: "none", background: "transparent", flex: 1, padding: "14px", fontSize: 15, color: "#fff", outline: "none", boxShadow: "none" }}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

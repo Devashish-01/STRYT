@@ -1,22 +1,45 @@
+import { useState } from "react";
 import GoogleSignIn from "@/components/GoogleSignIn";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "@/components/Icons";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Loader } from "@/components/Icons";
 import { Capacitor } from "@capacitor/core";
 import StreetScene from "@/components/StreetScene";
 import BrandLockup from "@/components/BrandLockup";
 import AppMark from "@/components/AppMark";
+import { authService } from "@/services";
+import { useI18n } from "@/lib/i18n";
+import { otpErrorText } from "@/lib/authErrors";
+import { LEGAL_ROUTES } from "@/lib/legal";
 
 // Pre-auth (no location) → the lamp burns at a fixed "dusk street" glow rather
 // than pretending to know the local time/weather.
 const LOGIN_GLOW = 0.85;
 
-// Number/email login is hidden for the live launch — Google is the only
-// sign-in method until phone/email OTP is reintroduced. See GOAL_LIVE.md.
-
 export default function PhoneEntry() {
   const nav = useNavigate();
+  const { t, tf } = useI18n();
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const phoneValid = phone.trim().length === 10;
+
+  async function handleSendOtp() {
+    if (!phoneValid || loading) return;
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const { autoVerified } = await authService.sendOtp(phone);
+      sessionStorage.setItem("otp_phone", phone);
+      nav("/auth/otp", { state: { phone, autoVerified } });
+    } catch (err) {
+      setErrorMsg(otpErrorText(err, t, tf));
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
       {/* ── LEFT PANEL: trust / brand (desktop only) ── */}
@@ -75,119 +98,102 @@ export default function PhoneEntry() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL: auth card ── */}
-      <div
-        className="login-form-panel"
-        style={{
-          flex: 1,
-          background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--line) 100%)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          overflow: "hidden",
-          padding: "48px 32px",
-          minHeight: "100vh",
-        }}
-      >
-        {/* Soft blobs */}
-        <div style={{ position:"absolute", top:-50, left:-50, width:220, height:220, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(60px)", opacity:0.17, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-30, right:-30, width:180, height:180, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(50px)", opacity:0.14, pointerEvents:"none" }} />
+      {/* ── RIGHT PANEL: on phones this is a brand hero with a bottom sheet; on desktop a centred card ── */}
+      <div className="login-form-panel">
+        <button type="button" className="login-back" onClick={() => nav("/")} aria-label={t("back_word")}>
+          <ArrowLeft size={20} />
+        </button>
 
-        {/* Mobile-only street scene — this panel turns coloured on small
-            screens (see .login-form-panel override below). */}
-        <span className="login-street-mobile">
-          <StreetScene />
-        </span>
-
-        {/* Mobile-only back button (hidden on desktop) */}
-        <div className="login-mobile-header" style={{ position:"absolute", top:20, left:20, zIndex:10 }}>
-          <button
-            onClick={() => nav("/")}
-            style={{ background:"#fff", border:"1px solid var(--ink-200)", borderRadius:"50%", width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"var(--ink-700)", boxShadow:"var(--shadow-sm)" }}
-          >
-            <ArrowLeft size={17} />
-          </button>
+        {/* Phones only: the lamp lockup owns the space above the sheet. */}
+        <div className="login-mobile-brand">
+          <span className="login-street-mobile">
+            <StreetScene />
+          </span>
+          <div className="login-lockup">
+            <BrandLockup glow={LOGIN_GLOW} size={34} onClick={() => nav("/")} />
+          </div>
         </div>
 
-        {/* Mobile-only brand */}
-        <div className="login-mobile-brand" style={{ textAlign:"center", marginBottom:28, position:"relative", zIndex:2, display: "inline-flex", color: "#fff" }}>
-          <BrandLockup glow={LOGIN_GLOW} size={24} onClick={() => nav("/")} />
-        </div>
+        <div className="login-card">
+          <div className="login-sheet-handle" aria-hidden="true" />
 
-        {/* Main auth card */}
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid var(--ink-200)",
-            borderRadius: 28,
-            padding: "32px 28px",
-            width: "100%",
-            maxWidth: 440,
-            boxShadow: "var(--shadow-lg)",
-            position: "relative",
-            zIndex: 2,
-          }}
-        >
-          {/* Desktop back button inside card header */}
-          <div className="login-desktop-back" style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
-            <button
-              onClick={() => nav("/")}
-              style={{ background:"var(--ink-50)", border:"1px solid var(--ink-200)", borderRadius:10, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"var(--ink-600)", flexShrink:0 }}
-            >
-              <ArrowLeft size={16} />
-            </button>
+          {/* Desktop card header (phones show the lockup above instead) */}
+          <div className="login-desktop-back">
             <AppMark size={38} radius={11} shadow={false} />
             <div>
-              <div style={{ fontWeight:800, fontSize:17, color:"var(--ink-900)" }}>Sign in to STRYT</div>
-              <div style={{ fontSize:12, color:"var(--ink-500)", marginTop:1 }}>Continue with your Google account</div>
+              <div className="login-card-title">Sign in to STRYT</div>
+              <div className="login-card-sub">{t("login_welcome_sub")}</div>
             </div>
           </div>
 
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <GoogleSignIn />
-
-
+          <div className="login-mobile-title">
+            <h1>{t("login_welcome_title")}</h1>
+            <p>{t("login_welcome_sub")}</p>
           </div>
-        </div>
 
-        {/* Download pill */}
-        {!Capacitor.isNativePlatform() && (
-          <div style={{ marginTop:20, position:"relative", zIndex:2 }}>
-            <a href={APK_DOWNLOAD_URL} download={APK_FILENAME} style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.75)", border:"1.5px solid var(--brand-200)", padding:"7px 18px", borderRadius:999, fontSize:12.5, fontWeight:700, color:"var(--brand-700)", textDecoration:"none", backdropFilter:"blur(8px)", boxShadow:"var(--shadow-sm)" }}>
+          <form
+            className="login-form"
+            onSubmit={(e) => { e.preventDefault(); void handleSendOtp(); }}
+            noValidate
+          >
+            <div className={`login-phone${errorMsg ? " has-error" : ""}`}>
+              <span className="login-phone-cc" aria-hidden="true">+91</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                className="login-phone-input"
+                placeholder={t("login_phone_placeholder")}
+                aria-label={t("login_phone_label")}
+                aria-invalid={Boolean(errorMsg)}
+                aria-describedby={errorMsg ? "login-phone-error" : undefined}
+                value={phone}
+                onChange={(e) => {
+                  setErrorMsg("");
+                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                }}
+                maxLength={10}
+                disabled={loading}
+              />
+            </div>
 
-              🤖 Download Android App
+            {errorMsg && (
+              <div id="login-phone-error" className="login-error" role="alert">
+                {errorMsg}
+              </div>
+            )}
+
+            <button type="submit" className="login-cta" disabled={!phoneValid || loading}>
+              {loading ? <Loader className="spin" size={20} /> : (
+                <>
+                  <span>{t("login_continue")}</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="login-divider"><span>{t("login_or")}</span></div>
+
+          <GoogleSignIn showLegal={false} />
+
+          {/* One compact legal line instead of a paragraph under the Google button */}
+          <p className="login-legal">
+            {t("login_legal_prefix")}{" "}
+            <Link to={LEGAL_ROUTES.terms}>{t("login_link_terms")}</Link>{" "}{t("login_legal_and")}{" "}
+            <Link to={LEGAL_ROUTES.privacy}>{t("login_link_privacy")}</Link>
+          </p>
+
+          {!Capacitor.isNativePlatform() && (
+            <a className="login-apk" href={APK_DOWNLOAD_URL} download={APK_FILENAME}>
+              {t("login_get_android")}
             </a>
-          </div>
-        )}
+          )}
 
-        <span style={{ marginTop:16, fontSize:11, color:"var(--ink-400)", textAlign:"center", lineHeight:1.5, position:"relative", zIndex:2 }}>
-          Secured by STRYT Authentication.
-        </span>
+          {/* Invisible reCAPTCHA container for Firebase Phone Auth */}
+          <div id="recaptcha-container"></div>
+        </div>
       </div>
-
-      <style>{`
-        .login-street-mobile { display: none; }
-        @media (min-width: 768px) {
-          .login-hero-panel { display: flex !important; }
-          .login-mobile-brand { display: none !important; }
-          .login-mobile-header { display: none !important; }
-          .login-desktop-back { display: flex !important; }
-        }
-        @media (max-width: 767px) {
-          .login-hero-panel { display: none !important; }
-          .login-desktop-back { display: none !important; }
-          .login-street-mobile { display: block; }
-          .login-form-panel {
-            background: linear-gradient(160deg, var(--brand-500) 0%, var(--brand-700) 55%, var(--ink-800) 100%) !important;
-          }
-          .login-form-panel > div[style*="background:#fff"],
-          .login-form-panel > div[style*="background: #fff"] {
-            background: rgba(255,255,255,0.97) !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

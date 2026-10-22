@@ -24,7 +24,7 @@ import { scrubValue } from "./scrubPii";
 
 declare const __APP_VERSION__: string;
 
-/** Must match the events_name_known CHECK constraint in 20260996. Adding one means a migration. */
+/** Must match the events_name_known CHECK constraint in 20260996/20260999. Adding one means a migration. */
 export type EventName =
   | "signup_completed"
   | "request_created"
@@ -35,7 +35,22 @@ export type EventName =
   | "deal_completed"
   | "dispute_opened"
   | "review_left"
-  | "share_link_opened";
+  | "share_link_opened"
+  // Phone sign-in funnel (20260999). Props are categorical only — never the number, the code or provider text.
+  | "otp_sent"
+  | "otp_verified"
+  | "otp_failed"
+  // Delivery funnel (20261003). Categorical props only — never an address, a name or a phone number.
+  | "delivery_packed"
+  | "delivery_assigned"
+  | "delivery_picked_up"
+  | "delivery_started"
+  | "delivery_arrived"
+  | "delivery_delivered"
+  | "delivery_failed"
+  | "delivery_declined"
+  | "delivery_cash_collected"
+  | "delivery_cash_settled";
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 

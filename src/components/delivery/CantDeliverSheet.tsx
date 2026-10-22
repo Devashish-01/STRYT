@@ -167,7 +167,7 @@ export default function CantDeliverSheet({
                   borderRadius: 12,
                   textAlign: "left",
                   border: selected ? "2px solid var(--delivery-600)" : "1.5px solid var(--ink-200)",
-                  background: selected ? "var(--delivery-50)" : "var(--surface, #fff)",
+                  background: selected ? "var(--delivery-50)" : "var(--surface)",
                 }}
               >
                 <span className="col" style={{ minWidth: 0, gap: 1 }}>
@@ -218,7 +218,7 @@ export default function CantDeliverSheet({
             marginTop: 8,
             height: 46,
             background: armed ? "var(--red-500)" : "transparent",
-            color: armed ? "#fff" : canProceed ? "var(--red-600)" : "var(--ink-400)",
+            color: armed ? "var(--white)" : canProceed ? "var(--red-600)" : "var(--ink-400)",
             border: armed ? "none" : "1.5px solid transparent",
             fontWeight: armed ? 700 : 600,
             transition: "background 160ms ease, color 160ms ease",

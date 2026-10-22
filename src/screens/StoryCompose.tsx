@@ -199,7 +199,8 @@ export default function StoryCompose() {
         <div style={{
           position: "relative", width: "100%",
           aspectRatio: "9/14", maxHeight: 380, borderRadius: 18, overflow: "hidden",
-          border: "2px dashed var(--ink-300)", background: "#000",
+          background: image ? "#000" : "linear-gradient(160deg, var(--brand-600) 0%, var(--brand-800) 55%, var(--ink-900) 100%)",
+          boxShadow: "var(--shadow-md)",
         }}>
           <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
@@ -225,18 +226,17 @@ export default function StoryCompose() {
               </button>
             </>
           ) : (
-            <div className="col center" style={{ height: "100%", gap: 14 }}>
+            <div className="col center" style={{ height: "100%", gap: 12, padding: "0 28px" }}>
               {uploading ? (
-                <span className="small muted">Uploading…</span>
+                <span className="small" style={{ color: "rgba(255,255,255,0.85)" }}>Uploading…</span>
               ) : (
                 <>
-                  <button className="col center muted gap-6" onClick={() => cameraRef.current?.click()}>
-                    <Camera size={32} />
-                    <span className="small">Take photo</span>
+                  <span className="story-canvas-icon" aria-hidden="true"><Camera size={30} /></span>
+                  <button className="story-canvas-btn primary" onClick={() => cameraRef.current?.click()}>
+                    <Camera size={18} /> Take photo
                   </button>
-                  <button className="col center muted gap-6" onClick={() => galleryRef.current?.click()}>
-                    <Image size={28} />
-                    <span className="small">Choose from gallery</span>
+                  <button className="story-canvas-btn" onClick={() => galleryRef.current?.click()}>
+                    <Image size={18} /> Choose from gallery
                   </button>
                 </>
               )}

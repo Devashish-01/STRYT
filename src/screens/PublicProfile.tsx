@@ -391,7 +391,7 @@ export default function PublicProfile() {
               <>
                 <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
                 <div className="col center grow">
-                  <span className="bold" style={{ fontSize: 18, color: "var(--blue-500)" }}>{u.ratingAvg}★</span>
+                  <span className="bold" style={{ fontSize: 18, color: "var(--blue-500)" }}>{u.ratingCount > 0 ? <>{u.ratingAvg}★</> : "—"}</span>
                   <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("rating_label")}</span>
                 </div>
               </>
@@ -490,8 +490,8 @@ export default function PublicProfile() {
                     tabIndex={0}
                     onClick={() => nav(`/community/${p.id}`)}
                   >
-                    <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
-                      <div className="row gap-6 center-v">
+                    <div className="row space-between" style={{ marginBottom: 8, alignItems: "center", gap: 8 }}>
+                      <div className="row gap-6 center-v grow" style={{ minWidth: 0 }}>
                         {/* Was rendering the raw enum, so a lost-and-found post
                             read as "LOST_FOUND" on a public profile. */}
                         <span className={`badge badge-${postTypeMeta(p.type).tone}`} style={{ fontSize: 11 }}>
@@ -509,7 +509,7 @@ export default function PublicProfile() {
                           </button>
                         )}
                       </div>
-                      <span style={{ fontSize: 11, color: "var(--ink-400)", fontWeight: 500 }}>{p.date}</span>
+                      <span style={{ fontSize: 11, color: "var(--ink-400)", fontWeight: 500, flexShrink: 0 }}>{p.date}</span>
                     </div>
                     {p.title && <div className="bold small" style={{ marginBottom: 6, lineHeight: 1.35, color: "var(--ink-900)" }}>{p.title}</div>}
                     <p className="small clamp-2" style={{ lineHeight: 1.5, color: "var(--ink-700)", margin: 0 }}>{p.body}</p>

@@ -139,7 +139,7 @@ export const test = base.extend<Personas>({
 export { expect };
 
 /**
- * Marks a test blocked by a known, logged bug (docs/gaps/GAP_LEDGER.csv). It is reported as fixme and skipped;
+ * Marks a test blocked by a known, logged bug (archive/docs/gaps/GAP_LEDGER.csv). It is reported as fixme and skipped;
  * E2E_RUN_FIXME=1 runs these tests anyway, to prove a bug still reproduces or that a fix closed it.
  */
 export const knownBug = (reason: string) => test.fixme(process.env.E2E_RUN_FIXME !== "1", reason);

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, RefreshCw } from "@/components/Icons";
 import { useState, useEffect, type ReactNode, type CSSProperties, type MouseEventHandler } from "react";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 /** Visual for `usePullToRefresh` — a self-sizing box that grows with the
  * pull gesture and naturally pushes the content below it down, so no
@@ -84,6 +85,22 @@ export function AppBar({
 }
 
 export function Rating({ value, size = 13 }: { value: number; size?: number }) {
+  const { t } = useI18n();
+  // A rating can never legitimately be 0 (the minimum is one star), so 0 means "nobody has rated this yet". Showing
+  // that as a red "0.0" reads as a terrible score, which is exactly wrong for every new shop on its first day.
+  if (!value || value <= 0) {
+    return (
+      <span
+        className="stars"
+        style={{
+          background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)",
+          padding: "2px 8px", borderRadius: 7, fontSize: size, lineHeight: 1, fontWeight: 700,
+        }}
+      >
+        {t("rating_new")}
+      </span>
+    );
+  }
   const color = value >= 4 ? "var(--green-500)" : value >= 3 ? "var(--amber-500)" : "var(--red-500)";
   return (
     <span
@@ -202,16 +219,22 @@ export function VegDot({ veg }: { veg?: boolean }) {
 
 // Image with graceful fallback. Real data has missing/broken image URLs;
 // this avoids broken-image icons across the app.
-const FALLBACK_IMG =
+// The colours are rgb() on purpose: a "#" or "%23" inside an SVG that is then run through encodeURIComponent
+// ends up double-encoded and the fill is silently invalid, which rendered every fallback as a BLACK box.
+const FALLBACK_BG = "rgb(236,232,245)";
+const FALLBACK_FG = "rgb(181,173,208)";
+const svgDataUri = (inner: string) =>
   "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='%23ece8f5'/><text x='50%' y='50%' font-size='48' text-anchor='middle' dominant-baseline='central' fill='%23b5add0'>🏪</text></svg>`
-  );
-const FALLBACK_AVATAR =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='%23ece8f5'/><text x='50%' y='50%' font-size='48' text-anchor='middle' dominant-baseline='central' fill='%23b5add0'>👤</text></svg>`
-  );
+  encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' width='120' height='120'><rect width='120' height='120' fill='${FALLBACK_BG}'/>${inner}</svg>`);
+
+/** A storefront: awning, body, door. */
+const FALLBACK_IMG = svgDataUri(
+  `<path d='M28 54h64l-7-20H35z' fill='${FALLBACK_FG}'/><rect x='33' y='58' width='54' height='34' rx='3' fill='${FALLBACK_FG}'/><rect x='54' y='70' width='12' height='22' fill='${FALLBACK_BG}'/>`
+);
+/** A person: head and shoulders. */
+const FALLBACK_AVATAR = svgDataUri(
+  `<circle cx='60' cy='46' r='20' fill='${FALLBACK_FG}'/><path d='M20 120c0-26 18-42 40-42s40 16 40 42z' fill='${FALLBACK_FG}'/>`
+);
 
 /** 5→1 star distribution bars, computed from a loaded reviews array. */
 export function RatingBars({ ratings }: { ratings: number[] }) {

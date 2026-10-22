@@ -47,7 +47,7 @@ export function BizCatalogGrid({
                 {item.isVeg != null && <VegDot veg={item.isVeg} />}
                 {item.bestSeller && <span className="badge badge-amber">⭐</span>}
               </div>
-              <div className="semi ellipsis" style={{ marginTop: 4, fontSize: 14 }}>{item.name}</div>
+              <div className="semi biz-item-name" style={{ marginTop: 4, fontSize: 14 }}>{item.name}</div>
               <div className="row gap-6" style={{ marginTop: 2 }}>
                 <span className="bold small">{inr(item.salePrice ?? item.price)}</span>
                 {item.salePrice && <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(item.price)}</span>}

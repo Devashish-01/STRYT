@@ -414,14 +414,16 @@ export default function ProviderDashboard() {
                 </span>
               </div>
             </div>
-            <button
-              className="tiny semi"
-              style={{ padding: "7px 10px", background: "rgba(255, 255, 255, 0.16)", border: "1px solid rgba(255, 255, 255, 0.2)", borderRadius: 999, color: "#fff", whiteSpace: "nowrap", flexShrink: 0 }}
-              onClick={() => nav(`/provider/${id}`)}
-            >
-              View Public →
-            </button>
           </div>
+          {/* Under the identity row, not beside it: beside it the name truncated to "Dev Electricals -…" and the subtitle
+              ran into the skyline. */}
+          <button
+            className="tiny semi"
+            style={{ marginTop: 12, padding: "8px 14px", background: "rgba(255, 255, 255, 0.16)", border: "1px solid rgba(255, 255, 255, 0.2)", borderRadius: 999, color: "#fff", whiteSpace: "nowrap" }}
+            onClick={() => nav(`/provider/${id}`)}
+          >
+            View Public →
+          </button>
         </div>
       </div>
 

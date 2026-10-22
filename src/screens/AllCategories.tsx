@@ -7,7 +7,7 @@ import { ErrorView } from "@/components/states";
 import { EmptyState } from "@/components/common";
 import type { Category } from "@/types";
 import { useApp } from "@/store";
-import RadiusSelector from "@/components/RadiusSelector";
+import RadiusDropdown from "@/components/RadiusDropdown";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
 
@@ -77,10 +77,10 @@ export default function AllCategories() {
       </header>
 
       {/* Search */}
-      <div className="page-pad" style={{ paddingBottom: 0 }}>
+      <div className="page-pad row gap-8 center-v" style={{ paddingBottom: 0 }}>
         <div
-          className="row gap-8"
-          style={{ background: "var(--ink-50)", border: "1.5px solid var(--ink-200)", borderRadius: 12, padding: "0 12px" }}
+          className="row gap-8 grow"
+          style={{ background: "var(--ink-50)", border: "1.5px solid var(--ink-200)", borderRadius: 12, padding: "0 12px", minWidth: 0 }}
         >
           <Search size={16} color="var(--ink-400)" />
           <input
@@ -96,19 +96,10 @@ export default function AllCategories() {
             </button>
           )}
         </div>
+        <RadiusDropdown value={radius} onChange={setRadius} accentColor="var(--brand-600)" label={t("allcat_radius")} />
       </div>
 
       <div className="screen-scroll">
-        {/* Radius selector */}
-        <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
-          <RadiusSelector
-            value={radius}
-            onChange={setRadius}
-            accentColor="var(--brand-600)"
-            label={t("allcat_radius")}
-          />
-        </div>
-
         {loading ? (
           <div
             className="page-pad"
@@ -191,7 +182,7 @@ export default function AllCategories() {
                         )}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 11, color: "var(--ink-400)", marginTop: 5, lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 5, lineHeight: 1.4 }}>
                         {isOther
                           ? t("allcat_other_desc")
                           : subNames.length > 0

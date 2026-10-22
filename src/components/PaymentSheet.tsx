@@ -23,7 +23,8 @@ interface PaymentSheetProps {
 export function PaymentSheet({ appointment, businessUpiId, businessName, depositPercent, vocabulary = BUSINESS_PACKAGES.generic.vocabulary, onPaid, onClose }: PaymentSheetProps) {
   const { showToast } = useApp();
 
-  const fullPrice = appointment.packagePrice ?? null;
+  // Goods plus the delivery fee snapshotted on the order — that is what the customer owes.
+  const fullPrice = appointment.packagePrice != null ? appointment.packagePrice + (appointment.deliveryFee ?? 0) : null;
   // A partial deposit only applies to a genuine 1–99% split on a known package
   // price. 0 / undefined / 100 (or no price at all) fall through to the normal
   // full-amount flow untouched.
@@ -38,7 +39,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
   const [amount, setAmount] = useState<string>(
     isDeposit
       ? String(depositAmount)
-      : appointment.paymentAmount?.toString() ?? appointment.packagePrice?.toString() ?? ""
+      : appointment.paymentAmount?.toString() ?? fullPrice?.toString() ?? ""
   );
   const [claiming, setClaiming] = useState(false);
 
@@ -91,9 +92,9 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
                 Balance ₹{balanceAmount} at {vocabulary.noun}{appointment.packageName ? ` · for: ${appointment.packageName}` : ""}
               </div>
             </>
-          ) : appointment.packagePrice ? (
+          ) : fullPrice ? (
             <>
-              <div className="bold" style={{ fontSize: 26, color: "var(--brand-700)" }}>₹{appointment.packagePrice}</div>
+              <div className="bold" style={{ fontSize: 26, color: "var(--brand-700)" }}>₹{fullPrice}</div>
               {appointment.packageName && <div className="tiny muted" style={{ marginTop: 2 }}>for: {appointment.packageName}</div>}
             </>
           ) : (

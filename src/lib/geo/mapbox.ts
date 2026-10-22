@@ -10,6 +10,7 @@
 
 import { config } from "@/config";
 import type { GeocodingProvider, GeoPlace, ReverseHit } from "./types";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface MapboxFeature {
   text: string;
@@ -35,12 +36,15 @@ export const mapboxProvider: GeocodingProvider = {
     try {
       const url =
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
-        `?access_token=${t}&language=en&limit=5` +
+        // No `limit`: Mapbox answers 422 ("limit must be combined with a single type parameter") when it is sent with several
+        // types, which made every reverse lookup here fail and fall through to the Nominatim fallback.
+        `?access_token=${t}&language=en` +
         `&types=neighborhood,locality,place,district,postcode`;
-      const res = await fetch(url);
+      // Bounded: an area name is a nicety, and the screen waiting on it must not hang on a stalled connection.
+      const res = await fetchJson<{ features?: MapboxFeature[] }>(url, 4000);
       if (!res.ok) return empty();
-      const data = await res.json();
-      const features: MapboxFeature[] = Array.isArray(data?.features) ? data.features : [];
+      const data = res.data;
+      const features: MapboxFeature[] = Array.isArray(data?.features) ? data!.features! : [];
       if (!features.length) return empty();
 
       // Most specific first — a neighbourhood name is what a person would say out loud.
@@ -72,10 +76,10 @@ export const mapboxProvider: GeocodingProvider = {
       const url =
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json` +
         `?access_token=${t}&country=${country}&language=en&limit=5&autocomplete=true`;
-      const res = await fetch(url);
+      const res = await fetchJson<{ features?: MapboxFeature[] }>(url, 5000);
       if (!res.ok) return [];
-      const data = await res.json();
-      const features: MapboxFeature[] = Array.isArray(data?.features) ? data.features : [];
+      const data = res.data;
+      const features: MapboxFeature[] = Array.isArray(data?.features) ? data!.features! : [];
       return features.map((f): GeoPlace => ({
         area: f.text,
         full: f.place_name,

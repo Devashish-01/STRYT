@@ -103,6 +103,8 @@ export default function CommunityPostDetail() {
   );
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  // Auto-grow leaves an inline height behind; shrink back to one line once the draft is empty (after posting).
+  useEffect(() => { if (!newComment && inputRef.current) inputRef.current.style.height = "44px"; }, [newComment]);
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [sending, setSending] = useState(false);
   const [sharePhone, setSharePhone] = useState(false);
@@ -1014,10 +1016,10 @@ export default function CommunityPostDetail() {
         <textarea
           ref={inputRef}
           className="input"
-          placeholder={replyingTo ? "Write a reply…" : "Add a comment… use @ to mention a neighbor"}
+          placeholder={replyingTo ? "Write a reply…" : "Add a comment…"}
           value={newComment}
           rows={1}
-          style={{ flex: 1, resize: "none", maxHeight: 80, overflowY: "auto", padding: "8px 12px", borderRadius: 20, lineHeight: 1.4, fontSize: 14 }}
+          style={{ flex: 1, resize: "none", height: 44, minHeight: 44, maxHeight: 120, overflowY: "auto", padding: "10px 16px", borderRadius: 22, lineHeight: 1.4, fontSize: 16 }}
           onChange={(e) => {
             setNewComment(e.target.value);
             // Read the mention from the caret, not from the whole string, so a

@@ -6,6 +6,15 @@ import { deliveryService } from "@/services/engagement/deliveryService";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import RouteFallback from "@/components/RouteFallback";
 
+// Per user, so someone else signing in on the same tab is not carried in by the previous rider's admission.
+const admittedKey = (userId: string) => `stryt_delivery_console_admitted:${userId}`;
+function rememberAdmitted(userId: string) {
+  try { sessionStorage.setItem(admittedKey(userId), "1"); } catch { /* private mode: falls back to the old behaviour */ }
+}
+function wasAdmitted(userId: string): boolean {
+  try { return sessionStorage.getItem(admittedKey(userId)) === "1"; } catch { return false; }
+}
+
 /**
  * Gate for the /delivery console. Users with the `delivery` scope OR any
  * active assigned delivery may enter.
@@ -31,7 +40,11 @@ export default function RequireDeliveryAgent() {
   );
   const hasActiveAssignment = (activeCount ?? 0) > 0;
 
-  if (!hasDeliveryScope && !hasActiveAssignment) return <Navigate to="/home" replace />;
+  // Once let in this session, stay in: finishing the last delivery used to drop the active count to zero and bounce the
+  // rider out before they saw it complete (R11). A fresh session still needs the scope or an assignment.
+  const earned = hasDeliveryScope || hasActiveAssignment;
+  if (earned) rememberAdmitted(user.id);
+  if (!earned && !wasAdmitted(user.id)) return <Navigate to="/home" replace />;
 
   return <Outlet />;
 }

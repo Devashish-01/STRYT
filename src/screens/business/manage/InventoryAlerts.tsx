@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
-import { AppBar, EmptyState } from "@/components/common";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { AlertTriangle, ChevronRight, Package, Check, X } from "@/components/Icons";
 import { businessService, providerService, catalogService, bustBusinessGetCache } from "@/services";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
@@ -142,7 +142,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
       <div key={item.id} className="card col gap-10" style={{ padding: 12, opacity: busy ? 0.6 : 1 }}>
         <button className="row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => setEditing(item)}>
           {item.image
-            ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+            ? <SafeImg src={item.image} alt={item.name} className="thumb" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
             : <div style={{ width: 48, height: 48, borderRadius: 10, background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Package size={20} color="var(--ink-400)" /></div>
           }
           <div className="grow" style={{ minWidth: 0 }}>

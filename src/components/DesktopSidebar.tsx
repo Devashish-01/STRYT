@@ -87,7 +87,8 @@ export default function DesktopSidebar() {
     if (isBusiness && effId) {
       const base = `/business/${effId}/manage`;
       return [
-        { to: base, label: "Home", icon: LayoutDashboard, exact: true },
+        { to: base, label: "Home", icon: Home, exact: true },
+        { to: `${base}/dashboard`, label: "Dashboard", icon: LayoutDashboard },
         { to: `${base}/profile`, label: "Profile", icon: User },
         { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
         { to: `${base}/inbox`, label: "Inbox", icon: Inbox, badge: chatUnread || undefined },

@@ -83,10 +83,10 @@ export default function RadiusSelector({
       ) : (
         <div
           style={{
+            // Wraps instead of scrolling sideways: a clipped "25 km" chip at the edge hid that more options existed.
             display: "flex",
-            gap: 6,
-            overflowX: "auto",
-            scrollbarWidth: "none",
+            flexWrap: "wrap",
+            gap: 8,
             padding: "2px 0",
             width: "100%",
           }}
@@ -99,8 +99,9 @@ export default function RadiusSelector({
                 type="button"
                 onClick={() => { haptics.selection(); selectPreset(opt.km); }}
                 style={{
-                  padding: "6px 12px",
-                  borderRadius: "var(--radius)",
+                  padding: "8px 14px",
+                  minHeight: 36,
+                  borderRadius: 999,
                   border: "none",
                   background: active ? accentColor : "var(--ink-100)",
                   color: active ? "#fff" : "var(--ink-700)",
@@ -120,8 +121,9 @@ export default function RadiusSelector({
             type="button"
             onClick={() => { haptics.selection(); openCustom(); }}
             style={{
-              padding: "6px 12px",
-              borderRadius: "var(--radius)",
+              padding: "8px 14px",
+              minHeight: 36,
+              borderRadius: 999,
               border: "none",
               background: isCustomActive ? accentColor : "var(--ink-100)",
               color: isCustomActive ? "#fff" : "var(--ink-700)",

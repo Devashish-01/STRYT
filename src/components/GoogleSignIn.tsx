@@ -7,7 +7,7 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 import { useI18n } from "@/lib/i18n";
 
 /** Shared by Welcome and the sign-in route reached from a protected action. */
-export default function GoogleSignIn() {
+export default function GoogleSignIn({ showLegal = true }: { showLegal?: boolean } = {}) {
   const [loading, setLoading] = useState(false);
   const { showToast } = useApp();
   const { t } = useI18n();
@@ -20,7 +20,7 @@ export default function GoogleSignIn() {
   }
   return (
     <div className="google-sign-in">
-      <button className="btn btn-outline btn-block" onClick={() => void signIn()} disabled={loading} aria-describedby="google-legal-notice">
+      <button className="btn btn-outline btn-block" onClick={() => void signIn()} disabled={loading} aria-describedby={showLegal ? "google-legal-notice" : undefined}>
         {loading ? <Loader className="spin" size={20} /> : (
           <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -31,10 +31,12 @@ export default function GoogleSignIn() {
         )}
         {t("login_google")}
       </button>
-      <p id="google-legal-notice" className="google-legal-notice">
-        {t("login_terms_prefix")} <Link to={LEGAL_ROUTES.terms}>{t("login_terms")}</Link>.
-        {" "}{t("login_privacy_prefix")} <Link to={LEGAL_ROUTES.privacy}>{t("login_privacy")}</Link>.
-      </p>
+      {showLegal && (
+        <p id="google-legal-notice" className="google-legal-notice">
+          {t("login_terms_prefix")} <Link to={LEGAL_ROUTES.terms}>{t("login_terms")}</Link>.
+          {" "}{t("login_privacy_prefix")} <Link to={LEGAL_ROUTES.privacy}>{t("login_privacy")}</Link>.
+        </p>
+      )}
     </div>
   );
 }

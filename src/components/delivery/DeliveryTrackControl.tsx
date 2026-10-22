@@ -5,7 +5,9 @@ import { SafeImg } from "@/components/common";
 import { Package, Phone, CheckCircle, Share2 } from "@/components/Icons";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { trackingUrl } from "@/lib/trackingLink";
 
 /**
  * Customer's view of their delivery: progress only.
@@ -13,14 +15,17 @@ import { errorMessage } from "@/lib/errorMessage";
  * There is deliberately NO live map or agent location here — that was withdrawn
  * as a product decision, and the restriction is enforced server-side
  * (my_delivery_progress returns no coordinates, and get_tracking nulls them for
- * the delivery branch), not just hidden in this component.
+ * the delivery branch), not just hidden in this component. What the customer does get is a time:
+ * my_delivery_progress works out "minutes away" on the server from the rider's fresh position and returns only that number.
  *
  * The agent's name/phone/photo appear only once THIS delivery is actually under
  * way, so an assigned-but-not-started order discloses nothing about who's coming.
  */
 export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }: { appointmentId: string; fallbackEtaText?: string | null }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const [sharing, setSharing] = useState(false);
+  const [readyBusy, setReadyBusy] = useState(false);
   const { data: d, refetch } = useQuery(
     () => deliveryService.myProgress(appointmentId),
     [appointmentId],
@@ -32,6 +37,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
   useEffect(() => {
     if (!d || d.status === "DELIVERED" || d.status === "CANCELLED") return;
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       refetch();
     }, 12000);
 
@@ -51,7 +57,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
     setSharing(true);
     try {
       const token = await deliveryService.createTrackingToken(appointmentId);
-      const url = `${window.location.origin}/track/${token}`;
+      const url = trackingUrl(token);
       if (navigator.share) {
         try {
           await navigator.share({ title: "Track Delivery · STRYT", url });
@@ -61,11 +67,24 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
         }
       }
       await navigator.clipboard.writeText(url);
-      showToast("Tracking link copied to clipboard");
+      showToast(t("dlv_trk_link_copied"));
     } catch (e) {
-      showToast(errorMessage(e, "Could not generate tracking link"));
+      showToast(errorMessage(e, t("dlv_trk_link_failed")));
     } finally {
       setSharing(false);
+    }
+  }
+
+  async function readyNow() {
+    if (readyBusy) return;
+    setReadyBusy(true);
+    try {
+      const sent = await deliveryService.readyForRedelivery(appointmentId);
+      showToast(sent ? t("dlv_trk_ready_sent") : t("dlv_trk_ready_throttled"));
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't send — try again"));
+    } finally {
+      setReadyBusy(false);
     }
   }
 
@@ -79,7 +98,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
     return (
       <div className="card row gap-8 center-v" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
         <Package size={15} color="var(--delivery-600)" />
-        <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>Delivery accepted</span>
+        <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{t("dlv_trk_accepted")}</span>
         <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{fallbackEtaText}</span>
       </div>
     );
@@ -87,39 +106,57 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
 
   if (d.status === "CANCELLED") {
     const reasonText =
-      d.cancelReason === "CUSTOMER_UNAVAILABLE" ? "Customer was unavailable at the address."
-      : d.cancelReason === "ADDRESS_PROBLEM" ? "Address or access issue encountered."
-      : d.cancelReason === "CUSTOMER_REFUSED" ? "Delivery was refused."
-      : d.cancelReason === "UNSAFE" ? "Delivery halted due to safety conditions."
-      : d.cancelReason === "AGENT_EMERGENCY" ? "Rider experienced an emergency."
-      : d.cancelNote || "Delivery could not be completed.";
+      d.cancelReason === "CUSTOMER_UNAVAILABLE" ? t("dlv_trk_cancel_unavailable")
+      : d.cancelReason === "ADDRESS_PROBLEM" ? t("dlv_trk_cancel_address")
+      : d.cancelReason === "CUSTOMER_REFUSED" ? t("dlv_trk_cancel_refused")
+      : d.cancelReason === "UNSAFE" ? t("dlv_trk_cancel_unsafe")
+      : d.cancelReason === "AGENT_EMERGENCY" ? t("dlv_trk_cancel_emergency")
+      : (d.cancelReason as string | null | undefined) === "ORDER_CANCELLED" ? t("dlv_trk_cancel_order")
+      : d.cancelNote || t("dlv_trk_cancel_default");
+    // When the customer was the reason (or the address was), they can tell the shop they're ready for another attempt.
+    const canRetry = d.cancelReason === "CUSTOMER_UNAVAILABLE" || d.cancelReason === "ADDRESS_PROBLEM";
 
     return (
       <div className="card col gap-6" style={{ padding: "11px 12px", background: "var(--red-50)", border: "none", marginTop: 2 }}>
         <div className="row gap-8 center-v">
           <Package size={15} color="var(--red-600)" />
-          <span className="small semi grow" style={{ color: "var(--red-600)" }}>Delivery cancelled</span>
+          <span className="small semi grow" style={{ color: "var(--red-600)" }}>{t("dlv_trk_cancelled")}</span>
         </div>
         <div className="tiny muted">{reasonText}</div>
         {d.cancelNote && d.cancelReason && <div className="tiny muted">Note: {d.cancelNote}</div>}
-        <div className="tiny muted">Please contact the store to arrange re-dispatch or pickup.</div>
+        <div className="tiny muted">{t("dlv_trk_contact_store")}</div>
+        <div className="row gap-8">
+          {canRetry && (
+            <button className="btn btn-delivery btn-sm grow" disabled={readyBusy} onClick={readyNow}>{t("dlv_trk_ready_now")}</button>
+          )}
+          {d.businessPhone && (
+            <a className="btn btn-outline btn-sm grow row gap-6 center" href={`tel:${d.businessPhone}`}>
+              <Phone size={13} /> {t("dlv_trk_call_shop")}
+            </a>
+          )}
+        </div>
       </div>
     );
   }
 
   const label =
-    d.status === "ASSIGNED" ? "A delivery agent is assigned"
-    : d.status === "EN_ROUTE" ? "Your delivery is on the way"
-    : d.status === "ARRIVED" ? "Your delivery agent has arrived"
-    : "Delivered";
+    d.status === "ASSIGNED" ? (d.pickedUp ? t("dlv_trk_picked_up") : t("dlv_trk_assigned"))
+    : d.status === "EN_ROUTE" ? t("dlv_trk_on_way")
+    : d.status === "ARRIVED" ? t("dlv_trk_arrived")
+    : t("dlv_trk_delivered");
+
+  // A computed "N min away" beats the owner's static promise once the rider is moving; fall back to that promise otherwise.
+  const timeText = d.status === "DELIVERED" ? null
+    : d.etaMinutes != null ? tf("dlv_trk_eta_min", { n: d.etaMinutes })
+    : d.etaText;
 
   return (
     <div className="card col gap-9" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
       <div className="row gap-8 center-v">
         <Package size={15} color="var(--delivery-600)" />
         <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{label}</span>
-        {d.etaText && d.status !== "DELIVERED" && (
-          <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{d.etaText}</span>
+        {timeText && d.status !== "ARRIVED" && (
+          <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{timeText}</span>
         )}
         <button
           type="button"
@@ -127,8 +164,8 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
           style={{ width: 28, height: 28, color: "var(--delivery-600)" }}
           onClick={handleShare}
           disabled={sharing}
-          title="Share tracking link"
-          aria-label="Share tracking link"
+          title={t("dlv_trk_share")}
+          aria-label={t("dlv_trk_share")}
         >
           <Share2 size={14} />
         </button>
@@ -140,7 +177,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
       {/* Queue position while they wait their turn on a multi-stop run. */}
       {d.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (
         <div className="tiny muted">
-          {d.stopsBefore} {d.stopsBefore === 1 ? "delivery" : "deliveries"} ahead of yours.
+          {(d.stopsBefore ?? 0) === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: d.stopsBefore ?? 0 })}
         </div>
       )}
 
@@ -150,27 +187,34 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
           <SafeImg src={d.agentAvatar ?? undefined} variant="avatar" style={{ width: 30, height: 30, flexShrink: 0 }} />
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="tiny semi ellipsis">{d.agentName}</div>
-            <div className="tiny muted">Your delivery agent</div>
+            <div className="tiny muted">{t("dlv_trk_your_agent")}</div>
           </div>
           {d.agentPhone && (
             <a className="btn btn-delivery btn-sm row gap-6 center" style={{ flexShrink: 0 }} href={`tel:${d.agentPhone}`}>
-              <Phone size={13} /> Call
+              <Phone size={13} /> {t("dlv_trk_call")}
             </a>
           )}
         </div>
       )}
 
+      {/* The shop is reachable from the moment the order is dispatched, not only once a rider is on the way. */}
+      {d.status !== "DELIVERED" && d.businessPhone && (
+        <a className="btn btn-outline btn-sm row gap-6 center" href={`tel:${d.businessPhone}`}>
+          <Phone size={13} /> {t("dlv_trk_call_shop")}
+        </a>
+      )}
+
       {/* Handoff code — the customer's half of the OTP exchange. */}
       {(d.status === "EN_ROUTE" || d.status === "ARRIVED") && d.handoffCode && !d.handoffVerified && (
         <div className="row gap-8 center-v" style={{ background: "var(--surface)", borderRadius: 10, padding: "8px 10px" }}>
-          <div className="grow tiny muted">Show this code to the agent</div>
+          <div className="grow tiny muted">{t("dlv_trk_show_code")}</div>
           <div className="semi" style={{ letterSpacing: 3, fontSize: 16, color: "var(--delivery-600)" }}>{d.handoffCode}</div>
         </div>
       )}
 
       {d.status === "DELIVERED" && (
         <div className="row gap-6 center-v tiny" style={{ color: "var(--green-600)" }}>
-          <CheckCircle size={14} /> Delivered
+          <CheckCircle size={14} /> {t("dlv_trk_delivered")}
         </div>
       )}
     </div>

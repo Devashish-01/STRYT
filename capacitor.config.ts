@@ -54,12 +54,8 @@ const config: CapacitorConfig = {
       resize: 'native' as any,
     },
     FirebaseAuthentication: {
-      // We use Supabase as the actual session/auth backend, not Firebase Auth —
-      // this makes signInWithGoogle() do ONLY the native Credential Manager
-      // picker + return a Google ID token, without also creating a parallel
-      // Firebase Auth session. See src/lib/nativeAuth.ts.
-      skipNativeAuth: true,
-      providers: ['google.com'],
+      skipNativeAuth: false,
+      providers: ['google.com', 'phone'],
     },
     CapacitorUpdater: {
       // Self-hosted OTA updates for JS/CSS/HTML changes — no new APK/Play Store

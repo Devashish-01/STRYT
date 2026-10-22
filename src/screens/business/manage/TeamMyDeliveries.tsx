@@ -24,10 +24,11 @@ export default function TeamMyDeliveries() {
   const nav = useNavigate();
   const { data: deliveries, loading, error } = useQuery(() => deliveryService.myDeliveries(), [id], `delivery:my-deliveries`);
 
-  const mine = useMemo(
-    () => (deliveries ?? []).filter((d) => d.businessId === id),
-    [deliveries, id],
-  );
+  const mine = useMemo(() => (deliveries ?? []).filter((d) => d.businessId === id), [deliveries, id]);
+  // What still needs doing comes first; finished ones are history, capped so the list never grows without bound.
+  const isLive = (st: string) => st === "ASSIGNED" || st === "EN_ROUTE" || st === "ARRIVED";
+  const live = useMemo(() => mine.filter((d) => isLive(d.status)), [mine]);
+  const history = useMemo(() => mine.filter((d) => !isLive(d.status)).slice(0, 10), [mine]);
 
   if (!id) {
     return (
@@ -55,7 +56,7 @@ export default function TeamMyDeliveries() {
 
         {error && <ErrorView error={error as any} />}
 
-        {!loading && mine.length === 0 && (
+        {!loading && live.length === 0 && (
           <div className="card center col gap-8" style={{ padding: 24, textAlign: "center" }}>
             <Package size={32} color="var(--delivery-600)" />
             <div className="semi">No active deliveries</div>
@@ -63,9 +64,11 @@ export default function TeamMyDeliveries() {
           </div>
         )}
 
-        {mine.length > 0 && (
+        {[{ label: "", rows: live }, { label: "Recent", rows: history }].map((group) => group.rows.length > 0 && (
+          <div key={group.label || "live"} className="col gap-6">
+            {group.label && <div className="tiny semi muted" style={{ textTransform: "uppercase", letterSpacing: 0.6 }}>{group.label}</div>}
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {mine.map((item, index) => (
+            {group.rows.map((item, index) => (
               <button
                 key={item.id}
                 type="button"
@@ -89,7 +92,8 @@ export default function TeamMyDeliveries() {
               </button>
             ))}
           </div>
-        )}
+          </div>
+        ))}
       </div>
       <ManageNav bizId={id} />
     </div>

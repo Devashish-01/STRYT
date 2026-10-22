@@ -1,3 +1,4 @@
+import { RASTER_TILES } from "@/lib/mapTiles";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
@@ -8,19 +9,22 @@ import { config } from "@/config";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import { liveStatusToDeliveryStatus } from "@/lib/deliveryStatus";
 import { track } from "@/lib/analytics";
+import { useI18n } from "@/lib/i18n";
 
-const anonSb = createClient(
-  config.supabaseUrl,
-  config.supabaseAnonKey
-);
+const anonSb = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+  // This page is public and sessionless. Without these the second client shares the app's storage key and warns about
+  // multiple GoTrue instances.
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
 
-const STATUS_LABELS: Record<string, { emoji: string; label: string }> = {
-  ASSIGNED:   { emoji: "📦", label: "Order assigned" },
-  LEAVING:    { emoji: "🚶", label: "Leaving now" },
-  ON_THE_WAY: { emoji: "🛵", label: "On the way" },
-  ARRIVED:    { emoji: "📍", label: "Arrived" },
-  WORKING:    { emoji: "🔧", label: "Working" },
-  DONE:       { emoji: "✅", label: "Delivered" },
+const STATUS_LABELS: Record<string, { emoji: string; key: string }> = {
+  ASSIGNED:   { emoji: "📦", key: "dlv_pub_assigned" },
+  LEAVING:    { emoji: "🚶", key: "dlv_pub_leaving" },
+  ON_THE_WAY: { emoji: "🛵", key: "dlv_pub_on_way" },
+  ARRIVED:    { emoji: "📍", key: "dlv_pub_arrived" },
+  WORKING:    { emoji: "🔧", key: "dlv_pub_working" },
+  DONE:       { emoji: "✅", key: "dlv_pub_done" },
+  CANCELLED:  { emoji: "⚠️", key: "dlv_pub_cancelled" },
 };
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -31,6 +35,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 }
 
 export default function TrackingPage() {
+  const { t, tf } = useI18n();
   const { token } = useParams<{ token: string }>();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<L.Map | null>(null);
@@ -61,7 +66,7 @@ export default function TrackingPage() {
   // Inject pulse CSS
   useEffect(() => {
     const style = document.createElement("style");
-    style.textContent = `@keyframes naya-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,0.4)} 50%{box-shadow:0 0 0 10px rgba(22,163,74,0)} }`;
+    style.textContent = `@keyframes naya-pulse { 0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--green-500) 40%, transparent)} 50%{box-shadow:0 0 0 10px color-mix(in srgb, var(--green-500) 0%, transparent)} }`;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
@@ -101,10 +106,10 @@ export default function TrackingPage() {
   useEffect(() => {
     if (loading || expired || isDelivery || !mapRef.current || leafletMap.current) return;
     const map = L.map(mapRef.current, { zoomControl: false }).setView([20.5937, 78.9629], 14);
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' }
-    ).addTo(map);
+    L.tileLayer(RASTER_TILES.url, {
+      attribution: RASTER_TILES.attribution, maxZoom: RASTER_TILES.maxZoom,
+      tileSize: RASTER_TILES.tileSize, zoomOffset: RASTER_TILES.zoomOffset,
+    }).addTo(map);
     leafletMap.current = map;
   }, [loading, expired, isDelivery]);
 
@@ -112,7 +117,7 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!leafletMap.current || providerLat === null || providerLng === null) return;
     const icon = L.divIcon({
-      html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--green-500);border:3px solid #fff;box-shadow:0 0 0 6px rgba(22,163,74,0.25);animation:naya-pulse 1.5s ease-in-out infinite"></div>`,
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--green-500);border:3px solid var(--white);box-shadow:0 0 0 6px color-mix(in srgb, var(--green-500) 25%, transparent);animation:naya-pulse 1.5s ease-in-out infinite"></div>`,
       className: "",
       iconSize: [18, 18],
       iconAnchor: [9, 9],
@@ -155,11 +160,18 @@ export default function TrackingPage() {
   // Live updates: poll the safe RPC. (Realtime on agreements can't be used here
   // because the agreements table is correctly locked to participants, and this
   // page serves logged-out visitors via a share link.)
+  const finished = liveStatus === "DONE" || liveStatus === "CANCELLED";
   useEffect(() => {
-    if (!agreementId || !token) return;
+    if (!agreementId || !token || finished) return;
     const poll = setInterval(async () => {
-      const { data } = await anonSb.rpc("get_tracking", { p_token: token });
-      const row = Array.isArray(data) ? data[0] : data;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      let row: any;
+      try {
+        const { data } = await anonSb.rpc("get_tracking", { p_token: token });
+        row = Array.isArray(data) ? data[0] : data;
+      } catch {
+        return; // offline for a moment: keep what is on screen and try again next tick
+      }
       if (!row) return;
       if (row.provider_lat != null) setProviderLat(row.provider_lat);
       if (row.provider_lng != null) setProviderLng(row.provider_lng);
@@ -171,12 +183,12 @@ export default function TrackingPage() {
       if (row.stops_before != null) setStopsBefore(row.stops_before);
     }, 15000);
     return () => clearInterval(poll);
-  }, [agreementId, token]);
+  }, [agreementId, token, finished]);
 
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        <div style={{ color: "var(--brand-700)", fontWeight: 700, fontSize: 18 }}>Loading…</div>
+        <div style={{ color: "var(--brand-700)", fontWeight: 700, fontSize: 18 }}>{t("loading")}</div>
       </div>
     );
   }
@@ -185,13 +197,14 @@ export default function TrackingPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12 }}>
         <div style={{ fontSize: 40 }}>🔗</div>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>Tracking link has expired</div>
-        <div style={{ color: "var(--ink-500)", fontSize: 14 }}>Ask the requester to share a new link.</div>
+        <div style={{ fontWeight: 700, fontSize: 18 }}>{t("dlv_pub_expired_title")}</div>
+        <div style={{ color: "var(--ink-500)", fontSize: 14 }}>{t("dlv_pub_expired_text")}</div>
       </div>
     );
   }
 
-  const statusInfo = STATUS_LABELS[liveStatus] ?? { emoji: "📍", label: liveStatus };
+  const statusInfo = STATUS_LABELS[liveStatus] ?? { emoji: "📍", key: "" };
+  const statusLabel = statusInfo.key ? t(statusInfo.key) : liveStatus;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -205,19 +218,21 @@ export default function TrackingPage() {
           </svg>
           <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
         </span>
-        <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{isDelivery ? "Delivery progress" : "Live tracking"}</span>
+        <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{isDelivery ? t("dlv_pub_progress") : t("dlv_pub_live")}</span>
       </div>
 
       {/* Provider bar */}
       <div style={{ height: 60, background: "var(--surface)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <SafeImg src={providerAvatar} variant="avatar" style={{ width: 40, height: 40 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} · {statusLabel.toLowerCase()}</div>
           <div style={{ fontSize: 12, color: "var(--ink-500)" }}>
-            {stopsBefore != null && stopsBefore > 0 ? `${stopsBefore} ${stopsBefore === 1 ? "delivery" : "deliveries"} before yours` : "Updates every 15s"}
+            {stopsBefore != null && stopsBefore > 0
+              ? (stopsBefore === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: stopsBefore }))
+              : finished ? "" : t("dlv_pub_updates")}
           </div>
         </div>
-        <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusInfo.label}</span>
+        <span style={{ background: liveStatus === "CANCELLED" ? "var(--red-100)" : "var(--green-100)", color: liveStatus === "CANCELLED" ? "var(--red-600)" : "var(--green-600)", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusLabel}</span>
       </div>
 
       {isDelivery ? (
@@ -225,14 +240,22 @@ export default function TrackingPage() {
         // customer. A map here would just be a permanently blank grey box, so
         // it's replaced with a status stepper instead.
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: "0 32px" }}>
-          <div style={{ width: "100%", maxWidth: 320 }}>
-            <DeliveryStepper status={liveStatusToDeliveryStatus(liveStatus)} showLabel={false} />
-          </div>
-          <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
-            Live location isn't shared for deliveries — this page shows progress only.
-            {liveStatus === "ARRIVED" && " Your delivery agent has arrived. Show them your 6-digit handoff code when receiving your order."}
-            {liveStatus === "DONE" && " Your delivery has been completed successfully."}
-          </div>
+          {liveStatus === "CANCELLED" ? (
+            <div style={{ textAlign: "center", color: "var(--red-600)", fontSize: 14, lineHeight: 1.6, fontWeight: 600 }}>
+              {t("dlv_pub_cancelled_text")}
+            </div>
+          ) : (
+            <>
+              <div style={{ width: "100%", maxWidth: 320 }}>
+                <DeliveryStepper status={liveStatusToDeliveryStatus(liveStatus)} showLabel={false} />
+              </div>
+              <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
+                {t("dlv_pub_no_location")}
+                {liveStatus === "ARRIVED" && ` ${t("dlv_pub_arrived_text")}`}
+                {liveStatus === "DONE" && ` ${t("dlv_pub_done_text")}`}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div ref={mapRef} style={{ flex: 1 }} />
@@ -241,11 +264,11 @@ export default function TrackingPage() {
       {/* Footer */}
       <div style={{ height: 50, background: "var(--surface)", borderTop: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", flexShrink: 0 }}>
         {isDelivery ? (
-          <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{stopsBefore === 0 ? "Next stop" : "Progress updates every 15s"}</span>
+          <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{finished ? "" : stopsBefore === 0 ? t("dlv_pub_next_stop") : t("dlv_pub_progress_updates")}</span>
         ) : (
           <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
         )}
-        <span style={{ fontSize: 11, color: "var(--ink-400)" }}>Powered by STRYT</span>
+        <span style={{ fontSize: 11, color: "var(--ink-400)" }}>{t("dlv_pub_powered")}</span>
       </div>
     </div>
   );

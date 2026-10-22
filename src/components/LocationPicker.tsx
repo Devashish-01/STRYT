@@ -4,6 +4,7 @@ import { Navigation, MapPin, Loader, X } from "@/components/Icons";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { makePinIcon } from "@/lib/leafletIcon";
+import { RASTER_TILES } from "@/lib/mapTiles";
 import "@/lib/leafletIcon";
 
 import { config } from "@/config";
@@ -206,10 +207,7 @@ export default function LocationPicker({
           scrollWheelZoom={false}
           zoomControl={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          />
+          <TileLayer {...RASTER_TILES} />
           <MapClickToPlace onPlace={onChange} />
           {hasPin && (
             <>

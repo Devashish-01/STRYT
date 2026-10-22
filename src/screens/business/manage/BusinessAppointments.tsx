@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { inr } from "@/lib/format";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -32,6 +32,7 @@ import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
+import DeliveryOwnerPanels from "@/components/delivery/DeliveryOwnerPanels";
 import { deliveryService } from "@/services";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { errorMessage } from "@/lib/errorMessage";
@@ -59,7 +60,9 @@ export default function BusinessAppointments() {
     refetchBlocked();
   });
 
-  const [tab, setTab] = useState<ConsoleTab>("UPCOMING");
+  // ?tab=deliveries lands straight on the dispatch list (the dashboard's Delivery tile uses it).
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<ConsoleTab>(DELIVERY_AGENT_ENABLED && searchParams.get("tab") === "deliveries" ? "DELIVERIES" : "UPCOMING");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
@@ -91,7 +94,44 @@ export default function BusinessAppointments() {
     `delivery:team:${id}`
   );
 
+  // Orders accepted for delivery that no rider has yet — the dispatch board's "needs you" list. Degrades to empty on a
+  // database without migration 20261001 so the existing list is unaffected.
+  const { data: awaiting, refetch: refetchAwaiting } = useQuery(
+    () => (DELIVERY_AGENT_ENABLED ? deliveryService.awaitingDriver(id).catch(() => []) : Promise.resolve([])),
+    [id],
+    `delivery:awaiting:${id}`
+  );
+  const awaitingIds = useMemo(() => new Set((awaiting ?? []).map((o) => o.appointmentId)), [awaiting]);
+  const nav = useNavigate();
+  const [packingId, setPackingId] = useState<string | null>(null);
+
+  async function markPacked(apt: AppointmentRecord) {
+    if (packingId) return;
+    setPackingId(apt.id);
+    try {
+      await deliveryService.markOrderReady(apt.id);
+      showToast(t("dlv_marked_packed"));
+      refetch();
+      refetchAwaiting();
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
+    } finally {
+      setPackingId(null);
+    }
+  }
+
   const appointments = useMemo(() => data ?? [], [data]);
+
+  // One query for every delivery card's current delivery, not one per card (D8). Above the early returns: hooks can't be conditional.
+  const deliveryOrderIds = useMemo(
+    () => appointments.filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED")).map((a) => a.id),
+    [appointments],
+  );
+  const { data: deliveryMap, refetch: refetchDeliveryMap } = useQuery(
+    () => (DELIVERY_AGENT_ENABLED && deliveryOrderIds.length > 0 ? deliveryService.forAppointments(deliveryOrderIds) : Promise.resolve({})),
+    [deliveryOrderIds.join(",")],
+    `delivery:for-appointments:${id}`,
+  );
   // Precomputed once per data change rather than re-filtering the full
   // appointments array on every card's render (renderAppointmentCard calls
   // both of these once per row, across every tab/list — O(n²) over a
@@ -377,10 +417,25 @@ export default function BusinessAppointments() {
                 <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_walkin_badge")}</span>}
                 {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_out_of_radius_badge")}</span>}
+                {apt.isAsap && <span className="badge badge-purple" style={{ fontSize: 9, padding: "1px 6px" }}>⚡ {t("dlv_asap_tag")}</span>}
+                {apt.isAsap && apt.status === "PENDING" && (
+                  <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>
+                    {tf("dlv_waiting_min", { n: Math.max(0, Math.round((Date.now() - new Date(apt.createdAtISO).getTime()) / 60000)) })}
+                  </span>
+                )}
+                {apt.readyAt && <span className="badge badge-green" style={{ fontSize: 9, padding: "1px 6px" }}>✓ {t("dlv_packed")}</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
+                <Calendar size={12} color="var(--brand-600)" />{" "}
+                {apt.isAsap
+                  ? `Today, by ${new Date(apt.scheduledForISO).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`
+                  : `${apt.dateLabel} at ${apt.timeLabel}`}
               </div>
+              {apt.fulfillmentType === "DELIVERY" && (apt.deliveryFee ?? 0) > 0 && apt.packagePrice != null && (
+                <div className="tiny muted" style={{ marginTop: 2 }}>
+                  ₹{apt.packagePrice} + ₹{apt.deliveryFee} {t("dlv_fee_line").toLowerCase()}
+                </div>
+              )}
             </div>
             {!apt.isWalkIn && apt.customerId && (
               <button
@@ -563,10 +618,21 @@ export default function BusinessAppointments() {
           </button>
         )}
 
+        {DELIVERY_AGENT_ENABLED && apt.status === "ACCEPTED" && !apt.readyAt && (apt.fulfillmentType === "DELIVERY" || awaitingIds.has(apt.id)) && (
+          <button className="btn btn-outline btn-sm row gap-6 center" disabled={packingId === apt.id} onClick={() => markPacked(apt)}>
+            <Package size={14} /> {t("dlv_mark_packed")}
+          </button>
+        )}
+
         {/* Delivery dispatch — assign a delivery-scoped team member. Feature-gated, and
             only for bookings the customer actually asked to have delivered. */}
         {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-          <DeliveryAssignControl appointmentId={apt.id} businessId={id} />
+          <DeliveryAssignControl
+            appointmentId={apt.id}
+            businessId={id}
+            preloaded={deliveryMap ? ((deliveryMap as Record<string, import("@/services/engagement/deliveryService").AppointmentDelivery>)[apt.id] ?? null) : undefined}
+            onChanged={() => { refetchDeliveryMap(); refetchAwaiting(); }}
+          />
         )}
       </div>
     );
@@ -602,7 +668,12 @@ export default function BusinessAppointments() {
   // for a fresh batch (a COMPLETED one is a past order, nothing left to dispatch).
   const deliveryList = appointments
     .filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED"))
-    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
+    .sort((a, c) => {
+      const wa = awaitingIds.has(a.id) ? 0 : 1;
+      const wc = awaitingIds.has(c.id) ? 0 : 1;
+      if (wa !== wc) return wa - wc;
+      return new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime();
+    });
 
   const packageOptions = (b?.catalog ?? []).map((item) => ({
     id: item.id, name: item.name, price: item.salePrice ?? item.price,
@@ -614,7 +685,7 @@ export default function BusinessAppointments() {
       <AppBar title={nounPluralCap} subtitle={`Bookings for ${b?.name ?? "your shop"}`} />
 
       {/* Tabs */}
-      <div className="hscroll" style={{ paddingTop: 10, paddingBottom: 6 }}>
+      <div className="hscroll chip-fade" style={{ paddingTop: 10, paddingBottom: 6 }}>
         {(
           [
             { key: "UPCOMING" as const, label: `⏭️ Upcoming (${upcomingList.length})` },
@@ -680,9 +751,18 @@ export default function BusinessAppointments() {
 
         {!loading && !error && tab === "DELIVERIES" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12, paddingBottom: selectedForBatch.size > 0 ? 90 : 12 }}>
+            <DeliveryOwnerPanels businessId={id} awaitingCount={awaitingIds.size} />
             {deliveryList.length > 0 && (
               <div className="row between center-v">
                 <span className="tiny muted">{deliveryList.length} {deliveryList.length === 1 ? "delivery" : "deliveries"}</span>
+                <button
+                  type="button"
+                  className="tiny semi"
+                  style={{ color: "var(--delivery-600)" }}
+                  onClick={() => nav(`/business/${id}/manage/deliveries`)}
+                >
+                  {t("dlv_live_board")}
+                </button>
                 <button
                   type="button"
                   className="tiny semi"

@@ -139,6 +139,8 @@ export interface NotificationMetadata {
   deliveryId?: string;
   batchId?: string;
   handoffCode?: string;
+  /** The order was left at the door with a photo as proof instead of being handed over (20261004). */
+  leftAtDoor?: boolean;
   pickupAddress?: string;
   dropoffAddress?: string;
   etaText?: string;
@@ -281,6 +283,7 @@ export interface NotificationMetadata {
     | "ANSWER_QNA"
     | "VIEW_QNA"
     | "VIEW_DETAILS"
+    | "READY_FOR_REDELIVERY"
   )[];
   /** Target entity reference for scoping and deep-links. */
   targetType?: "BUSINESS" | "PROVIDER";

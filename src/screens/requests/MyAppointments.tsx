@@ -1,3 +1,4 @@
+import { termsFromBusiness, type DeliveryTerms } from "@/lib/deliveryTerms";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
@@ -110,6 +111,10 @@ interface RebookTarget {
   // still be a delivery order. Always false/null for providers.
   deliveryEnabled?: boolean;
   deliveryTime?: string | null;
+  deliveryTerms?: DeliveryTerms;
+  shopLat?: number | null;
+  shopLng?: number | null;
+  shopReachKm?: number | null;
   // The target's CURRENT resolved package (freshest info — may differ from
   // apt.targetPackageKey if the owner has changed it since the original
   // booking). Drives the sheet's own wording; a plain re-create (Book again)
@@ -216,6 +221,10 @@ export default function MyAppointments() {
           depositPercent: (b as any).depositPercent,
           deliveryEnabled: b.deliveryEnabled ?? false,
           deliveryTime: b.deliveryTime ?? null,
+          deliveryTerms: termsFromBusiness(b),
+          shopLat: b.lat,
+          shopLng: b.lng,
+          shopReachKm: b.broadcastRadius,
           targetPackageKey: resolvePackage(b),
         });
       } else {
@@ -340,8 +349,17 @@ export default function MyAppointments() {
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          <Calendar size={12} color="var(--brand-600)" /> {formatAppointmentDate(apt, lang, t)} at {apt.timeLabel}
+                          <Calendar size={12} color="var(--brand-600)" />{" "}
+                          {apt.isAsap
+                            // "Today at ASAP" read as a glitch; an ASAP order is "ASAP · by 6:42 PM".
+                            ? `${t("dlv_asap_tag")} · ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                            : `${formatAppointmentDate(apt, lang, t)} at ${apt.timeLabel}`}
                         </div>
+                        {apt.isAsap && apt.status === "PENDING" && Date.now() - new Date(apt.createdAtISO).getTime() >= 15 * 60_000 && (
+                          <div className="tiny semi" style={{ marginTop: 3, color: "var(--amber-700)", lineHeight: 1.4 }}>
+                            {t("dlv_asap_still_waiting")}
+                          </div>
+                        )}
                         {pastDueUnpaid && (
                           <div className="tiny semi row gap-4 center-v" style={{ marginTop: 3, color: "var(--amber-700)" }}>
                             {t("date_passed_payment_pending")}
@@ -477,7 +495,9 @@ export default function MyAppointments() {
                           </button>
                           <button
                             type="button"
-                            className="btn btn-primary grow btn-sm row gap-4 center"
+                            // Tonal, not solid: "Pay" is the card's one primary action, and two solid purple buttons competed.
+                            className="btn grow btn-sm row gap-4 center"
+                            style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)", boxShadow: "none" }}
                             disabled={busy}
                             onClick={() => openRebook(apt, "RESCHEDULE")}
                           >
@@ -547,6 +567,10 @@ export default function MyAppointments() {
           depositPercent={rebook.depositPercent}
           deliveryEnabled={rebook.deliveryEnabled}
           deliveryTime={rebook.deliveryTime}
+          deliveryTerms={rebook.deliveryTerms}
+          shopLat={rebook.shopLat}
+          shopLng={rebook.shopLng}
+          shopReachKm={rebook.shopReachKm}
           initialFulfillmentType={rebook.apt.fulfillmentType === "DELIVERY" ? "DELIVERY" : "IN_STORE"}
           initialPartySize={rebook.apt.partySize ?? 1}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}

@@ -28,12 +28,21 @@ export function AdminDashboard() {
           );
         })}
       </div>
-      <div className="card row" style={{ padding: 14 }}>
-        <Stat label="DAU" value={typeof d.dau === "number" ? d.dau.toLocaleString() : d.dau} />
-        <Sep />
-        <Stat label="MAU" value={typeof d.mau === "number" ? d.mau.toLocaleString() : d.mau} />
-        <Sep />
-        <Stat label="Push delivery" value={typeof d.pushDelivery === "number" ? `${d.pushDelivery}%` : d.pushDelivery} />
+      {/* "Not tracked yet" is a sentence, not a number: three of them side by side wrapped to two lines each. A dash
+          fits the stat slot, and the service's own wording appears once underneath. */}
+      <div className="card col" style={{ padding: 14, gap: 8 }}>
+        <div className="row">
+          <Stat label="DAU" value={typeof d.dau === "number" ? d.dau.toLocaleString() : "—"} />
+          <Sep />
+          <Stat label="MAU" value={typeof d.mau === "number" ? d.mau.toLocaleString() : "—"} />
+          <Sep />
+          <Stat label="Push delivery" value={typeof d.pushDelivery === "number" ? `${d.pushDelivery}%` : "—"} />
+        </div>
+        {[d.dau, d.mau, d.pushDelivery].find((v) => typeof v === "string") && (
+          <div className="tiny muted" style={{ textAlign: "center" }}>
+            {[d.dau, d.mau, d.pushDelivery].find((v) => typeof v === "string")}
+          </div>
+        )}
       </div>
       <div className="card row gap-10" style={{ padding: 14 }}>
         <TrendingUp size={18} color="var(--green-500)" />

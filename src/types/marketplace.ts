@@ -82,6 +82,15 @@ export interface Business {
   /** Owner opt-in for home delivery (Business → Settings). Gates the DELIVERY
    *  option in the booking sheet; also enforced server-side in appointment_create. */
   deliveryEnabled?: boolean;
+  /** Delivery terms (20261001). Whole rupees; null/0 mean "none". */
+  deliveryRadiusKm?: number | null;
+  deliveryFee?: number;
+  freeDeliveryAbove?: number | null;
+  minOrderAmount?: number;
+  /** Minutes from order to ready-to-ship; drives the ASAP estimate. */
+  deliveryPrepMin?: number;
+  /** Shop opt-in (20261004): a rider may leave a prepaid order at the door and complete it with a photo. */
+  deliveryProofAllowed?: boolean;
   /** Fallback bookings-per-slot for catalogue items with no capacity of their
    *  own, and for cart/no-service bookings. 1 = the classic one-at-a-time rule. */
   defaultSlotCapacity?: number;

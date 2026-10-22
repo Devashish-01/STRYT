@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SafeImg } from "@/components/common";
+import { Camera, Loader } from "@/components/Icons";
 import { LANGUAGES_ENABLED } from "@/lib/features";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { isUnusableName } from "@/lib/publicName";
@@ -54,9 +55,14 @@ export function BeatIdentity({ name, avatar, email, phone, ageConfirmed, busy, o
         </div>
       ) : undefined}>
       <div className="ob-identity-card">
-        <SafeImg src={photo} variant="avatar" className="ob-identity-avatar" />
-        <label className="ob-photo-label" htmlFor="onboard-photo">{t("ob_change_photo")}</label>
-        <input id="onboard-photo" type="file" accept="image/jpeg,image/png,image/webp"
+        <label className="ob-avatar-pick" htmlFor="onboard-photo" aria-label={t("ob_change_photo")}>
+          <SafeImg src={photo} variant="avatar" className="ob-identity-avatar" />
+          <span className="ob-avatar-badge" aria-hidden="true">
+            {uploading ? <Loader className="spin" size={14} /> : <Camera size={15} />}
+          </span>
+        </label>
+        <span className="ob-photo-hint">{t("ob_change_photo")}</span>
+        <input id="onboard-photo" className="ob-visually-hidden" type="file" accept="image/jpeg,image/png,image/webp"
           disabled={busy || uploading} onChange={e => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
         <label className="ob-label" htmlFor="onboard-name">{t("full_name")}</label>
         <input id="onboard-name" className="input ob-identity-input" value={draft}

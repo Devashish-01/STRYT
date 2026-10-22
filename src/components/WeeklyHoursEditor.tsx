@@ -284,14 +284,15 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
       )}
 
       {/* Slot duration & max appointments */}
-      <div className="row gap-12">
+      {/* flex-end: one label wraps to two lines and the other doesn't, which used to leave the two controls at different heights. */}
+      <div className="row gap-12" style={{ alignItems: "flex-end" }}>
         <div className="field grow">
           <label htmlFor="weeklyhourseditor-appointment-slot-duration" className="tiny semi muted">Appointment Slot Duration</label>
           <select id="weeklyhourseditor-appointment-slot-duration"
             className="input"
             value={w.slotDurationMin}
             onChange={(e) => commit({ ...w, slotDurationMin: Number(e.target.value) })}
-            style={{ fontSize: 13, padding: "10px 12px", width: "100%" }}
+            style={{ fontSize: 13, padding: "10px 12px", width: "100%", height: 42 }}
           >
             <option value={15}>15 minutes</option>
             <option value={30}>30 minutes</option>
@@ -303,7 +304,7 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
         </div>
         <div className="field grow">
           <label className="tiny semi muted">Max Appointments / Day</label>
-          <div className="input" style={{ fontSize: 13.5, padding: "10px 12px", background: "var(--ink-50)", fontWeight: 700, display: "flex", alignItems: "center", height: 38 }}>
+          <div className="input" style={{ fontSize: 13.5, padding: "10px 12px", background: "var(--ink-50)", fontWeight: 700, display: "flex", alignItems: "center", height: 42 }}>
             {maxSlotsLabel}
           </div>
         </div>

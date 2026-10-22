@@ -10,6 +10,7 @@ import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import DeliveryTermsEditor from "@/components/delivery/DeliveryTermsEditor";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 
@@ -403,6 +404,7 @@ export default function BusinessSettings() {
             on={deliveryEnabled}
             onChange={toggleDelivery}
           />
+          {deliveryEnabled && business && <DeliveryTermsEditor business={business} onSaved={() => { bustBusinessGetCache(id); void refetchBiz(); }} />}
           {deliveryEnabled && (
             <div style={{ padding: "13px 14px", borderTop: "1px solid var(--line)" }}>
               <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_typical_delivery_time")}</div>

@@ -20,8 +20,11 @@ import { track } from "@/lib/analytics";
 export default function UserOnboard() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast, signOut } = useApp();
-  const { t } = useI18n();
-  const [beat, setBeat] = useState(() => Math.min(Math.max(user.onboardingStep ?? 0, 0), 3));
+  const { t, tf } = useI18n();
+  // `?beat=N` (dev builds only, compiled out of production) jumps to a beat so design tooling can see every step.
+  const devBeat = import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get("beat")) : Number.NaN;
+  const [beat, setBeat] = useState(() =>
+    Number.isInteger(devBeat) && devBeat >= 0 && devBeat <= 3 ? devBeat : Math.min(Math.max(user.onboardingStep ?? 0, 0), 3));
   const [busy, setBusy] = useState(false);
   const [identity, setIdentity] = useState({
     name: user.name, avatar: user.avatar || "", phone: user.phone || "",
@@ -68,6 +71,10 @@ export default function UserOnboard() {
     <div className="ob-screen">
       <StreetScene litCount={beat} />
       <div className="ob-top"><BrandLockup glow={0.85} size={22} /></div>
+      <div className="ob-progress" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={beat + 1}
+        aria-label={tf("ob_step_of", { n: beat + 1 })}>
+        {[0, 1, 2, 3].map((i) => <span key={i} className={i <= beat ? "on" : ""} />)}
+      </div>
       {beat > 0 && (
         <button className="ob-back" onClick={() => setBeat(beat - 1)} disabled={busy} aria-label={t("back_word")}>
           <ArrowLeft size={18} />

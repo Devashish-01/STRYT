@@ -1,3 +1,4 @@
+import { RASTER_TILES } from "@/lib/mapTiles";
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -42,10 +43,10 @@ export default function LiveLocationCard({ shareId, endedHint }: { shareId: stri
     if (!mapRef.current) {
       const map = L.map(mapEl.current, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false })
         .setView([view.lat, view.lng], 15);
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' }
-      ).addTo(map);
+      L.tileLayer(RASTER_TILES.url, {
+        attribution: RASTER_TILES.attribution, maxZoom: RASTER_TILES.maxZoom,
+        tileSize: RASTER_TILES.tileSize, zoomOffset: RASTER_TILES.zoomOffset,
+      }).addTo(map);
       mapRef.current = map;
     }
     const icon = L.divIcon({

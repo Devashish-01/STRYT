@@ -6,6 +6,7 @@
 import { config } from "@/config";
 import { primaryProvider, fallbackProvider } from "./geo";
 import type { ReverseHit } from "./geo";
+import { withDeadline } from "./fetchJson";
 
 export interface GeoPlace {
   area: string;   // short name — neighbourhood/locality (e.g. "Marathahalli")
@@ -254,7 +255,20 @@ async function nearestNamedPlace(lat: number, lng: number, radiusM = 1500, maxDi
 // 2. Nearby-road sampling when the GPS point sits on an unnamed internal street.
 // 3. Overpass named developments within ~1 km.
 // 4. Official suburb (zoom 14) and city — genuine last resorts.
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+/** How long a screen waits for an area name before carrying on without one. The lookup itself keeps going and caches its answer. */
+export const AREA_NAME_BUDGET_MS = 4500;
+
+/**
+ * coords → area name, but never making the caller wait more than `budgetMs`. The full cascade below can chain a dozen
+ * rate-limited requests (a one-second gap each, plus Overpass), which on a slow network ran to tens of seconds — and every
+ * "use my location" spinner in the app was waiting on it. A late answer is not lost: it lands in the cache, so the next
+ * read of the same spot is instant. Resolves null when there is no name yet.
+ */
+export function reverseGeocode(lat: number, lng: number, budgetMs: number = AREA_NAME_BUDGET_MS): Promise<string | null> {
+  return withDeadline(resolveAreaName(lat, lng), budgetMs, null);
+}
+
+async function resolveAreaName(lat: number, lng: number): Promise<string | null> {
   const key = coordKey("area", lat, lng);
   const cached = cacheGet<string | null>(key);
   if (cached !== undefined) return cached;

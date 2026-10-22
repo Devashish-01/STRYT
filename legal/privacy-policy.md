@@ -1,7 +1,7 @@
 # STRYT — Privacy Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 September 2026
+**Last Updated:** 18 October 2026
 **Version:** 1.0 (draft for legal review)
 
 > This Privacy Policy was drafted from a direct reading of the STRYT database schema (72 tables), Edge Functions, and client code so that the data categories, flows, and third parties described here reflect what the product actually does. Items only STRYT can confirm (legal entity name, registered address, Data Protection Officer / Grievance Officer identity, and the data-residency region of the hosting project) are marked and must be completed before publication and reviewed by qualified Indian counsel.
@@ -32,7 +32,7 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.1 Account and profile
 - Your name (real name — **kept private by default**), your public handle (**alias**), profile photo or emoji avatar, phone number, email address, neighbourhood/area, city, preferred language, roles/"hats", and your notification/discovery radius.
-- Authentication identifiers from **Google Sign-In (via Firebase Authentication)** — your Google account email and basic profile, used to create and secure your Account. **Google Sign-In is currently the only way to sign in**, so an email address is required to hold an Account; a phone number is optional and is collected only if you add one or use a phone sign-in route.
+- Authentication identifiers. You can sign in in two ways. **Google Sign-In (via Firebase Authentication)** gives us your Google account email and basic profile. **Phone sign-in** uses your mobile number: Google (Firebase Authentication) sends you a one-time code by SMS and confirms it, and we keep the verified number to identify your Account. We require a mobile number to complete your profile, because people on STRYT have to be able to reach each other; it is shown to others only if you switch that on in your privacy settings. We do not use your number for marketing.
 - Your privacy settings (which of: real name, posts, asks, badges, phone, email, city, rating, exact location are public), onboarding status, and account state (enabled, deletion-scheduled timestamps).
 
 ### 3.2 Location data
@@ -154,7 +154,7 @@ As inherent to the features you use — e.g. a Seller sees your name/alias and d
 
 ### 8.2 With processors / third-party services (Data Processors)
 - **Supabase** — database, authentication, and file storage infrastructure that hosts app data on our behalf.
-- **Google / Firebase** — Google Sign-In (authentication) and Firebase Cloud Messaging (push notifications).
+- **Google / Firebase** — Google Sign-In and phone sign-in (Firebase Authentication, which sends the one-time SMS code and confirms it; your phone number is shared with Google for that purpose) and Firebase Cloud Messaging (push notifications).
 - **Vercel** — website hosting and anonymous analytics/speed insights.
 - **Mapbox** — primary geocoding and place search; when you search a place or we reverse-geocode your coordinates, that query/those coordinates are sent to Mapbox to return results.
 - **OpenStreetMap / Nominatim** — fallback geocoding, and the source of the underlying map tile data.

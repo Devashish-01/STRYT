@@ -229,7 +229,8 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
             }}
           />
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="row between gap-6 center-v">
+            {/* Reserve room on the right for the absolutely-positioned overflow (⋯) button, so the type badge never slides under it. */}
+            <div className="row between gap-6 center-v" style={{ paddingRight: isGuest ? 0 : 40 }}>
               <span className="row gap-6 center-v" style={{ minWidth: 0 }}>
                 <span className="semi ellipsis" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)" }}>{post.authorName}</span>
                 {post.authorType && post.authorType !== "user" && (
@@ -242,11 +243,11 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                   says more at a glance than "📢 Alert", and it's the one thing a
                   scanner needs from an alert. */}
               {post.type === "ALERT" && post.severity ? (
-                <span className={`badge badge-${SEVERITY_TONE[post.severity]}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 700, letterSpacing: "-0.1px" }}>
+                <span className={`badge badge-${SEVERITY_TONE[post.severity]}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 700, letterSpacing: "-0.1px", whiteSpace: "nowrap", flexShrink: 0 }}>
                   {severityMeta(post.severity).emoji} {severityMeta(post.severity).label}
                 </span>
               ) : (
-                <span className={`badge badge-${M.tone}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 600, letterSpacing: "-0.1px" }}>{M.emoji} {M.label}</span>
+                <span className={`badge badge-${M.tone}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 600, letterSpacing: "-0.1px", whiteSpace: "nowrap", flexShrink: 0 }}>{M.emoji} {M.label}</span>
               )}
             </div>
             <span className="tiny muted row gap-4 center-v" style={{ marginTop: 3, fontSize: 12 }}><MapPin size={11} /> {post.area} • {post.postedAt}</span>
@@ -515,7 +516,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
               style={{
                 marginLeft: "auto", color: "var(--brand-700)",
                 background: "var(--brand-50)", border: "1px solid var(--brand-150)",
-                padding: "6px 12px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer"
+                padding: "6px 12px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
               }}
               onClick={() => setRecommendOpen(true)}
             >

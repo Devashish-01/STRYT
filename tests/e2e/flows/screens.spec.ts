@@ -4,7 +4,7 @@ import { BUSINESS, PROVIDER, PERSONAS } from "../../../scripts/staging/personas.
 // Breadth coverage: every flow's screens, opened by the persona that uses them, on staging.
 // Each route must land where it should (including guards that redirect), finish loading (no `.skel`
 // skeletons left), throw no page errors, make no failing Supabase call and show no "Couldn't load" toast.
-// Known bugs are `fixme` with their E2E id (tracked in docs/gaps/GAP_LEDGER.csv).
+// Known bugs are `fixme` with their E2E id (tracked in archive/docs/gaps/GAP_LEDGER.csv).
 
 type Who = PersonaKey | "guest";
 type Row = { flow: string; who: Who; route: string; lands?: string; fixme?: string };

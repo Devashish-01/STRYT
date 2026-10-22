@@ -1,4 +1,5 @@
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { RASTER_TILES } from "@/lib/mapTiles";
 import { Navigation } from "@/components/Icons";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
@@ -44,7 +45,7 @@ export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", heigh
         keyboard={false}
         attributionControl={false}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+        <TileLayer {...RASTER_TILES} />
         <Marker position={[lat, lng]} icon={makePinIcon(pinColor)} />
       </MapContainer>
       <div

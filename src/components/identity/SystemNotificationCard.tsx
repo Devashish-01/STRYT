@@ -44,7 +44,9 @@ export default function SystemNotificationCard({
 }: SystemNotificationCardProps) {
   const { t } = useI18n();
   const pill = distinctPill(title, metadata.statusPill);
-  const actions = metadata.actions || [];
+  // Chat notifications carry both REPLY_CHAT and OPEN_CHAT, which render as the same "Open Chat" button; show it once.
+  const isChatAction = (a: string) => a === "REPLY_CHAT" || a === "OPEN_CHAT";
+  const actions = (metadata.actions || []).filter((a, i, all) => !isChatAction(a) || all.findIndex(isChatAction) === i);
 
   const isAccess = type === "BUSINESS_ACCESS";
   const isVerify = type === "VERIFICATION_DECIDED";

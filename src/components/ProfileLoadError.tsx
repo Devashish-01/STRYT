@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import { Loader, WifiOff } from "@/components/Icons";
 
 /** A failed profile/legal read must not open the app with an empty seed user. */
 export default function ProfileLoadError() {
@@ -12,10 +13,17 @@ export default function ProfileLoadError() {
     try { await refreshUser(); } finally { setBusy(false); }
   }
   return (
-    <main className="page" style={{ padding: "calc(32px + var(--safe-area-top)) 24px" }}>
-      <p role="alert">{t("ob_profile_error")}</p>
-      <button className="btn btn-primary" disabled={busy} onClick={() => void retry()}>{t("ob_retry")}</button>
-      <button className="btn btn-outline" disabled={busy} onClick={signOut}>{t("sign_out")}</button>
+    <main className="gate-screen" role="alert">
+      <div className="gate-main state-center">
+        <span className="state-icon" aria-hidden="true"><WifiOff size={30} /></span>
+        <p className="state-text">{t("ob_profile_error")}</p>
+      </div>
+      <div className="gate-footer">
+        <button type="button" className="login-cta" disabled={busy} onClick={() => void retry()}>
+          {busy ? <Loader className="spin" size={20} /> : t("ob_retry")}
+        </button>
+        <button type="button" className="login-ghost" disabled={busy} onClick={signOut}>{t("sign_out")}</button>
+      </div>
     </main>
   );
 }

@@ -125,7 +125,14 @@ export const notificationActions: Record<string, NotificationAction> = {
     }
   },
   ACCEPT_DELIVERY: async (ctx) => {
-    const { n, meta, showToast, t, setItems, refetch, badgeCacheKey } = ctx;
+    const { n, meta, showToast, t, setItems, refetch, badgeCacheKey, nav } = ctx;
+    // A single (non-run) assignment carries a deliveryId and no batchId. It has no acceptance step — taking it up is
+    // starting it — so "Accept" opens the rider console instead of silently doing nothing (DLV-016).
+    if (!meta?.batchId && meta?.deliveryId) {
+      if (!n.isRead) void notificationService.markRead(n.id);
+      nav("/delivery");
+      return;
+    }
     if (!(meta?.batchId)) return;
     const batchId = meta.batchId;
     setItems((p) =>
@@ -156,8 +163,9 @@ export const notificationActions: Record<string, NotificationAction> = {
   },
   DECLINE_DELIVERY: async (ctx) => {
     const { n, meta, showToast, t, setItems, refetch, badgeCacheKey } = ctx;
-    if (!(meta?.batchId)) return;
-    const batchId = meta.batchId;
+    const batchId: string | undefined = meta?.batchId;
+    const soloId: string | undefined = !batchId ? meta?.deliveryId : undefined;
+    if (!batchId && !soloId) return;
     setItems((p) =>
       p.map((x) =>
         x.id === n.id
@@ -176,12 +184,26 @@ export const notificationActions: Record<string, NotificationAction> = {
     );
     if (!n.isRead) void notificationService.markRead(n.id);
     try {
-      await deliveryService.declineBatch(batchId);
+      if (batchId) await deliveryService.declineBatch(batchId);
+      else await deliveryService.declineSolo(soloId!);
       showToast(t("notif_dlv_declined_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
     } catch (err) {
       showToast(errorMessage(err, "Couldn't decline delivery run"));
       refetch();
+    }
+  },
+  // After a failed attempt the customer caused: tell the shop they're available again (DLV-027).
+  READY_FOR_REDELIVERY: async (ctx) => {
+    const { n, meta, showToast, t } = ctx;
+    const appointmentId: string | undefined = meta?.appointmentId;
+    if (!appointmentId) return;
+    if (!n.isRead) void notificationService.markRead(n.id);
+    try {
+      const sent = await deliveryService.readyForRedelivery(appointmentId);
+      showToast(sent ? t("dlv_trk_ready_sent") : t("dlv_trk_ready_throttled"));
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't send — try again"));
     }
   },
   TRACK_DELIVERY: (ctx) => {

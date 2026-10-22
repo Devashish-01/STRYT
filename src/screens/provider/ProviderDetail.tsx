@@ -238,7 +238,7 @@ export default function ProviderDetail() {
                 {p.isVerified && <BadgeCheck size={18} color="#fff" />}
                 {isOwner && <Pill tone="purple">{t("owner_badge")}</Pill>}
               </div>
-              <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
+              <div className="small" style={{ color: "#fff", opacity: 0.92, fontWeight: 600 }}>{[p.categoryName, p.subCategory].filter(Boolean).join(" • ")}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
                   <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : t("new_word")}
@@ -402,25 +402,27 @@ export default function ProviderDetail() {
             {endorseList.length > 0 && (
               <div>
                 <div className="semi small" style={{ marginBottom: 8 }}>{t("endorsed_by_neighbors")}</div>
-                <div className="col gap-8">
+                <div className="row wrap gap-8">
                   {endorseList.map((e) => {
                     const key = `${p.id}:${e.skill}`;
                     const isOn = endorsed.includes(key);
                     const count = e.count + (isOn && !e.endorsed ? 1 : 0) - (!isOn && e.endorsed ? 1 : 0);
                     return (
-                      <div key={e.skill} className="row gap-10 card" style={{ padding: "10px 12px" }}>
-                        <span className="grow semi small">{e.skill}</span>
-                        <span className="tiny muted">{count}</span>
+                      <div key={e.skill} className={`endorse-chip${isOn ? " on" : ""}`}>
+                        <span className="endorse-chip-name">{e.skill}</span>
+                        {count > 0 && <span className="endorse-chip-count">{count}</span>}
                         {/* Guests see how many neighbours endorsed a skill, but
                             can't add an endorsement — it's a trust signal.
                             Owners don't endorse their own skills. */}
                         {!isGuest && !isOwner && (
                           <button
-                            className="btn btn-sm"
-                            style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
+                            type="button"
+                            className="endorse-chip-btn"
+                            aria-pressed={isOn}
+                            aria-label={`${isOn ? t("endorsed") : t("endorse")}: ${e.skill}`}
                             onClick={() => toggleEndorse(p.id, e.skill)}
                           >
-                            <ThumbsUp size={13} weight={isOn ? "fill" : "regular"} /> {isOn ? t("endorsed") : t("endorse")}
+                            <ThumbsUp size={14} weight={isOn ? "fill" : "regular"} />
                           </button>
                         )}
                       </div>
@@ -740,9 +742,11 @@ export default function ProviderDetail() {
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
+  // A number ("0", "8 km") reads best large; a phrase ("Within 30 minutes") must not shout over its neighbours.
+  const isPhrase = value.length > 9;
   return (
-    <div className="grow col center" style={{ gap: 1 }}>
-      <span className="bold" style={{ fontSize: 16 }}>{value}</span>
+    <div className="col center" style={{ gap: 2, flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
+      <span className="bold" style={{ fontSize: isPhrase ? 13.5 : 18, lineHeight: 1.2 }}>{value}</span>
       <span className="tiny muted">{label}</span>
     </div>
   );

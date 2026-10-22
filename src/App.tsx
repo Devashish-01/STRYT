@@ -2,6 +2,7 @@ import ProfileLoadError from "./components/ProfileLoadError";
 import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import UserProfileSheet from "./components/UserProfileSheet";
+import DeliveryTrackingRunner from "./features/delivery-tracking/DeliveryTrackingRunner";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
 import NotificationPermissionExplainer from "./components/NotificationPermissionExplainer";
@@ -106,6 +107,8 @@ const Achievements = lazy(() => import("./screens/Achievements"));
 
 // Business console
 const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashboard"));
+const BusinessHome = lazy(() => import("./screens/business/manage/BusinessHome"));
+const BusinessFeatures = lazy(() => import("./screens/business/manage/BusinessFeatures"));
 const BusinessStoreHub = lazy(() => import("./screens/business/manage/BusinessStoreHub"));
 const BusinessHub = lazy(() => import("./screens/business/manage/BusinessHub"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
@@ -372,8 +375,8 @@ function ProtectedLayout() {
     if (!location.pathname.startsWith("/auth/")) returnTo.remember(location.pathname + location.search);
     return location.pathname === "/auth/terms" ? <Outlet /> : <Navigate to="/auth/terms" replace />;
   }
-  if (location.pathname === "/auth/terms") {
-    // Already accepted — don't strand the user on the acceptance screen.
+  if (location.pathname === "/auth/terms" && !(import.meta.env.DEV && new URLSearchParams(location.search).has("preview"))) {
+    // Already accepted — don't strand the user on the acceptance screen. (`?preview` is dev-only, for design tooling.)
     return <Navigate to={contextHomePath(activeContext)} replace />;
   }
 
@@ -689,9 +692,10 @@ export default function App() {
               <Route element={<BusinessManageLayout />}>
               {/* Home and the Business hub itself are open to every session —
                   both self-filter what they show a SCOPED team member (see
-                  ManageDashboard.tsx / BusinessHub.tsx), rather than being
+                  BusinessHome.tsx / ManageDashboard.tsx / BusinessHub.tsx), rather than being
                   hard-gated, since they mix owner-only and scoped content. */}
-              <Route path="/business/:id/manage" element={<ManageDashboard />} />
+              <Route path="/business/:id/manage" element={<BusinessHome />} />
+              <Route path="/business/:id/manage/dashboard" element={<ManageDashboard />} />
               <Route path="/business/:id/manage/business" element={<BusinessHub />} />
 
               {/* Each group below is defense-in-depth against direct URL
@@ -739,6 +743,7 @@ export default function App() {
                 <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
                 <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
                 <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+                <Route path="/business/:id/manage/features" element={<BusinessFeatures />} />
               </Route>
               </Route>
             </Route>
@@ -812,6 +817,8 @@ export default function App() {
       <UserProfileSheet />
       <PinGateSheet />
       <BatteryOptimizationSheet />
+      {/* Delivery location sharing outlives any one screen (it used to stop when the rider left the console). */}
+      <DeliveryTrackingRunner />
       {toast && <div className="toast">{toast}</div>}
       {notifExplainerPending && location.pathname === "/home" && (
         <NotificationPermissionExplainer onConfirm={confirmNotifExplainer} onClose={dismissNotifExplainer} />

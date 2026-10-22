@@ -52,6 +52,15 @@ export interface AppointmentRecord {
   /** ETA the BUSINESS confirmed when accepting (free text, e.g. "30-45 min"). Kept
    *  separate from requestedDeliveryWindow so the ask and the answer stay distinguishable. */
   deliveryEtaText?: string | null;
+  /** Delivery fee charged on this order, snapshotted at booking so later setting changes never alter it. */
+  deliveryFee?: number;
+  /** Placed as "as soon as possible" instead of a picked slot (delivery only). */
+  isAsap?: boolean;
+  /** When the shop marked the order packed / ready. */
+  readyAt?: string | null;
+  /** Cash handed over to the rider, and when the shop took it from them. */
+  cashCollectedAt?: string | null;
+  cashSettledAt?: string | null;
   /** Structured cart line items (multi-item checkout / walk-in purchases) — additive to
    *  packageName/packagePrice, which stay the human-readable order summary. Only set on
    *  create() payloads that pass a real cart; a single-package booking omits this and the
@@ -65,6 +74,8 @@ export interface AppointmentRecord {
   /** Set true when the customer booked from outside the business/provider service radius.
    *  Does not block calendar slots until accepted by the owner/provider. */
   isOutOfRange?: boolean;
+  /** create() payload only: ask the server to schedule "as soon as possible" (shop prep time from now). Delivery only. */
+  asap?: boolean;
 }
 
 // A customer paying a business/provider a self-chosen amount with no

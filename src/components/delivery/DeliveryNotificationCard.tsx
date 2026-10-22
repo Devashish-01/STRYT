@@ -19,6 +19,8 @@ import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
+import { useQuery } from "@/hooks/useApi";
+import { deliveryService } from "@/services/engagement/deliveryService";
 
 interface DeliveryNotificationCardProps {
   metadata: NotificationMetadata;
@@ -44,6 +46,18 @@ function formatOtp(code?: string): string {
     return `${clean.slice(0, 2)} ${clean.slice(2)}`;
   }
   return clean;
+}
+
+/** The rider's photo of an order left at the door — fetched only for notifications that say so. */
+function ProofPhoto({ deliveryId }: { deliveryId: string }) {
+  const { t } = useI18n();
+  const { data } = useQuery(() => deliveryService.proofInfo(deliveryId), [deliveryId], `delivery:proof:${deliveryId}`);
+  if (!data?.photoUrl) return null;
+  return (
+    <a href={data.photoUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t("dlv_proof_view")}>
+      <SafeImg src={data.photoUrl} variant="photo" className="notif-dlv-proof-img" />
+    </a>
+  );
 }
 
 export default function DeliveryNotificationCard({
@@ -132,6 +146,8 @@ export default function DeliveryNotificationCard({
           <p className="notif-dlv-preview clamp-2">{preview}</p>
         </div>
       </div>
+
+      {metadata.leftAtDoor && metadata.deliveryId && <ProofPhoto deliveryId={metadata.deliveryId} />}
 
       {/* Prominent OTP Security Pill (if active handoff code available) */}
       {formattedOtp && (
@@ -235,6 +251,20 @@ export default function DeliveryNotificationCard({
       {/* Action Buttons Bar */}
       {actions.length > 0 && onAction && (
         <div className="notif-dlv-actions" onClick={(e) => e.stopPropagation()}>
+          {actions.includes("READY_FOR_REDELIVERY") && (
+            <button
+              type="button"
+              className="notif-dlv-btn notif-dlv-btn-accept"
+              onClick={() => {
+                haptics.light();
+                onAction("READY_FOR_REDELIVERY", metadata);
+              }}
+            >
+              <Check size={14} />
+              <span>{t("dlv_trk_ready_now")}</span>
+            </button>
+          )}
+
           {actions.includes("ACCEPT_DELIVERY") && (
             <button
               type="button"

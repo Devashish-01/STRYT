@@ -520,18 +520,20 @@ export default function Home() {
                     <button
                       key={c.id}
                       className="col center fade-up"
-                      style={{ gap: 5, flexShrink: 0, width: 64, background: "none", border: "none", cursor: "pointer", animationDelay: `${idx * 35}ms` }}
+                      style={{ gap: 6, flexShrink: 0, width: 68, background: "none", border: "none", cursor: "pointer", animationDelay: `${idx * 35}ms` }}
                       onClick={() => nav(`/category/${c.id}`)}
                     >
+                      {/* Instagram-highlight style: a round tile with a soft ring in the category colour */}
                       <div style={{
-                        width: 54, height: 54, borderRadius: 16,
+                        width: 60, height: 60, borderRadius: "50%",
                         background: `${c.color}1a`,
+                        border: `2px solid ${c.color}40`,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 26,
+                        fontSize: 27,
                       }}>
                         {c.icon}
                       </div>
-                      <span className="tiny semi" style={{ textAlign: "center", lineHeight: 1.2 }}>
+                      <span className="tiny semi" style={{ textAlign: "center", lineHeight: 1.2, color: "var(--ink-700)" }}>
                         {c.name.split(" ")[0]}
                       </span>
                     </button>

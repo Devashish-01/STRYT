@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, VegDot, EmptyState } from "@/components/common";
+import { AppBar, VegDot, EmptyState, SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService, bustBusinessGetCache, bustProviderGetCache } from "@/services";
@@ -116,7 +116,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         {catalog.map((item) => (
           <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
             {item.image
-              ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+              ? <SafeImg src={item.image} alt={item.name} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
               : <div style={{ width: 64, height: 64, borderRadius: 12, background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Tag size={24} color="var(--ink-400)" /></div>
             }
             <div className="grow" style={{ minWidth: 0 }}>
@@ -320,7 +320,7 @@ export function ItemEditor({
         <div style={{ position: "relative", marginBottom: 14 }}>
           <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--line)", overflow: "hidden", cursor: "pointer", background: "var(--ink-50)" }}>
             {image
-              ? <img src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ? <SafeImg src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
                   <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
                 </span>

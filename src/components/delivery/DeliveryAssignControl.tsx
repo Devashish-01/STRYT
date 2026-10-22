@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
+import type { AppointmentDelivery } from "@/services/engagement/deliveryService";
 import { useApp } from "@/store";
 import { Package } from "@/components/Icons";
 import { RowSkeleton } from "@/components/states";
 import { errorMessage } from "@/lib/errorMessage";
+import { useI18n } from "@/lib/i18n";
 
 const STATUS_LABEL: Record<string, string> = {
   ASSIGNED: "Assigned", EN_ROUTE: "On the way", ARRIVED: "Arrived", DELIVERED: "Delivered", CANCELLED: "Cancelled",
@@ -15,20 +17,36 @@ const STATUS_LABEL: Record<string, string> = {
  * active team member, and see the live status once assigned. Rendered
  * only when the delivery feature is enabled (gated at the call site).
  */
-export default function DeliveryAssignControl({ appointmentId, businessId }: { appointmentId: string; businessId: string }) {
+export default function DeliveryAssignControl({ appointmentId, businessId, preloaded, onChanged }: {
+  appointmentId: string;
+  businessId: string;
+  /** The order's latest delivery as the parent already fetched it (null = none yet). Undefined = fetch it here. */
+  preloaded?: AppointmentDelivery | null;
+  /** Called after an assignment so a parent that supplied `preloaded` can reload it. */
+  onChanged?: () => void;
+}) {
   const { showToast } = useApp();
-  const { data: delivery, loading: deliveryLoading, refetch } = useQuery(() => deliveryService.forAppointment(appointmentId), [appointmentId], `delivery:for-apt:${appointmentId}`);
+  const { t } = useI18n();
+  // A list of cards used to mount one query each; the parent now loads them all at once and passes each card its own.
+  const { data: fetched, loading: fetchedLoading, refetch } = useQuery(
+    () => (preloaded !== undefined ? Promise.resolve(preloaded) : deliveryService.forAppointment(appointmentId)),
+    [appointmentId, preloaded],
+    preloaded !== undefined ? undefined : `delivery:for-apt:${appointmentId}`,
+  );
+  const delivery = preloaded !== undefined ? preloaded : fetched;
+  const deliveryLoading = preloaded !== undefined ? false : fetchedLoading;
   const { data: team, loading: teamLoading } = useQuery(() => deliveryService.deliveryTeam(businessId), [businessId], `delivery:team:${businessId}`);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function assign(userId: string) {
+  async function assign(userId: string, self = false) {
     setBusy(true);
     try {
       await deliveryService.assignDelivery(appointmentId, userId);
-      showToast("Delivery assigned");
+      showToast(self ? t("dlv_assigned_to_me") : "Delivery assigned");
       setPicking(false);
       refetch();
+      onChanged?.();
     } catch (e) {
       showToast(errorMessage(e, "Couldn't assign delivery"));
     } finally {
@@ -82,8 +100,8 @@ export default function DeliveryAssignControl({ appointmentId, businessId }: { a
           ) : (
             <div className="row wrap gap-6">
               {(team ?? []).map((m) => (
-                <button key={m.userId} className="chip" disabled={busy} onClick={() => assign(m.userId)}>
-                  {m.name}{!m.onDuty && <span className="muted"> · Off duty</span>}
+                <button key={m.userId} className={`chip ${m.isSelf ? "active" : ""}`} disabled={busy} onClick={() => assign(m.userId, m.isSelf)}>
+                  {m.isSelf ? t("dlv_me") : m.name}{!m.onDuty && !m.isSelf && <span className="muted"> · Off duty</span>}
                 </button>
               ))}
             </div>

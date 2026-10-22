@@ -1,6 +1,6 @@
 # E2E coverage — 52 tracked flows
 
-Source of flows: `docs/gaps/MASTER_FLOW_AUDIT_TRACKER.md`. All specs run on **staging** as the synthetic personas.
+Source of flows: `archive/docs/gaps/MASTER_FLOW_AUDIT_TRACKER.md`. All specs run on **staging** as the synthetic personas.
 
 **Levels**
 - **Journey** — the flow's main action is performed through the UI, checked from every affected persona's side, and

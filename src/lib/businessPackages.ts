@@ -6,7 +6,7 @@
  * meant editing `BusinessOnboard.tsx` and `BusinessDetail.tsx` directly. This
  * replaces it with a closed catalogue of packages — one config object each,
  * covering every seeded category — so adding or changing a vertical is a
- * data edit here, never a screen edit. See docs/trackers plan
+ * data edit here, never a screen edit. See archive/docs/trackers plan
  * "Business Packages — one system for every category" for the full design.
  *
  * Resolution order (see `resolvePackage`):

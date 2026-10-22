@@ -28,9 +28,10 @@
 
 // Types only — erased at build time, so importing them costs nothing at runtime.
 import type { FirebaseApp } from "firebase/app";
-import type { Auth, GoogleAuthProvider as GoogleAuthProviderType, User } from "firebase/auth";
+import type { Auth, GoogleAuthProvider as GoogleAuthProviderType, User, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { completeLoginAcceptance, restoreLoginAcceptance, cancelLoginAcceptance } from "./loginAcceptance";
+import { skipAppVerificationFor } from "./otpDevTest";
 
 // ---------------------------------------------------------------------------
 // Config — sourced from Vite env. apiKey + authDomain + projectId are all that
@@ -63,6 +64,8 @@ export const hasFirebaseWebConfig = Boolean(
 // ---------------------------------------------------------------------------
 let _app:  FirebaseApp | null = null;
 let _auth: Auth        | null = null;
+let _phoneConfirmationResult: ConfirmationResult | null = null;
+let _recaptchaVerifier: RecaptchaVerifier | null = null;
 let _sdk: Promise<{
   app: typeof import("firebase/app");
   auth: typeof import("firebase/auth");
@@ -303,3 +306,99 @@ export async function firebaseSignOut(): Promise<void> {
     // Best-effort; Supabase sign-out already happened.
   }
 }
+
+/**
+ * Send an SMS verification code (OTP) via Firebase Phone Authentication on Web.
+ * Renders an invisible reCAPTCHA on the provided container (or auto-attaches one to the DOM).
+ */
+export async function firebaseSendPhoneOtp(phone: string, containerId = "recaptcha-container"): Promise<void> {
+  if (!hasFirebaseWebConfig) {
+    throw new Error("Phone sign-in is unavailable — Firebase is not configured for this build.");
+  }
+  const { auth: sdk } = await loadSdk();
+  const auth = await getFirebaseAuth();
+  // Development builds only, and only for the registered test numbers in VITE_FIREBASE_TEST_PHONES (see otpDevTest.ts).
+  auth.settings.appVerificationDisabledForTesting = skipAppVerificationFor(phone, {
+    dev: import.meta.env.DEV,
+    // Read only in dev: in a production build `DEV` is the constant false, so the minifier drops this and the number
+    // list is not shipped in the bundle at all.
+    testPhones: import.meta.env.DEV ? (import.meta.env.VITE_FIREBASE_TEST_PHONES as string | undefined) : undefined,
+  });
+
+  let container = document.getElementById(containerId);
+  if (!container) {
+    container = document.createElement("div");
+    container.id = containerId;
+    document.body.appendChild(container);
+  }
+
+  // Clear previous verifier and inner DOM if any
+  if (_recaptchaVerifier) {
+    try {
+      _recaptchaVerifier.clear();
+    } catch {
+      // ignore
+    }
+    _recaptchaVerifier = null;
+  }
+  container.innerHTML = "";
+
+  _recaptchaVerifier = new sdk.RecaptchaVerifier(auth, container, {
+    size: "invisible",
+  });
+
+  await _recaptchaVerifier.render();
+
+  try {
+    const confirmationResult = await sdk.signInWithPhoneNumber(auth, phone, _recaptchaVerifier);
+    _phoneConfirmationResult = confirmationResult;
+  } catch (err: any) {
+    if (_recaptchaVerifier) {
+      try { _recaptchaVerifier.clear(); } catch {}
+      _recaptchaVerifier = null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Verify a 6-digit phone OTP via Firebase Phone Authentication on Web.
+ * Returns the verified Firebase User and ID token.
+ */
+export async function firebaseVerifyPhoneOtp(otp: string): Promise<{ idToken: string; user: User }> {
+  if (!_phoneConfirmationResult) {
+    throw new Error("No phone verification request found. Please request a new OTP.");
+  }
+  const result = await _phoneConfirmationResult.confirm(otp);
+  const user = result.user;
+  const idToken = await user.getIdToken();
+  // Deliberately NOT rememberFirebaseBridge(true): that flag drives firebaseSilentRefresh(), which re-bridges
+  // a *Google* id_token. A phone session has its own Supabase refresh-token chain and nothing to re-bridge.
+  return { idToken, user };
+}
+
+/** True while a code has been sent from this page load and can still be confirmed. Lost on reload. */
+export function hasPendingPhoneVerification(): boolean {
+  return _phoneConfirmationResult !== null;
+}
+
+/**
+ * Called once the Supabase session exists. Firebase only had to prove the phone number; its session would
+ * just linger in IndexedDB, so drop it together with the one-shot confirmation and the reCAPTCHA widget.
+ */
+export async function firebaseFinishPhoneSignIn(): Promise<void> {
+  _phoneConfirmationResult = null;
+  if (_recaptchaVerifier) {
+    try { _recaptchaVerifier.clear(); } catch {}
+    _recaptchaVerifier = null;
+  }
+  try {
+    if (!hasFirebaseWebConfig) return;
+    const { auth: sdk } = await loadSdk();
+    const auth = await getFirebaseAuth();
+    if (auth.currentUser) await sdk.signOut(auth);
+  } catch {
+    // Best-effort.
+  }
+}
+

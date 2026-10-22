@@ -14,6 +14,11 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import LocationPicker from "@/components/LocationPicker";
 import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
 import { inr } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
+import {
+  DEFAULT_DELIVERY_TERMS, asapEstimateMin, deliveryFeeFor, distanceKm, effectiveRadiusKm, freeDeliveryRemaining,
+  isOutsideDeliveryArea, minOrderShortfall, type DeliveryTerms,
+} from "@/lib/deliveryTerms";
 import { errorMessage } from "@/lib/errorMessage";
 
 function getSlotHour(s: AppointmentSlot): number {
@@ -63,6 +68,12 @@ export interface AppointmentSheetProps {
   deliveryEnabled?: boolean;
   /** Expected delivery turnaround from business row (e.g. "30 mins", "1 hour"). */
   deliveryTime?: string | null;
+  /** The shop's delivery terms (fee, free-above, minimum, radius, prep). Defaults to "no fee, no minimum". */
+  deliveryTerms?: DeliveryTerms;
+  /** The shop's position and reach, to tell the customer when a drop-off is outside the delivery area. */
+  shopLat?: number | null;
+  shopLng?: number | null;
+  shopReachKm?: number | null;
   /** Pre-select the fulfillment mode — used when rescheduling or re-booking so a
    *  delivery order doesn't silently come back as an in-store visit. */
   initialFulfillmentType?: "IN_STORE" | "DELIVERY";
@@ -94,6 +105,10 @@ export function AppointmentSheet({
   outOfRange = false,
   deliveryEnabled = false,
   deliveryTime,
+  deliveryTerms = DEFAULT_DELIVERY_TERMS,
+  shopLat,
+  shopLng,
+  shopReachKm,
   initialFulfillmentType,
   initialPartySize,
   vocabulary = BUSINESS_PACKAGES.generic.vocabulary,
@@ -102,6 +117,7 @@ export function AppointmentSheet({
   onBooked,
 }: AppointmentSheetProps) {
   const { user, showToast } = useApp();
+  const { t, tf } = useI18n();
   const isReschedule = !!rescheduledFromId;
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
@@ -117,6 +133,12 @@ export function AppointmentSheet({
   const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">(
     initialFulfillmentType === "DELIVERY" && canOfferDelivery ? "DELIVERY" : "IN_STORE"
   );
+  // Delivery can be "as soon as possible" (the shop's prep time from now) or a picked slot. ASAP is the default for a new
+  // order; a reschedule is always a slot by definition.
+  // "As soon as possible" only makes sense while the shop is open: outside its hours the order would sit unanswered (and be
+  // cancelled by the sweep), so the option isn't offered and the customer picks a time instead.
+  const asapAvailable = availableNow;
+  const [timing, setTiming] = useState<"ASAP" | "SCHEDULED">(isReschedule || !availableNow ? "SCHEDULED" : "ASAP");
   const [deliveryAddressLine, setDeliveryAddressLine] = useState(user?.area || "");
   const [requestedWindow, setRequestedWindow] = useState("");
   const [deliveryLat, setDeliveryLat] = useState<number | null>(user?.lat ?? null);
@@ -263,6 +285,21 @@ export function AppointmentSheet({
       ? selectedPkg.price * (canPickParty ? partySize : 1)
       : null;
 
+  const asapOn = canOfferDelivery && fulfillmentType === "DELIVERY" && timing === "ASAP" && !isReschedule;
+  const subtotal = activePrice ?? 0;
+  const feeNow = canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryFeeFor(subtotal, deliveryTerms) : 0;
+  const shortfall = canOfferDelivery && fulfillmentType === "DELIVERY" ? minOrderShortfall(subtotal, deliveryTerms) : 0;
+  const freeLeft = canOfferDelivery && fulfillmentType === "DELIVERY" && !isReschedule ? freeDeliveryRemaining(subtotal, deliveryTerms) : null;
+  const dropPoint = { lat: deliveryLat, lng: deliveryLng };
+  const outsideArea =
+    canOfferDelivery && fulfillmentType === "DELIVERY" &&
+    isOutsideDeliveryArea({ lat: shopLat, lng: shopLng }, dropPoint, effectiveRadiusKm(deliveryTerms, shopReachKm));
+  const km = shopLat != null && shopLng != null && deliveryLat != null && deliveryLng != null
+    ? distanceKm({ lat: shopLat, lng: shopLng }, { lat: deliveryLat, lng: deliveryLng })
+    : null;
+  const asapMin = asapEstimateMin(deliveryTerms, km);
+  const slotLabel = asapOn ? "ASAP" : selectedSlot?.timeLabel ?? "";
+
   // Switching service changes both capacity and party limits, so a slot or
   // party size chosen under the old service may no longer be valid. Clamp the
   // party size and drop a selection that no longer fits rather than letting
@@ -361,8 +398,12 @@ export function AppointmentSheet({
   const deliveryAddressReady = fulfillmentType !== "DELIVERY" || (deliveryAddressLine.trim().length > 2 && deliveryLat !== null && deliveryLng !== null);
 
   async function handleConfirm() {
-    if (!selectedSlot) {
+    if (!selectedSlot && !asapOn) {
       showToast("Please select a time slot");
+      return;
+    }
+    if (shortfall > 0) {
+      showToast(tf("dlv_min_short", { n: Math.ceil(shortfall), min: deliveryTerms.minOrder }));
       return;
     }
     if (fulfillmentType === "DELIVERY") {
@@ -396,9 +437,11 @@ export function AppointmentSheet({
         customerId: user.id || "guest",
         customerName: safeName(user.name, "Customer"),
         customerAvatar: user.avatar,
-        scheduledForISO: selectedSlot.isoTimestamp,
-        dateLabel: selectedSlot.dateLabel,
-        timeLabel: selectedSlot.timeLabel,
+        // ASAP: the server computes the real time from the shop's prep time; these are placeholders it overrides.
+        scheduledForISO: asapOn ? new Date(Date.now() + 60 * 60_000).toISOString() : selectedSlot!.isoTimestamp,
+        dateLabel: asapOn ? "Today" : selectedSlot!.dateLabel,
+        timeLabel: asapOn ? "ASAP" : selectedSlot!.timeLabel,
+        asap: asapOn || undefined,
         notes: notes.trim() || undefined,
         photoUrl: uploadedUrl,
         packageId: selectedPkg?.id,
@@ -419,11 +462,15 @@ export function AppointmentSheet({
       });
 
       showToast(
-        isReschedule
-          ? `Rescheduled to ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 🔄`
+        asapOn
+          ? created?.isOutOfRange
+            ? "Request sent! The shop will confirm delivery to your address 📍"
+            : `${vocabulary.bookedVerb} — delivery in about ${asapMin} min 🛵`
+          : isReschedule
+          ? `Rescheduled to ${selectedSlot!.dateLabel} at ${selectedSlot!.timeLabel} 🔄`
           : created?.isOutOfRange
-          ? `Request sent! Awaiting confirmation for ${selectedSlot.dateLabel} 📍`
-          : `${vocabulary.bookedVerb} for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
+          ? `Request sent! Awaiting confirmation for ${selectedSlot!.dateLabel} 📍`
+          : `${vocabulary.bookedVerb} for ${selectedSlot!.dateLabel} at ${selectedSlot!.timeLabel} 📅`
       );
 
       if (paymentTiming === "AT_BOOKING" && (!isReschedule || created.paymentStatus !== "PAID")) {
@@ -650,6 +697,20 @@ export function AppointmentSheet({
                       Usually delivered in {deliveryTime}.
                     </div>
                   )}
+                  {!isReschedule && (
+                    <div className="row gap-8">
+                      {asapAvailable ? (
+                        <button type="button" className={`chip ${timing === "ASAP" ? "active" : ""}`} onClick={() => { haptics.selection(); setTiming("ASAP"); }}>
+                          ⚡ {t("dlv_asap")} · {tf("dlv_asap_eta", { n: asapMin })}
+                        </button>
+                      ) : (
+                        <span className="tiny muted" style={{ alignSelf: "center" }}>{t("dlv_asap_closed")}</span>
+                      )}
+                      <button type="button" className={`chip ${timing === "SCHEDULED" ? "active" : ""}`} onClick={() => { haptics.selection(); setTiming("SCHEDULED"); }}>
+                        {t("dlv_pick_time")}
+                      </button>
+                    </div>
+                  )}
                   <input
                     className="input"
                     placeholder="Flat / house no., street, landmark"
@@ -667,14 +728,31 @@ export function AppointmentSheet({
                     pinColor="var(--delivery-600)"
                   />
                   <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
-                  <input
-                    className="input"
-                    placeholder="Preferred time, e.g. before 6pm (optional)"
-                    value={requestedWindow}
-                    maxLength={60}
-                    onChange={(e) => setRequestedWindow(e.target.value)}
-                    style={{ fontSize: 13 }}
-                  />
+                  {outsideArea && (
+                    <div className="tiny" style={{ color: "var(--amber-800)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: 10, padding: "8px 10px", lineHeight: 1.45 }}>
+                      📍 {t("dlv_outside")}
+                    </div>
+                  )}
+                  {shortfall > 0 && (
+                    <div className="tiny" style={{ color: "var(--red-700)", background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10, padding: "8px 10px", lineHeight: 1.45 }}>
+                      {tf("dlv_min_short", { n: Math.ceil(shortfall), min: deliveryTerms.minOrder })}
+                    </div>
+                  )}
+                  {shortfall === 0 && freeLeft != null && (
+                    <div className="tiny semi" style={{ color: "var(--green-700)", background: "var(--green-100)", borderRadius: 10, padding: "8px 10px" }}>
+                      🎉 {tf("dlv_free_progress", { n: Math.ceil(freeLeft) })}
+                    </div>
+                  )}
+                  {timing === "SCHEDULED" && (
+                    <input
+                      className="input"
+                      placeholder="Preferred time, e.g. before 6pm (optional)"
+                      value={requestedWindow}
+                      maxLength={60}
+                      onChange={(e) => setRequestedWindow(e.target.value)}
+                      style={{ fontSize: 13 }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -737,6 +815,8 @@ export function AppointmentSheet({
             </div>
           ) : null}
 
+          {!asapOn && (
+          <>
           {/* Date Selector Chips */}
           <div className="field" style={{ marginBottom: 16 }}>
             <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
@@ -950,6 +1030,8 @@ export function AppointmentSheet({
               </div>
             )}
           </div>
+          </>
+          )}
 
           {/* Party size */}
           {canPickParty && (
@@ -1094,6 +1176,21 @@ export function AppointmentSheet({
             </div>
           )}
 
+          {canOfferDelivery && fulfillmentType === "DELIVERY" && (
+            <div className="col gap-4" style={{ marginBottom: 10, fontSize: 12.5 }}>
+              <div className="row between center-v">
+                <span className="muted">{t("dlv_fee_line")}</span>
+                <span className="semi" style={{ color: feeNow === 0 ? "var(--green-600)" : undefined }}>{feeNow === 0 ? t("dlv_free") : inr(feeNow)}</span>
+              </div>
+              {activePrice != null && feeNow > 0 && (
+                <div className="row between center-v">
+                  <span className="semi">{t("dlv_total_with_fee")}</span>
+                  <span className="bold" style={{ color: "var(--brand-700)" }}>{inr(subtotal + feeNow)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pay-at-booking notice */}
           {paymentTiming === "AT_BOOKING" && !hasAptToday && (
             <div className="tiny muted center" style={{ marginBottom: 8, fontSize: 11.5 }}>
@@ -1106,10 +1203,11 @@ export function AppointmentSheet({
             type="button"
             className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
             disabled={
-              !selectedSlot ||
+              (!selectedSlot && !asapOn) ||
               submitting ||
               uploading ||
-              hasAptToday
+              hasAptToday ||
+              shortfall > 0
             }
             onClick={handleConfirm}
             style={{ height: 48, fontSize: 15, fontWeight: 700 }}
@@ -1118,25 +1216,25 @@ export function AppointmentSheet({
               ? "Booking & Uploading..."
               : hasAptToday
               ? "Daily Limit Exceeded"
-              : selectedSlot
+              : (selectedSlot || asapOn)
               ? fulfillmentType === "DELIVERY" && !deliveryAddressReady
                 ? deliveryAddressLine.trim().length <= 2
                   ? "Enter Delivery Address"
                   : "Pin Location on Map"
                 : paymentTiming === "AT_BOOKING"
-                ? `Confirm & Pay · ${selectedSlot.timeLabel}`
+                ? `Confirm & Pay · ${slotLabel}`
                 : isReschedule
-                ? `Reschedule to ${selectedSlot.timeLabel}`
-                : outOfRange
-                ? `Send Request · ${selectedSlot.timeLabel}`
+                ? `Reschedule to ${slotLabel}`
+                : (fulfillmentType === "DELIVERY" ? outsideArea : outOfRange)
+                ? `Send Request · ${slotLabel}`
                 : vocabulary.confirmCta
-                ? `${vocabulary.confirmCta} · ${selectedSlot.timeLabel}`
+                ? `${vocabulary.confirmCta} · ${slotLabel}`
                 : vocabulary.noun === "order"
-                ? `Confirm Order · ${selectedSlot.timeLabel}`
-                : `Confirm Booking · ${selectedSlot.timeLabel}`
+                ? `Confirm Order · ${slotLabel}`
+                : `Confirm Booking · ${slotLabel}`
               : "Select a Time Slot"}
           </button>
-          {fulfillmentType === "DELIVERY" && !deliveryAddressReady && selectedSlot && (
+          {fulfillmentType === "DELIVERY" && !deliveryAddressReady && (selectedSlot || asapOn) && (
             <div className="tiny center" style={{ color: "var(--amber-700)", marginTop: 6 }}>
               📍 Pin your delivery address on the map above to confirm
             </div>

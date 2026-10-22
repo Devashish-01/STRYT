@@ -1,43 +1,36 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  BadgeCheck, Bell, Calendar, Camera, Check, ChevronRight, HelpCircle,
-  Megaphone, MessageSquareText, Play, QrCode, Search, Share2, Star,
+  BadgeCheck, Calendar, Camera, Check, ChevronRight, HelpCircle,
+  Megaphone, Play, QrCode, Search, Star,
   Users, Wallet, X as XIcon, Zap,
 } from "@/components/Icons";
 import {
-  appointmentService, businessService, bulkService, bustBusinessGetCache, communityService,
+  appointmentService, businessService, bulkService, deliveryService, bustBusinessGetCache, communityService,
   customPaymentService, notificationService, requestService,
 } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
-import { AppBar, SafeImg } from "@/components/common";
+import { AppBar } from "@/components/common";
 import { inr } from "@/lib/format";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
-import {
-  calculateNextTurnoffTime, DEFAULT_ONBOARD_WORKING_HOURS,
-  evaluateProviderAvailability, parseHoursValue, serializeHoursValue,
-} from "@/utils/availability";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
+import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
+import { buildBusinessCapabilities, todaysAppointments, upcomingAppointments } from "@/features/business-home/capabilities";
+import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
 import ShareCard from "@/components/ShareCard";
-import RoleSwitcher from "@/components/RoleSwitcher";
-import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
-import { ConsoleTile, ConsoleTileGrid } from "@/components/console/ConsoleTile";
-import { CAPABILITY_TONE, CAPABILITY_ICON } from "@/components/console/capabilities";
 import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";
-import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/consoleSteps";
-import type { ConsoleCapability } from "@/lib/businessPackages";
+import { buildConsoleSteps, consoleFor } from "@/lib/consoleSteps";
 import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
-import AmbientSky from "@/features/ambient/AmbientSky";
 import { useBusinessAccess } from "@/lib/businessAccess";
 import { errorMessage } from "@/lib/errorMessage";
 
@@ -53,14 +46,21 @@ export default function ManageDashboard() {
   const { isOwner, hasScope, consoleMode, scopeLabel } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
-  const [available, setAvailable] = useState(false);
   const [accepting, setAccepting] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
 
   const { data: business, loading: businessLoading, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { available, toggle: toggleAvailability } = useShopOpenToggle(id, business, refetchBusiness);
   const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id], `business:${id}:posts`);
+  // Orders accepted for delivery that nobody is carrying yet; empty (never an error) on a database without 20261001.
+  const { data: awaitingDeliveries } = useQuery(
+    () => ((DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true) ? deliveryService.awaitingDriver(id).catch(() => []) : Promise.resolve([] as Awaited<ReturnType<typeof deliveryService.awaitingDriver>>)),
+    [id, (DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true)],
+    `delivery:awaiting:${id}`,
+  );
+  const waitingForRider = (awaitingDeliveries ?? []).length;
   const { data: queue, refetch: refetchQueue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
   );
@@ -102,13 +102,7 @@ export default function ManageDashboard() {
   // back. `businessLoaded` only ever changes together with `businessId`, so it adds no re-runs.
   const businessId = business?.id;
   const businessLoaded = business != null;
-  const businessAvailableNow = business?.isAvailableNow;
   const businessOpenNow = business?.isOpenNow;
-
-  useEffect(() => {
-    if (!businessLoaded) return;
-    setAvailable(businessAvailableNow ?? false);
-  }, [businessId, businessLoaded, businessAvailableNow]);
 
   useEffect(() => {
     if (!businessLoaded) return;
@@ -184,33 +178,8 @@ export default function ManageDashboard() {
     .filter((item) => !item.categoryId || !business?.categoryId || item.categoryId === business.categoryId)
     .filter((item) => !item.lat || !item.lng || item.distanceKm <= range);
 
-  const today = new Date();
-  const todayAppointments = appts
-    .filter((item) => {
-      if (item.status !== "PENDING" && item.status !== "ACCEPTED") return false;
-      const date = new Date(item.scheduledForISO);
-      return date.toDateString() === today.toDateString();
-    })
-    .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO));
-
-  // Future days only — a booking whose date is strictly after today. Copy the
-  // date first (setDate mutates) so today's own comparison above stays intact.
-  const startOfTomorrow = new Date(today);
-  startOfTomorrow.setHours(0, 0, 0, 0);
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  const upcomingAppointments = appts
-    .filter((item) => {
-      if (item.status !== "PENDING" && item.status !== "ACCEPTED") return false;
-      return new Date(item.scheduledForISO).getTime() >= startOfTomorrow.getTime();
-    })
-    .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO))
-    .slice(0, 5);
-
-  // Compares normalized schedules (not raw strings) so this survives the hours storage
-  // format upgrade — old businesses may still have the legacy default string, new ones
-  // the equivalent JSON, and both should count as "still on the onboarding default."
-  const isDefaultHours = !business?.hours
-    || serializeHoursValue(parseHoursValue(business.hours)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
+  const todayAppointments = todaysAppointments(appts);
+  const upcomingList = upcomingAppointments(appts);
 
   // Business Packages — the console's own vocabulary and shape. A restaurant
   // gets "Add your first 3 dishes" and a Menu/Reservations/Waitlist tile row;
@@ -229,72 +198,18 @@ export default function ManageDashboard() {
   // (now separately gated) BusinessDeliveries route.
   const deliveryOn = DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true;
 
-  const capabilities: Partial<Record<ConsoleCapability, CapabilityState>> = {
-    catalog: {
-      done: (business?.catalog?.length ?? 0) > 0,
-      onClick: () => nav(`${base}/catalog`),
-      value: (business?.catalog?.length ?? 0) > 0 ? `${business!.catalog!.length} listed` : undefined,
-    },
-    photos: {
-      done: (business?.gallery?.length ?? 0) > 0,
-      onClick: () => nav(`${base}/edit-profile`),
-    },
-    hours: { done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
-    verify: { done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
-    promote: {
-      done: (posts?.length ?? 0) > 0,
-      onClick: () => nav("/community/new", { state: composeState }),
-    },
-    payments: {
-      onClick: () => nav(`${base}/payments`),
-      value: paymentClaims > 0 ? `${paymentClaims} to confirm` : undefined,
-    },
-    ...(bookingsOn && hasScope("appointments") ? {
-      bookings: {
-        done: !isDefaultHours,
-        onClick: () => nav(`${base}/appointments`),
-        value: upcomingAppointments.length > 0 ? `${upcomingAppointments.length} upcoming` : undefined,
-      },
-    } : {}),
-    ...(hasScope("queue") ? {
-      queue: {
-        done: queue?.isOpen === true,
-        onClick: () => nav(`${base}/queue`),
-        value: (queue?.waiting.length ?? 0) > 0 ? `${queue!.waiting.length} waiting` : undefined,
-      },
-    } : {}),
-    ...(deliveryOn ? {
-      delivery: { done: true, onClick: () => nav(`${base}/deliveries`) },
-    } : {}),
+  const composeState = {
+    businessId: id,
+    businessName: business?.name,
+    businessAvatar: business?.coverImage,
   };
 
-  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
-  const actionTiles = buildConsoleSteps(consoleCfg.actions, capabilities);
+  const capabilities = buildBusinessCapabilities({
+    base, nav, business, pkg, hasScope, bookingsOn, deliveryOn, waitingForRider, queue,
+    upcomingCount: upcomingList.length, paymentClaims, postsCount: posts?.length ?? 0, composeState, tf,
+  });
 
-  async function toggleAvailability() {
-    const previous = available;
-    const next = !available;
-    setAvailable(next);
-    try {
-      const scheduleEval = evaluateProviderAvailability(business?.hours, undefined, business?.availableUntil);
-      if (next && !scheduleEval.isOpenNow) {
-        const until = calculateNextTurnoffTime(business?.hours);
-        await businessService.setAvailability(id, true, until.toISOString());
-        showToast(tf("mdash_open_until", { time: until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }));
-      } else {
-        await businessService.setAvailability(id, next, null);
-        showToast(next ? "Shop marked open right now" : "Shop marked closed");
-      }
-      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
-      void refetchBusiness();
-    } catch (error) {
-      setAvailable(previous);
-      const msg = String(errorMessage(error, ""));
-      showToast(msg.includes("has_business_full_access")
-        ? "Couldn't save — database permissions need updating (migration 20260842)"
-        : msg || "Couldn't update availability");
-    }
-  }
+  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
 
   // "Accepting appointments" (businesses.is_open_now) — distinct from the
   // "open now" presence toggle above: this one actually stops new bookings,
@@ -406,77 +321,26 @@ export default function ManageDashboard() {
     }
   }
 
-  const composeState = {
-    businessId: id,
-    businessName: business?.name,
-    businessAvatar: business?.coverImage,
-  };
 
   const headerSubtitle = isOwner
     ? `${ambient.greeting} · ${business?.ratingAvg ?? 0}★ · 📡 ${radiusLabel} reach`
     : consoleMode === "full_delegate"
-      ? "Delegated access · Full"
-      : `Team access · ${scopeLabel}`;
+      ? t("mdash_delegated_full")
+      : tf("mdash_team_access", { scope: scopeLabel });
 
   return (
     <div className="screen with-nav">
-      <header className="living-sky-header" style={{
-        background: isOwner
-          ? ambient.headerGradient
-          : consoleMode === "full_delegate"
-            ? "linear-gradient(135deg, var(--console-delegate-from) 0%, var(--console-delegate-to) 100%)"
-            : "linear-gradient(135deg, var(--console-team-from) 0%, var(--console-team-to) 100%)",
-        color: "#fff",
-        padding: "calc(18px + var(--safe-area-top)) 16px 22px",
-        borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-        position: "relative",
-      }}>
-        {/* Clips only the decorative sky layer — the header itself must NOT
-            clip, or RoleSwitcher's dropdown (a sibling below) gets cut off
-            the moment it's taller than the header. */}
-        <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-          {isOwner && <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />}
-        </div>
-        <div style={{ position: "relative", zIndex: 1 }}>
-          {/* Logo + switcher + two buttons is ~348px with the page padding — it fits a 360px phone. Share used to be a
-              third button here and ran off the screen; it lives next to "View shop" now. */}
-          <div className="row between center-v" style={{ gap: 8 }}>
-            <BrandHome color="#fff" glow={ambient.lampGlow} />
-            <div className="row gap-8 center-v" style={{ minWidth: 0 }}>
-              <RoleSwitcher theme="dark-pill" enableLongPress />
-              <HeaderIcon label={t("notifications")} count={notificationUnread ?? 0} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
-                <Bell size={16} />
-              </HeaderIcon>
-              <HeaderIcon label={t("messages_header")} count={chatUnread ?? 0} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
-                <MessageSquareText size={16} />
-              </HeaderIcon>
-            </div>
-          </div>
-          <div className="row gap-12 center-v" style={{ marginTop: 18 }}>
-            <SafeImg src={business?.coverImage} variant="photo" style={{ width: 58, height: 58, borderRadius: 16, border: "2px solid rgba(255,255,255,.4)" }} />
-            <div className="grow" style={{ minWidth: 0 }}>
-              <div className="row gap-6 center-v">
-                <span className="bold h1 ellipsis" style={{ color: "#fff" }}>{business?.name ?? "Your business"}</span>
-                {business?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
-              </div>
-              <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
-              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>
-                {headerSubtitle}
-              </div>
-            </div>
-            <div className="row gap-8 center-v" style={{ flexShrink: 0 }}>
-              <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999, whiteSpace: "nowrap" }} onClick={() => nav(`/business/${id}`)}>
-                View shop
-              </button>
-              {isOwner && (
-                <button className="icon-btn-sm" aria-label={t("mdash_share_shop")} onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
-                  <Share2 size={16} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <BusinessConsoleHeader
+        id={id}
+        business={business}
+        isOwner={isOwner}
+        consoleMode={consoleMode}
+        ambient={ambient}
+        subtitle={headerSubtitle}
+        notificationUnread={notificationUnread ?? 0}
+        chatUnread={chatUnread ?? 0}
+        onShare={() => setShare(true)}
+      />
 
       <div className="screen-scroll">
         {isOwner && (
@@ -488,28 +352,6 @@ export default function ManageDashboard() {
         {business && isOwner && (
           <section className="page-pad" style={{ paddingTop: 4 }}>
             <SetupChecklist title={consoleCfg.setupTitle} items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
-          </section>
-        )}
-
-        {/* Your tools — named by trade. A restaurant reads Menu / Reservations /
-            Waitlist / Delivery; a "Plain page" business reads Catalogue /
-            Bookings / Hours / Payments. Order and wording both come from the
-            package config, never from a key check here. */}
-        {actionTiles.length > 0 && (
-          <section className="page-pad" style={{ paddingTop: 0 }}>
-            <ConsoleTileGrid>
-              {actionTiles.map((t) => (
-                <ConsoleTile
-                  key={t.id}
-                  icon={CAPABILITY_ICON[t.id]}
-                  label={t.label}
-                  sub={t.hint}
-                  tint={CAPABILITY_TONE[t.id].tint}
-                  accent={CAPABILITY_TONE[t.id].accent}
-                  onClick={t.onClick}
-                />
-              ))}
-            </ConsoleTileGrid>
           </section>
         )}
 
@@ -628,11 +470,11 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {bookingsOn && hasScope("appointments") && upcomingAppointments.length > 0 && (
+        {bookingsOn && hasScope("appointments") && upcomingList.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">{t("mdash_upcoming")}</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>{t("mdash_view_all")}</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {upcomingAppointments.map((item, index) => (
+              {upcomingList.map((item, index) => (
                 <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>
                   <div className="col" style={{ minWidth: 78, gap: 1 }}>
                     <span className="semi small" style={{ color: "var(--brand-700)" }}>{item.dateLabel}</span>
@@ -699,10 +541,6 @@ export default function ManageDashboard() {
       )}
     </div>
   );
-}
-
-function HeaderIcon({ label, count, onClick, children }: { label: string; count: number; onClick: () => void; children: React.ReactNode }) {
-  return <button className="icon-btn-sm" aria-label={label} onClick={onClick} style={{ background: "rgba(255,255,255,.16)", color: "#fff", position: "relative" }}>{children}{count > 0 && <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: "var(--red-500)" }} />}</button>;
 }
 
 function TodayAction({ icon, title, subtitle, children }: { icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) {

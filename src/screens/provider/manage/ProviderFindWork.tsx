@@ -81,7 +81,7 @@ export default function ProviderFindWork() {
     <div className="screen with-nav">
       <AppBar title="Find work" subtitle="Win new jobs near you" />
 
-      <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
+      <div className="hscroll chip-fade" style={{ paddingTop: 12, paddingBottom: 6 }}>
         <button className={`chip ${tab === "requests" ? "active" : ""}`} onClick={() => setTab("requests")}>
           🙋 Open Requests ({items.length})
         </button>

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, Map } from "@/components/Icons";
+import { Search, Map, ArrowLeft } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { AppBar, EmptyState } from "@/components/common";
-import RadiusSelector from "@/components/RadiusSelector";
+import RadiusDropdown from "@/components/RadiusDropdown";
 import SortMenu, { type SortOption } from "@/components/SortMenu";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
@@ -162,7 +162,7 @@ export default function CategoryListing() {
     <div className="screen">
       <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: "var(--space-sm)", paddingBottom: 0 }}>
         <div className="row gap-12">
-          <button className="icon-btn" onClick={() => nav(-1)}>←</button>
+          <button className="icon-btn" onClick={() => nav(-1)} aria-label={t("back_word")}><ArrowLeft size={20} /></button>
           <div className="row gap-8 grow">
             <span style={{ fontSize: 26 }}>{cat.icon}</span>
             <div className="col" style={{ gap: 0 }}>
@@ -176,20 +176,27 @@ export default function CategoryListing() {
       </header>
 
       <div className="screen-scroll">
-        {cat.children && cat.children.length > 0 && (
-          <div className="hscroll" style={{ paddingTop: 12 }}>
-            <button className={`chip ${!sub ? "active" : ""}`} onClick={() => { haptics.selection(); setSub(null); }}>{t("explore_tab_all")}</button>
-            {cat.children.map((c) => (
-              <button key={c.id} className={`chip ${sub === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setSub(sub === c.id ? null : c.id); }}>
-                {c.icon} {c.name}
-              </button>
-            ))}
+        <div className="hscroll chip-fade" style={{ paddingTop: 12 }}>
+          <div style={{ flexShrink: 0 }}>
+            <RadiusDropdown value={radius} onChange={setRadius} accentColor="var(--brand-600)" label={t("explore_search_radius")} />
           </div>
-        )}
+          {cat.children && cat.children.length > 0 && (
+            <>
+              <button className={`chip ${!sub ? "active" : ""}`} onClick={() => { haptics.selection(); setSub(null); }}>{t("explore_tab_all")}</button>
+              {cat.children.map((c) => (
+                <button key={c.id} className={`chip ${sub === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setSub(sub === c.id ? null : c.id); }}>
+                  {c.icon} {c.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
 
-        <div className="page-pad col gap-10" style={{ paddingTop: 12, paddingBottom: 0 }}>
-          <RadiusSelector value={radius} onChange={setRadius} accentColor="var(--brand-600)" label={t("explore_search_radius")} />
-          <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
+        <div className="page-pad" style={{ paddingTop: 4, paddingBottom: 2 }}>
+          <div className="explore-sort-row">
+            <span className="explore-sort-label">{t("sort_label")}</span>
+            <SortMenu value={sort} onChange={setSort} />
+          </div>
         </div>
 
         <div className="col gap-14 page-pad listings-cards-grid">

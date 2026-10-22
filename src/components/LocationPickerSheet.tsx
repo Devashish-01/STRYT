@@ -112,7 +112,11 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
       },
       (err) => {
         setLocating(false);
-        showToast(err.code === 1 ? "Location permission denied — enable it in phone settings" : "Couldn't get a GPS fix — try near a window or outdoors");
+        showToast(
+          err.code === 1 ? "Location permission denied — enable it in phone settings"
+          : err.code === 2 ? "Location is switched off — turn it on in your phone's quick settings, then try again"
+          : "Couldn't get a GPS fix — try near a window or outdoors",
+        );
       },
       { enableHighAccuracy: true, timeout: 12000 }
     );

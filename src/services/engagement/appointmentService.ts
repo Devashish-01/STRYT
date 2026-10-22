@@ -233,6 +233,11 @@ function rowToRecord(r: any): AppointmentRecord {
     deliveryEtaText: r.delivery_eta_text ?? null,
     targetPackageKey: r.target_package_key ?? null,
     isOutOfRange: Boolean(r.is_out_of_range),
+    deliveryFee: Number(r.delivery_fee ?? 0),
+    isAsap: Boolean(r.is_asap),
+    readyAt: r.ready_at ?? null,
+    cashCollectedAt: r.cash_collected_at ?? null,
+    cashSettledAt: r.cash_settled_at ?? null,
   };
 }
 
@@ -368,6 +373,9 @@ export const appointmentService = {
         p_requested_delivery_window: payload.requestedDeliveryWindow ?? undefined,
         p_party_size: payload.partySize ?? undefined,
         p_target_package_key: payload.targetPackageKey ?? undefined,
+        // Only sent when set: a database that hasn't had 20261001 applied has no such parameter, and an ordinary
+        // booking must keep working against it.
+        ...(payload.asap ? { p_asap: true } : {}),
       } as any);
       if (error) throw error;
       const record = rowToRecord(data);
@@ -414,6 +422,18 @@ export const appointmentService = {
       }
       if (/DELIVERY_NOT_OFFERED/i.test(msg)) {
         throw new Error("Home delivery is not offered for this service. Please choose store visit.");
+      }
+      if (/DELIVERY_IN_PROGRESS/i.test(msg)) {
+        throw new Error("Your order is already on its way, so it can't be changed here. Please contact the shop or your rider.");
+      }
+      if (/DELIVERY_MIN_ORDER/i.test(msg)) {
+        throw new Error("This order is below the shop's minimum for home delivery. Add more items or choose store pickup.");
+      }
+      if (/SHOP_CLOSED/i.test(msg)) {
+        throw new Error("This shop is closed right now, so \"as soon as possible\" isn't available. Pick a time instead.");
+      }
+      if (/ASAP_REQUIRES_DELIVERY/i.test(msg)) {
+        throw new Error("\"As soon as possible\" is only available for home delivery.");
       }
       if (/DELIVERY_ADDRESS_REQUIRED/i.test(msg)) {
         throw new Error("Please provide a complete delivery address with a pinned map location.");
@@ -740,6 +760,9 @@ export const appointmentService = {
       } catch (e) {
         // The booking moved on elsewhere (accepted from the console, cancelled by the customer…): say so instead of
         // showing the raw code (E2E-007).
+        if (/DELIVERY_IN_PROGRESS/i.test(errorMessage(e, ""))) {
+          throw new Error("Your order is already on its way, so it can't be cancelled here. Please contact the shop or your rider.");
+        }
         if (/INVALID_TRANSITION/i.test(errorMessage(e, ""))) {
           throw new Error("This booking was already updated. Refresh to see its current status.");
         }

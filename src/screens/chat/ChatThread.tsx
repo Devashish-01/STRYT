@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Check, DotsThree, Flag, Ban } from "@/components/Icons";
 import { chatService, inboxScopeFor, MESSAGE_PAGE_SIZE } from "@/services/engagement/chatService";
@@ -15,6 +15,18 @@ import type { Message, Conversation } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 
+/** Messages from the same person within this window read as one group: one timestamp, tighter spacing. */
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
+const dayKey = (iso: string) => new Date(iso).toDateString();
+function dayLabel(iso: string, t: (k: string) => string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  if (d.toDateString() === today.toDateString()) return t("chat_today");
+  if (d.toDateString() === yesterday.toDateString()) return t("chat_yesterday");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
 const TYPING_THROTTLE_MS = 2000;
 const TYPING_HIDE_MS = 3000;
 
@@ -24,6 +36,7 @@ export default function ChatThread() {
   const { t } = useI18n();
   const { user, setChatUnread, showToast } = useApp();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   // Realtime, not plain useQuery — otherwise the other side marking this
   // thread read while both of you have it open never updates your own
@@ -41,6 +54,8 @@ export default function ChatThread() {
   const { data: initial, loading } = useQuery(() => chatService.messages(id), [id], `chat:messages:${id}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
+  // Auto-grow leaves an inline height behind; shrink back to one line once the draft is empty (after sending).
+  useEffect(() => { if (!body && composerRef.current) composerRef.current.style.height = "44px"; }, [body]);
   const [sending, setSending] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -309,7 +324,7 @@ export default function ChatThread() {
           padding: "12px 16px",
           display: "flex",
           flexDirection: "column",
-          gap: 8,
+          gap: 2,
           paddingBottom: "calc(90px + var(--safe-area-bottom))",
         }}
       >
@@ -326,16 +341,26 @@ export default function ChatThread() {
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user.id;
           const isLastMine = isMe && i === lastMineIdx;
+          const prev = messages[i - 1];
+          const next = messages[i + 1];
+          const sameGroup = (a?: Message, b?: Message) =>
+            !!a && !!b && a.senderId === b.senderId && dayKey(a.createdAt) === dayKey(b.createdAt) &&
+            Math.abs(new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) <= GROUP_WINDOW_MS;
+          const groupStart = !sameGroup(prev, msg);
+          const groupEnd = !sameGroup(msg, next);
+          const newDay = !prev || dayKey(prev.createdAt) !== dayKey(msg.createdAt);
           const shareId = msg.kind === "LIVE_LOCATION"
             ? (msg.meta?.share_id ?? msg.meta?.shareId)
             : null;
           return (
+            <Fragment key={msg.id}>
+            {newDay && <div className="chat-day"><span>{dayLabel(msg.createdAt, t)}</span></div>}
             <div
-              key={msg.id}
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: isMe ? "flex-end" : "flex-start",
+                marginTop: groupStart && !newDay ? 10 : 0,
               }}
             >
               {shareId ? (
@@ -355,8 +380,10 @@ export default function ChatThread() {
                       style={{
                         maxWidth: "75%",
                         padding: "10px 14px",
-                        borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                        background: isMe ? "var(--brand-600)" : "var(--ink-100)",
+                        // Only the last bubble of a group carries the tail corner; the rest are fully rounded.
+                        borderRadius: groupEnd ? (isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px") : 18,
+                        background: isMe ? "var(--brand-600)" : "var(--surface)",
+                        border: isMe ? "none" : "1px solid var(--ink-200)",
                         color: isMe ? "var(--white)" : "var(--ink-900)",
                         fontSize: 15,
                         lineHeight: 1.45,
@@ -368,6 +395,7 @@ export default function ChatThread() {
                   )}
                 </>
               )}
+              {(groupEnd || isLastMine) && (
               <span className="tiny muted row gap-4" style={{ marginTop: 3, paddingInline: 4, alignItems: "center" }}>
                 {new Date(msg.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 {isLastMine && seenByOther && (
@@ -376,7 +404,9 @@ export default function ChatThread() {
                   </span>
                 )}
               </span>
+              )}
             </div>
+            </Fragment>
           );
         })}
 
@@ -466,6 +496,7 @@ export default function ChatThread() {
               <ImageIcon size={20} color="var(--ink-500)" />
             </label>
             <textarea
+              ref={composerRef}
               className="input"
               placeholder={t("type_message")}
               value={body}
@@ -473,11 +504,14 @@ export default function ChatThread() {
               style={{
                 flex: 1,
                 resize: "none",
-                maxHeight: 100,
+                height: 44,
+                minHeight: 44,
+                maxHeight: 120,
                 overflowY: "auto",
-                padding: "10px 14px",
+                padding: "10px 16px",
                 borderRadius: 22,
                 lineHeight: 1.4,
+                fontSize: 16,
               }}
               onChange={(e) => {
                 setBody(e.target.value);

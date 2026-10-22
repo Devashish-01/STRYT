@@ -1,10 +1,12 @@
 import GoogleSignIn from "@/components/GoogleSignIn";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
-import { useNavigate } from "react-router-dom";
-import { MapPin, Store, Sparkles } from "@/components/Icons";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, MapPin, Store, Sparkles } from "@/components/Icons";
 import StreetScene from "@/components/StreetScene";
 import BrandLockup from "@/components/BrandLockup";
 import AppMark from "@/components/AppMark";
+import { useI18n } from "@/lib/i18n";
+import { LEGAL_ROUTES } from "@/lib/legal";
 
 // Sign-in runs pre-auth with no location, so the header can't honestly show
 // live weather/season. Instead the lamp burns at a fixed "dusk street" glow.
@@ -12,6 +14,7 @@ const LOGIN_GLOW = 0.85;
 
 export default function Splash() {
   const nav = useNavigate();
+  const { t } = useI18n();
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
       {/* ── LEFT PANEL: brand hero (desktop only) ── */}
@@ -76,132 +79,62 @@ export default function Splash() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL: CTA (full-screen on mobile) ── */}
-      <div
-        className="splash-cta-panel"
-        style={{
-          flex:1,
-          background:"linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--line) 100%)",
-          display:"flex",
-          flexDirection:"column",
-          alignItems:"center",
-          justifyContent:"center",
-          position:"relative",
-          overflow:"hidden",
-          padding:"48px 32px",
-          minHeight:"100vh",
-        }}
-      >
-        {/* Soft blobs for right side */}
-        <div style={{ position:"absolute", top:-60, left:-60, width:200, height:200, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(60px)", opacity:0.18, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-40, right:-40, width:180, height:180, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(55px)", opacity:0.14, pointerEvents:"none" }} />
-
-        {/* Mobile-only street scene — this panel turns into the coloured
-            gradient on small screens (see .splash-cta-panel override below),
-            so it gets the same dusk-street treatment there too. */}
-        <span className="splash-street-mobile">
-          <StreetScene />
-        </span>
-
-        {/* Mobile-only branding (hidden on desktop) */}
-        <div className="splash-mobile-brand" style={{ textAlign:"center", marginBottom:36, position:"relative", zIndex:2 }}>
-          <div style={{ display: "inline-block", marginBottom: 10, color: "#fff" }}>
-            <BrandLockup glow={LOGIN_GLOW} size={30} withTagline ariaLabel="STRYT" />
+      {/* ── RIGHT PANEL: phones get the same hero + bottom sheet as sign-in; desktop gets a centred card ── */}
+      <div className="login-form-panel">
+        <div className="login-mobile-brand">
+          <span className="login-street-mobile">
+            <StreetScene />
+          </span>
+          <div className="login-lockup">
+            <BrandLockup glow={LOGIN_GLOW} size={34} withTagline ariaLabel="STRYT" />
           </div>
         </div>
 
-        {/* CTA card */}
-        <div
-          style={{
-            background:"#fff",
-            border:"1px solid var(--ink-200)",
-            borderRadius:28,
-            padding:"36px 28px",
-            width:"100%",
-            maxWidth:420,
-            boxShadow:"var(--shadow-lg)",
-            position:"relative",
-            zIndex:2,
-            textAlign:"center",
-          }}
-        >
-          <div style={{ display:"flex", justifyContent:"center", marginTop:-56, marginBottom:16 }}>
-            <AppMark size={64} style={{ border:"4px solid #fff" }} />
+        <div className="login-card">
+          <div className="login-sheet-handle" aria-hidden="true" />
+
+          <div className="login-desktop-back">
+            <AppMark size={38} radius={11} shadow={false} />
+            <div>
+              <div className="login-card-title">{t("welcome_title")}</div>
+              <div className="login-card-sub">{t("welcome_sub")}</div>
+            </div>
           </div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:"var(--ink-900)", marginBottom:8 }}>Join your street</h2>
-          <p style={{ fontSize:13.5, color:"var(--ink-500)", marginBottom:28, lineHeight:1.55 }}>
-            Connect with locals, discover services, and manage your bookings — all in one place.
-          </p>
 
-          <GoogleSignIn />
+          <div className="login-mobile-title">
+            <h1>{t("welcome_title")}</h1>
+            <p>{t("welcome_sub")}</p>
+          </div>
 
-          {/* The guest-mode door. A stranger won't create an account for a
-              street they can't see yet — let them look first, then sign in when
-              they find something worth doing. See GUEST_MODE_PLAN.md. */}
-          <button
-            style={{
-              width:"100%",
-              padding:"14px",
-              borderRadius:16,
-              background:"transparent",
-              color:"var(--brand-700)",
-              fontWeight:700,
-              fontSize:14.5,
-              border:"1.5px solid var(--brand-200)",
-              cursor:"pointer",
-              marginBottom:16,
-            }}
-            onClick={() => nav("/home")}
-          >
-            Look around first
+          <button type="button" className="login-cta" onClick={() => nav("/auth/phone")}>
+            <span>{t("welcome_phone")}</span>
+            <ArrowRight size={18} />
           </button>
 
+          <div className="login-divider"><span>{t("login_or")}</span></div>
 
-        </div>
+          <GoogleSignIn showLegal={false} />
 
-        {/* APK download pill */}
-        <div style={{ marginTop:22, position:"relative", zIndex:2 }}>
-          <a
-            href={APK_DOWNLOAD_URL}
-            download={APK_FILENAME}
-            style={{
-              display:"inline-flex",
-              alignItems:"center",
-              gap:8,
-              background:"rgba(255,255,255,0.75)",
-              border:"1.5px solid var(--brand-200)",
-              padding:"7px 18px",
-              borderRadius:999,
-              fontSize:12.5,
-              fontWeight:700,
-              color:"var(--brand-700)",
-              textDecoration:"none",
-              backdropFilter:"blur(8px)",
-              boxShadow:"var(--shadow-sm)",
-            }}
-          >
-            🤖 Download Android App
+          {/* The guest-mode door. A stranger won't create an account for a street they can't see yet. */}
+          <button type="button" className="login-ghost" onClick={() => nav("/home")}>
+            {t("welcome_look")}
+          </button>
+
+          <p className="login-legal">
+            {t("login_legal_prefix")}{" "}
+            <Link to={LEGAL_ROUTES.terms}>{t("login_link_terms")}</Link>{" "}{t("login_legal_and")}{" "}
+            <Link to={LEGAL_ROUTES.privacy}>{t("login_link_privacy")}</Link>
+          </p>
+
+          <a className="login-apk" href={APK_DOWNLOAD_URL} download={APK_FILENAME}>
+            {t("login_get_android")}
           </a>
         </div>
       </div>
 
       <style>{`
-        .splash-street-mobile { display: none; }
-        @media (min-width: 768px) {
-          .splash-hero-panel { display: flex !important; }
-          .splash-mobile-brand { display: none !important; }
-        }
-        @media (max-width: 767px) {
-          .splash-hero-panel { display: none !important; }
-          .splash-street-mobile { display: block; }
-          .splash-cta-panel {
-            background: linear-gradient(160deg, var(--brand-500) 0%, var(--brand-700) 55%, var(--ink-800) 100%) !important;
-          }
-          .splash-cta-panel > div[style*="background:#fff"] {
-            background: rgba(255,255,255,0.96) !important;
-          }
-          .splash-mobile-sub { color: rgba(255,255,255,0.75) !important; }
-        }
+        @media (min-width: 768px) { .splash-hero-panel { display: flex !important; } }
+        @media (max-width: 767px) { .splash-hero-panel { display: none !important; } }
       `}</style>
     </div>
   );

@@ -11,7 +11,7 @@ import { EmptyState, PullToRefreshIndicator, ButtonSpinner } from "@/components/
 import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
-import RadiusSelector from "@/components/RadiusSelector";
+import RadiusDropdown from "@/components/RadiusDropdown";
 import SortMenu from "@/components/SortMenu";
 import { useI18n } from "@/lib/i18n";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -118,60 +118,6 @@ function LocationSearchBox({
   );
 }
 
-// Radius as a compact pill — tapping it drops down the existing RadiusSelector
-// (unchanged, still shared with every other screen that uses it) instead of
-// leaving the full preset row permanently visible above the results.
-function RadiusDropdown({
-  value, onChange, accentColor = "var(--brand-600)", label, align = "right",
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  accentColor?: string;
-  label: string;
-  /** Which side the popover hangs from — "right" (default, for a button sitting
-   *  near the right edge of a row) or "left" (for the narrow desktop sidebar,
-   *  where opening rightward into the main content area is what has room). */
-  align?: "left" | "right";
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
-
-  const valueLabel = value >= 5000 ? "🌍 World" : value === 0.5 ? "500m" : `${value} km`;
-
-  return (
-    <div ref={rootRef} style={{ position: "relative" }}>
-      <button
-        type="button"
-        className="chip"
-        style={{ gap: 6 }}
-        onClick={() => { haptics.selection(); setOpen((v) => !v); }}
-      >
-        📍 {valueLabel}
-        <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
-      </button>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 8px)", [align]: 0, zIndex: 1010, width: "min(280px, calc(100vw - 32px))" }}>
-          <RadiusSelector
-            value={value}
-            onChange={(v) => { onChange(v); setOpen(false); }}
-            accentColor={accentColor}
-            label={label}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function Explore() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
@@ -215,6 +161,8 @@ export default function Explore() {
   }, [radius, user.id, user.notificationRadiusKm]);
 
   const [locQuery, setLocQuery] = useState("");
+  // The address box is one tap away from the "Near …" line instead of always taking a row of the header.
+  const [editArea, setEditArea] = useState(false);
   const [locResults, setLocResults] = useState<GeoPlace[]>([]);
   const [searching, setSearching] = useState(false);
 
@@ -465,7 +413,10 @@ export default function Explore() {
               </button>
               <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
                 <span className="bold" style={{ fontSize: 20, lineHeight: 1.15 }}>{t("explore")}</span>
-                <span className="tiny muted ellipsis">{tf("explore_near", { area })}</span>
+                <button type="button" className="explore-area-btn" onClick={() => setEditArea((v) => !v)} aria-expanded={editArea}>
+                  <span className="ellipsis">{tf("explore_near", { area })}</span>
+                  <ChevronDown size={14} style={{ transform: editArea ? "rotate(180deg)" : undefined, transition: "transform .15s ease" }} />
+                </button>
               </div>
               <div className="row gap-6" style={{ flexShrink: 0 }}>
                 <button className="icon-btn" onClick={() => nav("/search")} aria-label={t("search_input_placeholder")}><Search size={20} /></button>
@@ -483,25 +434,35 @@ export default function Explore() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <LocationSearchBox
-                value={locQuery}
-                onChange={searchPlaces}
-                onClear={() => { setLocQuery(""); setLocResults([]); }}
-                results={locResults}
-                onPick={pickPlace}
-                searching={searching}
-                placeholder={t("explore_search_address_area")}
-              />
-            </div>
+            {(editArea || locQuery) && (
+              <div style={{ marginBottom: 10 }}>
+                <LocationSearchBox
+                  value={locQuery}
+                  onChange={searchPlaces}
+                  onClear={() => { setLocQuery(""); setLocResults([]); }}
+                  results={locResults}
+                  onPick={(place) => { pickPlace(place); setEditArea(false); }}
+                  searching={searching}
+                  placeholder={t("explore_search_address_area")}
+                />
+              </div>
+            )}
 
             {/* Category + radius, above the tab row — universal filters (the
                 same choice regardless of which tab you're then looking at
                 results through), not something that resets or varies per
                 tab. Requests included: it's passed this same selection as a
                 prop (see selectedCategoryName in the render below). */}
-            <div className="row gap-8 center-v" style={{ margin: "0 -16px 10px", padding: "0 16px" }}>
-              <div className="hscroll grow" style={{ padding: 0, margin: 0, scrollPaddingInline: 0 }}>
+            <div className="explore-chip-row" style={{ margin: "0 -16px 4px", padding: "0 16px" }}>
+              <div className="hscroll" style={{ padding: 0, margin: 0, scrollPaddingInline: 0 }}>
+                <div style={{ flexShrink: 0 }}>
+                  <RadiusDropdown
+                    value={radius}
+                    onChange={setRadius}
+                    accentColor="var(--brand-600)"
+                    label={t("explore_radius_label")}
+                  />
+                </div>
                 <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
                 {catTree.map((c) => (
                   <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
@@ -509,12 +470,6 @@ export default function Explore() {
                   </button>
                 ))}
               </div>
-              <RadiusDropdown
-                value={radius}
-                onChange={setRadius}
-                accentColor="var(--brand-600)"
-                label={t("explore_radius_label")}
-              />
             </div>
 
             <div className="row" style={{ borderBottom: "1px solid var(--line)", margin: "0 -16px", padding: "0 16px" }}>
@@ -545,8 +500,11 @@ export default function Explore() {
                 results it orders. Hidden on Requests, which has no sort
                 concept of its own. */}
             {tab !== "requests" && (
-              <div className="mobile-only page-pad" style={{ paddingTop: 12, paddingBottom: 12 }}>
-                <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
+              <div className="mobile-only page-pad" style={{ paddingTop: 2, paddingBottom: 2 }}>
+                <div className="explore-sort-row">
+                  <span className="explore-sort-label">{t("sort_label")}</span>
+                  <SortMenu value={sort} onChange={setSort} />
+                </div>
               </div>
             )}
 

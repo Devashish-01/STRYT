@@ -1,3 +1,4 @@
+import { termsFromBusiness } from "@/lib/deliveryTerms";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -469,7 +470,7 @@ export default function BusinessDetail() {
             {isGuest ? (
               <GuestSignInPrompt message="Sign in to book, message or follow" />
             ) : (
-            <div className="row gap-10" style={{ marginTop: 12 }}>
+            <div className="biz-secondary-actions" style={{ marginTop: 12 }}>
               {!isOwner && (
                 <>
                   <button
@@ -490,19 +491,19 @@ export default function BusinessDetail() {
               )}
               {isOwner ? (
                 <button
-                  className="btn grow btn-sm"
+                  className="btn grow btn-sm biz-book-cta"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
                   onClick={() => nav(`/business/${b.id}/manage/appointments`)}
                 >
                   <Clock size={16} /> {t("view_appointments")}
                 </button>
               ) : !bookingsOn ? null : b.isOpenNow === false ? (
-                <button className="btn grow btn-sm" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
+                <button className="btn grow btn-sm biz-book-cta" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
                   <Clock size={16} /> {bizTheme.bookingClosedLabel}
                 </button>
               ) : (
                 <button
-                  className="btn grow btn-sm"
+                  className="btn grow btn-sm biz-book-cta"
                   style={{ background: "var(--biz-accent-soft)", color: "var(--biz-accent-strong)", border: "1px solid var(--brand-200)" }}
                   onClick={() => setScheduling(true)}
                 >
@@ -1158,6 +1159,10 @@ export default function BusinessDetail() {
           outOfRange={outOfRange}
           deliveryEnabled={b.deliveryEnabled === true}
           deliveryTime={b.deliveryTime}
+          deliveryTerms={termsFromBusiness(b)}
+          shopLat={b.lat}
+          shopLng={b.lng}
+          shopReachKm={b.broadcastRadius}
           vocabulary={bizTheme.vocabulary}
           targetPackageKey={bizThemeKey}
           onBooked={() => { if (checkoutMode) setCart({}); }}

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { trackingUrl } from "@/lib/trackingLink";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { RASTER_TILES } from "@/lib/mapTiles";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -20,6 +22,8 @@ import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import ManageNav from "./ManageNav";
 import { errorMessage } from "@/lib/errorMessage";
+import { useI18n } from "@/lib/i18n";
+import { cancelReasonKey, deliveryHealth } from "@/lib/deliveryHealth";
 
 const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
 
@@ -33,13 +37,21 @@ const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
  */
 function MapController({ center, focusedCoords }: { center: [number, number] | null; focusedCoords?: [number, number] | null }) {
   const map = useMap();
+  const centered = useRef(false);
+  // Primitive keys: the arrays are rebuilt every render, and depending on them re-ran the effect on each 12 s refresh.
+  const focusKey = focusedCoords ? `${focusedCoords[0]},${focusedCoords[1]}` : "";
   useEffect(() => {
-    if (focusedCoords) {
-      map.flyTo(focusedCoords, 15, { duration: 0.8 });
-    } else if (center) {
+    if (focusedCoords) map.flyTo(focusedCoords, 15, { duration: 0.8 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusKey, map]);
+  // Centre on the first position we have, then leave the map alone — a refresh that snaps back while the owner is
+  // looking at another part of the city is worse than a marker that moves on its own.
+  useEffect(() => {
+    if (!centered.current && center) {
       map.panTo(center);
+      centered.current = true;
     }
-  }, [center, focusedCoords, map]);
+  }, [center, map]);
   return null;
 }
 
@@ -95,10 +107,21 @@ export default function BusinessDeliveries() {
   useEffect(() => {
     if (active.length === 0) return;
     const interval = setInterval(() => {
+      // A hidden tab/backgrounded app doesn't need a full-list refetch every 12 s.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       refetch();
     }, 12000);
     return () => clearInterval(interval);
   }, [active.length, refetch]);
+
+  // "N min ago" lines age on their own between refreshes.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const nav = useNavigate();
+  const { t, tf } = useI18n();
 
   // Agents currently carrying at least one active stop.
   const agents = useMemo(() => {
@@ -190,7 +213,7 @@ export default function BusinessDeliveries() {
               <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
                 <div style={{ height: 240, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
                   <MapContainer center={mapCenter} zoom={13} style={{ width: "100%", height: "100%" }} zoomControl={false} attributionControl={false}>
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                    <TileLayer {...RASTER_TILES} />
                     <MapController
                       center={mapCenter}
                       focusedCoords={
@@ -245,12 +268,14 @@ export default function BusinessDeliveries() {
                   emoji="🛵"
                   title="No deliveries in progress"
                   text="Assign a delivery from the Bookings → Deliveries tab and track it here."
+                  action={<button className="btn btn-primary btn-sm" onClick={() => nav(`/business/${id}/manage/appointments?tab=deliveries`)}>{t("dlv_go_dispatch")}</button>}
                 />
               ) : (
                 visible.map((d) => (
                   <DeliveryRow
                     key={d.id}
                     d={d}
+                    now={now}
                     focused={focusedId === d.id}
                     businessId={id}
                     onFocus={() => setFocusedId(focusedId === d.id ? null : d.id)}
@@ -277,6 +302,12 @@ export default function BusinessDeliveries() {
                           {d.agentName}
                           {d.deliveredAt ? ` · ${new Date(d.deliveredAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
                         </div>
+                        {d.status === "CANCELLED" && cancelReasonKey(d.cancelReason) && (
+                          <div className="tiny" style={{ color: "var(--red-600)", marginTop: 2 }}>
+                            {t(cancelReasonKey(d.cancelReason)!)}
+                            {d.cancelNote ? ` — ${d.cancelNote}` : ""}
+                          </div>
+                        )}
                       </div>
                       <DeliveryStatusPill status={d.status} />
                     </div>
@@ -304,14 +335,17 @@ export default function BusinessDeliveries() {
   );
 }
 
-function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
+function DeliveryRow({ d, now, focused, businessId, onFocus, onCancel }: {
   d: BusinessDeliveryItem;
+  now: number;
   focused: boolean;
   businessId: string;
   onFocus: () => void;
   onCancel: (d: BusinessDeliveryItem) => void;
 }) {
   const { showToast } = useApp();
+  const { tf } = useI18n();
+  const health = deliveryHealth(d, now);
   const [sharing, setSharing] = useState(false);
   const routable = d.deliveryLat != null && d.deliveryLng != null;
   const live = (ACTIVE_STATUSES as readonly string[]).includes(d.status);
@@ -321,7 +355,7 @@ function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
     setSharing(true);
     try {
       const token = await deliveryService.createTrackingToken(d.appointmentId);
-      const url = `${window.location.origin}/track/${token}`;
+      const url = trackingUrl(token);
       if (navigator.share) {
         try {
           await navigator.share({ title: `Order tracking for ${d.customerName}`, url });
@@ -357,6 +391,19 @@ function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
         <MapPin size={13} color="var(--ink-500)" />
         <div className="tiny grow ellipsis muted">{d.deliveryAddressLine || "No address on file"}</div>
       </div>
+
+      {health.key && (
+        <div
+          className="tiny semi"
+          style={{
+            padding: "6px 9px", borderRadius: 8,
+            color: health.tone === "bad" ? "var(--red-700)" : "var(--amber-800)",
+            background: health.tone === "bad" ? "var(--red-50)" : "var(--amber-50)",
+          }}
+        >
+          {tf(health.key, { n: health.minutes })}
+        </div>
+      )}
 
       {(d.deliveryEtaText || d.handoffVerified) && (
         <div className="row gap-10 center-v tiny muted">

@@ -176,10 +176,7 @@ export default function Search() {
   return (
     <div className="screen screen-boxed">
       <header className="appbar">
-        <div
-          className="row gap-8 grow"
-          style={{ background: "var(--ink-50)", borderRadius: 12, padding: "0 12px", border: "1.5px solid var(--ink-200)" }}
-        >
+        <div className="row gap-8 grow search-field">
           <SearchIcon size={18} color="var(--ink-500)" />
           <form
             role="search"
@@ -187,11 +184,10 @@ export default function Search() {
             onSubmit={(e) => { e.preventDefault(); (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.blur(); }}
           >
             <input
-              className="input"
+              className="search-field-input"
               type="search"
               enterKeyHint="search"
               aria-label={t("search_input_placeholder")}
-              style={{ border: "none", background: "transparent", padding: "11px 0", flex: 1 }}
               placeholder={t("search_input_placeholder")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -303,7 +299,7 @@ export default function Search() {
             )}
             <div className="row between align-center wrap gap-8">
               <div className="row gap-8 align-center">
-                <span className="tiny muted">{tf("search_results_count", { count: total })}</span>
+                <span className="tiny muted">{total === 1 ? t("search_result_one") : tf("search_results_count", { count: total })}</span>
                 <button
                   className={`chip ${openOnly ? "active" : ""}`}
                   style={{ padding: "4px 10px", fontSize: 12, height: "auto", cursor: "pointer" }}

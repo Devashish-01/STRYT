@@ -322,8 +322,13 @@ export default function RequestDetail() {
           <div className="card row" style={{ padding: 14, marginTop: 14 }}>
             <Cell label={t("budget_label")} value={budget} color="var(--green-500)" />
             <Sep />
-            <Cell label={t("needed_by")} value={r.deadline} />
-            <Sep />
+            {/* A request posted without a deadline used to show a "Needed by" label over an empty value. */}
+            {r.deadline && (
+              <>
+                <Cell label={t("needed_by")} value={r.deadline} />
+                <Sep />
+              </>
+            )}
             <Cell label={t("radius_label")} value={`${r.radiusKm} km`} />
           </div>
           <div className="row gap-12 tiny muted" style={{ marginTop: 10 }}>
@@ -405,7 +410,8 @@ export default function RequestDetail() {
 
                   <p className="small" style={{ marginTop: 10, lineHeight: 1.5 }}>{p.message}</p>
 
-                  <div className="row between" style={{ marginTop: 12 }}>
+                  {/* Wraps: quote + ETA on the first line, the actions drop to their own line instead of squeezing the ETA into three. */}
+                  <div className="row between" style={{ marginTop: 12, flexWrap: "wrap", rowGap: 10 }}>
                     <div className="row gap-12">
                       <div className="col" style={{ gap: 0 }}>
                         <span className="tiny muted">{t("quote_label")}</span>
@@ -413,14 +419,14 @@ export default function RequestDetail() {
                       </div>
                       <div className="col" style={{ gap: 0 }}>
                         <span className="tiny muted">{t("eta_label")}</span>
-                        <span className="semi small">{p.eta}</span>
+                        <span className="semi small" style={{ whiteSpace: "nowrap" }}>{p.eta}</span>
                       </div>
                     </div>
                     {isMine && r.status === "OPEN" && (
                       accepted === p.id ? (
                         <span className="badge badge-green"><CheckCircle2 size={13} /> {t("accepted_badge")}</span>
                       ) : (
-                        <div className="row gap-8">
+                        <div className="row gap-8" style={{ marginLeft: "auto" }}>
                           <button className="btn btn-outline btn-sm icon-btn" style={{ width: 36, padding: 0 }} title={t("message")} onClick={() => messageResponder(p)} disabled={!!accepted || messaging === p.id}>
                             <MessageCircle size={15} />
                           </button>
@@ -611,7 +617,7 @@ export default function RequestDetail() {
             title: r.title,
             subtitle: `${r.categoryName} • ${budget}`,
             image: r.photos[0] ?? PLACEHOLDER_REQUEST_SHARE,
-            meta: `📍 ${r.area} • needed by ${r.deadline}`,
+            meta: `📍 ${r.area}${r.deadline ? ` • needed by ${r.deadline}` : ""}`,
           }}
           onClose={() => setShare(false)}
         />

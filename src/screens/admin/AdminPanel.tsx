@@ -26,6 +26,7 @@ import { AdminBugs } from "./tabs/AdminBugs";
 import { AdminDisputes } from "./tabs/AdminDisputes";
 import { AdminAppeals } from "./tabs/AdminAppeals";
 import { AdminProfiles } from "./tabs/AdminProfiles";
+import { AdminDeliveries } from "./tabs/AdminDeliveries";
 import { errorMessage } from "@/lib/errorMessage";
 
 export default function AdminPanel() {
@@ -88,8 +89,8 @@ export default function AdminPanel() {
   return (
     <div className="screen">
       <AppBar title="Admin Console" subtitle="Moderation & ops" onBack={() => nav("/profile")} />
-      <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
-        {([["dashboard", "Overview"], ["queue", "Queue"], ["verification", "Verification"], ["location", "Location changes"], ["disputes", "Disputes"], ["appeals", "Appeals"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
+      <div className="row chip-fade" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
+        {([["dashboard", "Overview"], ["queue", "Queue"], ["verification", "Verification"], ["location", "Location changes"], ["disputes", "Disputes"], ["appeals", "Appeals"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["deliveries", "Deliveries"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} className="semi" style={{ flex: "1 0 auto", padding: "12px 14px", fontSize: 13.5, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>{label}</button>
         ))}
       </div>
@@ -103,6 +104,7 @@ export default function AdminPanel() {
         {tab === "reports" && <AdminReports />}
         {tab === "bugs" && <AdminBugs />}
         {tab === "profiles" && <AdminProfiles />}
+        {tab === "deliveries" && <AdminDeliveries />}
         {tab === "account" && <AdminAccount />}
       </div>
     </div>

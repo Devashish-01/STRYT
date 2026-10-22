@@ -7,7 +7,7 @@
  */
 
 /**
- * Delivery Agent flow (docs/plans/app-plans/09_delivery_boy_flow.md).
+ * Delivery Agent flow (archive/docs/plans/app-plans/09_delivery_boy_flow.md).
  *
  * Phase 1 (DB + scope groundwork), Phase 2 (Delivery hat + console), and
  * Phase 3 (assignment/tracking UI) are all built — DeliveryConsole.tsx,
@@ -15,20 +15,24 @@
  * `delivery` scope/preset, and the customer IN_STORE/DELIVERY toggle in
  * AppointmentSheet.tsx were sitting wired but dark behind this flag.
  *
+ * Off unless a build sets VITE_DELIVERY_AGENT_ENABLED=true. The production and Play builds never set it, so they ship
+ * with delivery dark exactly as before; .env.staging sets it so the whole flow can be built, shown and tested. It is still a
+ * compile-time constant: flipping it for production means setting the variable and shipping a new build.
+ *
  * OFF for the v1.0 Play Store submission — not because the feature isn't
  * ready, but because reviewing it properly (its own background-location
  * declaration, demo video, and test account) is a second pass we're
  * deliberately not blocking launch on. Flip back to `true` for v1.1, along
  * with restoring REQUEST_IGNORE_BATTERY_OPTIMIZATIONS in AndroidManifest.xml
- * and un-marking the deferred sections in docs/launch/.
+ * and un-marking the deferred sections in archive/docs/launch/.
  */
-export const DELIVERY_AGENT_ENABLED = false;
+export const DELIVERY_AGENT_ENABLED = (import.meta as any).env?.VITE_DELIVERY_AGENT_ENABLED === "true";
 
 /**
  * Hindi and Marathi.
  *
  * The translation itself is real and lives in src/lib/i18n/{hi,mr}.ts — but it is only part-done, and every
- * string still queued in docs/i18n/REVIEW_QUEUE.md is a machine draft that no native speaker has read. A user
+ * string still queued in archive/docs/i18n/REVIEW_QUEUE.md is a machine draft that no native speaker has read. A user
  * who picked Hindi today would get a screen half in Hindi and half in English, which reads as broken rather
  * than as "not translated yet".
  *
