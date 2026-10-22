@@ -249,7 +249,7 @@ const clientFacingCheck = fileResults.filter(f => clientFacingNames.includes(f.n
 const withMissingExceptions = fileResults.filter(f => f.missingExceptions.length > 0);
 
 // Write JSON report
-const jsonReportPath = path.join(ROOT, "docs/database/W3_PHASE1_AUDIT_REPORT.json");
+const jsonReportPath = path.join(ROOT, "archive/docs/database/W3_PHASE1_AUDIT_REPORT.json");
 fs.writeFileSync(jsonReportPath, JSON.stringify({
   totalAudited: fileResults.length,
   missingSearchPath,
@@ -377,7 +377,7 @@ ${withMissingExceptions.length === 0 ? "✅ All live exception guards are 100% p
 ${fileResults.map((f, i) => `| ${i + 1} | \`${f.file.slice(0, 8)}\` | \`${f.name}\` | ${f.isSecDef ? "Yes" : "No"} | ${f.hasSearchPath ? "Yes" : "No"} | ${f.existsOnLive ? "Yes" : "New"} | \`${(f.fileGrant || "").slice(0, 35)}...\` |`).join("\n")}
 `;
 
-const mdReportPath = path.join(ROOT, "docs/database/W3_PHASE1_AUDIT_REPORT.md");
+const mdReportPath = path.join(ROOT, "archive/docs/database/W3_PHASE1_AUDIT_REPORT.md");
 fs.writeFileSync(mdReportPath, md, "utf8");
 
 console.log(`\nAudit complete!`);

@@ -1,5 +1,5 @@
-// Renders docs/security/DATA_ACCESS_MATRIX.md from the JSON written by data-access-tests.mjs.
-// Usage: node scripts/audit/render-data-access-matrix.mjs docs/security/data-access-results.json docs/security/DATA_ACCESS_MATRIX.md
+// Renders archive/docs/security/DATA_ACCESS_MATRIX.md from the JSON written by data-access-tests.mjs.
+// Usage: node scripts/audit/render-data-access-matrix.mjs archive/docs/security/data-access-results.json archive/docs/security/DATA_ACCESS_MATRIX.md
 import fs from "fs";
 
 const [inp, out] = process.argv.slice(2);

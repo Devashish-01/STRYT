@@ -117,5 +117,5 @@ const report = {
   policies: policyDefs
 };
 
-fs.writeFileSync(path.join(ROOT, "docs/database/extracted_w2_raw.json"), JSON.stringify(report, null, 2));
-console.log("Report saved to docs/database/extracted_w2_raw.json");
+fs.writeFileSync(path.join(ROOT, "archive/docs/database/extracted_w2_raw.json"), JSON.stringify(report, null, 2));
+console.log("Report saved to archive/docs/database/extracted_w2_raw.json");

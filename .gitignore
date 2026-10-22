@@ -66,3 +66,5 @@ dist-staging
 tools/
 .verify-wt/
 
+# Moved out of the repo root (docs, store assets, scratch, generated reports). Downloaded skills stay untracked.
+/archive/skills/

@@ -2,7 +2,7 @@
 // item by item, through the Management API. Stops at the first error and prints which item failed.
 //
 // Hard guard: refuses the production ref, and refuses any ref other than the staging ref recorded in
-// docs/plan/DECISIONS.md (D6), before sending anything.
+// archive/docs/plan/DECISIONS.md (D6), before sending anything.
 //
 // Usage:
 //   node scripts/baseline/apply-baseline.mjs <staging ref> supabase/baseline/<date>_schema.sql [--from N]
@@ -17,7 +17,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const PROD = "gnswxlfmcwyhmzlfipql";
 const [ref, target, ...rest] = process.argv.slice(2);
 
-const decisions = fs.readFileSync(path.join(ROOT, "docs", "plan", "DECISIONS.md"), "utf8");
+const decisions = fs.readFileSync(path.join(ROOT, "archive", "docs", "plan", "DECISIONS.md"), "utf8");
 const staging = decisions.match(/\*\*D6\*\*[^\n]*ref:\s*([a-z0-9]{20})/)?.[1];
 if (!ref) { console.error("usage: apply-baseline.mjs <staging ref> <file | --migrations-after VERSION> [--from N]"); process.exit(1); }
 if (ref === PROD) { console.error(`REFUSED: ${ref} is PRODUCTION. This script never writes to production.`); process.exit(2); }

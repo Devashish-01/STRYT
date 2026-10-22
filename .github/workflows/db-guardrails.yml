@@ -1,6 +1,6 @@
 # Database Guardrails CI
 #
-# W8 — Automated enforcement of the rules in docs/database/HANDOFF.md.
+# W8 — Automated enforcement of the rules in archive/docs/database/HANDOFF.md.
 #
 # Triggered:
 #   1. On PRs that touch supabase/** — runs the migration linter (lint:migrations).

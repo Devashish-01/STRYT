@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const destRoot = path.join(root, "playstore-assets");
+const destRoot = path.join(root, "archive", "playstore-assets");
 
 const dirs = [
   destRoot,
@@ -43,23 +43,23 @@ for (const s of screenshots) {
 
 // 2. Copy Documentation Dossiers
 fs.copyFileSync(
-  path.join(root, "docs", "launch", "play-console", "STORE_LISTING.md"),
+  path.join(root, "archive", "docs", "launch", "play-console", "STORE_LISTING.md"),
   path.join(destRoot, "metadata", "STORE_LISTING_FULL.md")
 );
 fs.copyFileSync(
-  path.join(root, "docs", "launch", "play-console", "PLAY_CONSOLE_MASTER_DOSSIER.md"),
+  path.join(root, "archive", "docs", "launch", "play-console", "PLAY_CONSOLE_MASTER_DOSSIER.md"),
   path.join(destRoot, "policy-and-declarations", "PLAY_CONSOLE_MASTER_DOSSIER.md")
 );
 fs.copyFileSync(
-  path.join(root, "docs", "launch", "play-console", "DATA_SAFETY.md"),
+  path.join(root, "archive", "docs", "launch", "play-console", "DATA_SAFETY.md"),
   path.join(destRoot, "policy-and-declarations", "DATA_SAFETY.md")
 );
 fs.copyFileSync(
-  path.join(root, "docs", "launch", "play-console", "BACKGROUND_LOCATION_DECLARATION.md"),
+  path.join(root, "archive", "docs", "launch", "play-console", "BACKGROUND_LOCATION_DECLARATION.md"),
   path.join(destRoot, "policy-and-declarations", "BACKGROUND_LOCATION_DECLARATION.md")
 );
 fs.copyFileSync(
-  path.join(root, "docs", "launch", "play-console", "APP_ACCESS.md"),
+  path.join(root, "archive", "docs", "launch", "play-console", "APP_ACCESS.md"),
   path.join(destRoot, "policy-and-declarations", "APP_ACCESS.md")
 );
 

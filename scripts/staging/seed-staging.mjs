@@ -1,6 +1,6 @@
 // P06: seed STAGING with synthetic data only. Idempotent with --reset.
 //
-// Hard guard: the target must equal the staging ref in docs/plan/DECISIONS.md (D6) and must not be
+// Hard guard: the target must equal the staging ref in archive/docs/plan/DECISIONS.md (D6) and must not be
 // production. The check runs before any network call.
 //
 // What it writes (staging):
@@ -22,7 +22,7 @@ import { PERSONAS, BUSINESS, PROVIDER, SHOP, STAGING_AREA } from "./personas.mjs
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PROD = "gnswxlfmcwyhmzlfipql";
 const args = process.argv.slice(2);
-const decisions = fs.readFileSync(path.join(ROOT, "docs", "plan", "DECISIONS.md"), "utf8");
+const decisions = fs.readFileSync(path.join(ROOT, "archive", "docs", "plan", "DECISIONS.md"), "utf8");
 const STAGING = decisions.match(/\*\*D6\*\*[^\n]*ref:\s*([a-z0-9]{20})/)?.[1];
 const TARGET = args.includes("--target") ? args[args.indexOf("--target") + 1] : STAGING;
 

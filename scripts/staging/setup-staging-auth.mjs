@@ -6,7 +6,7 @@
 // - Configures STAGING auth (never production): phone sign-in with those test numbers (no SMS is sent
 //   for test numbers), email sign-in auto-confirmed for the admin persona, localhost site URL.
 //
-// Hard guard: refuses unless the ref is the staging ref in docs/plan/DECISIONS.md (D6) and not production.
+// Hard guard: refuses unless the ref is the staging ref in archive/docs/plan/DECISIONS.md (D6) and not production.
 // Usage: node scripts/staging/setup-staging-auth.mjs
 
 import fs from "fs";
@@ -17,7 +17,7 @@ import { PERSONAS, NEWCOMER_PHONES } from "./personas.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PROD = "gnswxlfmcwyhmzlfipql";
-const decisions = fs.readFileSync(path.join(ROOT, "docs", "plan", "DECISIONS.md"), "utf8");
+const decisions = fs.readFileSync(path.join(ROOT, "archive", "docs", "plan", "DECISIONS.md"), "utf8");
 const STAGING = decisions.match(/\*\*D6\*\*[^\n]*ref:\s*([a-z0-9]{20})/)?.[1];
 if (!STAGING || STAGING === PROD) { console.error("REFUSED: no staging ref in DECISIONS.md D6, or it is production"); process.exit(2); }
 

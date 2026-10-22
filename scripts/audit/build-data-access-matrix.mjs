@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUTPUT_MD = path.join(ROOT, 'docs', 'security', 'DATA_ACCESS_MATRIX.md');
+const OUTPUT_MD = path.join(ROOT, 'archive', 'docs', 'security', 'DATA_ACCESS_MATRIX.md');
 
 function readEnv() {
   const env = {};

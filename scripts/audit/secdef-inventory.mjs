@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUTPUT_CSV = path.join(ROOT, 'docs', 'security', 'SECDEF_INVENTORY.csv');
+const OUTPUT_CSV = path.join(ROOT, 'archive', 'docs', 'security', 'SECDEF_INVENTORY.csv');
 
 function readEnv() {
   const env = {};

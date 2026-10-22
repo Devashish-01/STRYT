@@ -8,7 +8,7 @@
 
 **STRYT** is a hyperlocal community marketplace and live storefront app designed to connect neighbors, customers, local businesses, and independent service providers. Warm, trustworthy, fast, and decidedly non-corporate, STRYT acts as the digital heartbeat of your street.
 
-> **Documentation:** All project docs are in [`docs/`](./docs/README.md). Launch checklist: [`docs/launch/LAUNCH_REPORT.md`](./docs/launch/LAUNCH_REPORT.md).
+> **Documentation:** All project docs are in [`archive/docs/`](./archive/docs/README.md). Launch checklist: [`archive/docs/launch/LAUNCH_REPORT.md`](./archive/docs/launch/LAUNCH_REPORT.md).
 
 ---
 

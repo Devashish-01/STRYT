@@ -9,7 +9,7 @@ for (const b of bodies) {
   bodiesMap.set(b.proname, b); // fallback
 }
 
-const csv = fs.readFileSync('docs/security/SECDEF_INVENTORY.csv', 'utf8');
+const csv = fs.readFileSync('archive/docs/security/SECDEF_INVENTORY.csv', 'utf8');
 const lines = csv.trim().split('\n');
 function parseCSVLine(line) {
   const result = [];

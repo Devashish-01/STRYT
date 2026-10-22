@@ -1,4 +1,4 @@
-// P08 — summary and integrity check for docs/gaps/GAP_LEDGER.csv. Exits non-zero when:
+// P08 — summary and integrity check for archive/docs/gaps/GAP_LEDGER.csv. Exits non-zero when:
 //   - a gap_id is duplicated;
 //   - a row's status is not one of UNVERIFIED | FIXED | OPEN | NOT_A_BUG | DECISION | DEFERRED;
 //   - a FIXED / NOT_A_BUG / DECISION / DEFERRED row has no evidence;
@@ -11,7 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const FILE = path.join(ROOT, "docs", "gaps", "GAP_LEDGER.csv");
+const FILE = path.join(ROOT, "archive", "docs", "gaps", "GAP_LEDGER.csv");
 const onlyDomain = process.argv.includes("--domain") ? process.argv[process.argv.indexOf("--domain") + 1] : null;
 
 function parseCsv(text) {

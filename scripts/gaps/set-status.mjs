@@ -1,4 +1,4 @@
-// P08 — records verification results in docs/gaps/GAP_LEDGER.csv without hand-editing the CSV.
+// P08 — records verification results in archive/docs/gaps/GAP_LEDGER.csv without hand-editing the CSV.
 // Input: a JSON file with [{ gap_id, status, evidence, commit?, notes? }, ...]. verified_by / verified_on are stamped.
 // Refuses unknown gap ids and statuses; run scripts/gaps/ledger-summary.mjs afterwards for the integrity check.
 // Usage: node scripts/gaps/set-status.mjs <updates.json> [--by "claude (P08)"]
@@ -8,7 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const FILE = path.join(ROOT, "docs", "gaps", "GAP_LEDGER.csv");
+const FILE = path.join(ROOT, "archive", "docs", "gaps", "GAP_LEDGER.csv");
 const STATUSES = ["UNVERIFIED", "FIXED", "OPEN", "NOT_A_BUG", "DECISION", "DEFERRED"];
 const by = process.argv.includes("--by") ? process.argv[process.argv.indexOf("--by") + 1] : "claude (P08)";
 const updates = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));

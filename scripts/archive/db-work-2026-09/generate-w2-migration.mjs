@@ -55,7 +55,7 @@ let sql = `-- Migration: 20260958_capture_database_only_objects.sql
 -- Description: W2 — Capture database-only objects into the repository.
 -- All definitions are copied verbatim from the live catalog snapshot (2026-09-11_after_20260957.sql).
 -- This migration is strictly idempotent: applying it to production is a verified no-op.
--- Reference: docs/database/HANDOFF.md, docs/database/W2_EXECUTION_PLAN.md
+-- Reference: archive/docs/database/HANDOFF.md, archive/docs/database/W2_EXECUTION_PLAN.md
 
 `;
 

@@ -1,4 +1,4 @@
-// P08.0 — builds docs/gaps/GAP_LEDGER.csv from every docs/gaps/*_GAP_LOG.md.
+// P08.0 — builds archive/docs/gaps/GAP_LEDGER.csv from every archive/docs/gaps/*_GAP_LOG.md.
 //
 // One row per finding. `doc_claim` records what the log itself says (Resolved / Fixed / Deferred …) — a claim,
 // not a verified status. `status` starts as UNVERIFIED; verification sessions set FIXED / OPEN / NOT_A_BUG /
@@ -18,7 +18,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const DIR = path.join(ROOT, "docs", "gaps");
+const DIR = path.join(ROOT, "archive", "docs", "gaps");
 const OUT = path.join(DIR, "GAP_LEDGER.csv");
 const COLS = ["gap_id", "log_file", "domain", "flow_id", "severity", "title", "doc_claim", "status", "evidence", "commit", "verified_by", "verified_on", "notes"];
 

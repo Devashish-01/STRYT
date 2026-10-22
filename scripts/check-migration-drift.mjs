@@ -1,6 +1,6 @@
 // Migration & Schema Drift Guard for STRYT
 //
-// Adheres to docs/database/HANDOFF.md (§W8, §6.1):
+// Adheres to archive/docs/database/HANDOFF.md (§W8, §6.1):
 //   1. Checks that every function & table declared in migrations exists on live database
 //   2. §6.1 Body Fingerprinting: compares normalized body MD5 of functions
 //   3. §6.1 Comment-Stripped Fallback: isolates comment-only drift from true logic drift

@@ -11,7 +11,7 @@ import tseslint from "typescript-eslint";
 // globals, unreachable code) without relitigating every existing style
 // choice at once. Tighten incrementally in later passes.
 export default tseslint.config(
-  { ignores: ["dist", "android", "ios", "supabase/functions", "*.config.js", "*.config.ts"] },
+  { ignores: ["dist", "android", "ios", "archive", "supabase/functions", "*.config.js", "*.config.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
