@@ -33,31 +33,31 @@ export function BeatFrame({
   onCta: () => void;
   onSkip?: () => void;
   skipLabel?: string;
-  /** Rendered under the CTA, above the skip — e.g. the language switcher. */
+  /** Rendered above the CTA — e.g. the language switcher. */
   footer?: ReactNode;
 }) {
   const { t } = useI18n();
   return (
-    <div className="ob-beat">
-      <div className="ob-beat-head">
-        <h1 className="ob-beat-title">{title}</h1>
-        {sub && <p className="ob-beat-sub">{sub}</p>}
+    <div className="onb-beat">
+      <div className="onb-head">
+        <h1 className="onb-title">{title}</h1>
+        {sub && <p className="onb-sub">{sub}</p>}
       </div>
 
-      <div className="ob-beat-body">{children}</div>
+      <div className="onb-body">{children}</div>
 
-      <div className="ob-beat-foot">
+      <div className="onb-foot">
+        {footer}
         <button
           type="button"
-          className="btn btn-primary btn-block btn-lg ob-cta"
+          className="btn btn-primary btn-block btn-lg onb-cta"
           disabled={ctaDisabled || ctaBusy}
           onClick={onCta}
         >
           {ctaBusy ? <><Loader className="spin" size={17} /> {t("saving_setup")}</> : ctaLabel}
         </button>
-        {footer}
         {onSkip && (
-          <button type="button" className="ob-skip" onClick={onSkip} disabled={ctaBusy}>
+          <button type="button" className="onb-skip" onClick={onSkip} disabled={ctaBusy}>
             {skipLabel ?? t("skip_for_now")}
           </button>
         )}

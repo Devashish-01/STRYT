@@ -35,7 +35,7 @@ const strings: Record<string, string> = {
     login_legal_and: "और",
     login_get_android: "Android ऐप पाएँ",
     login_phone_label: "मोबाइल नंबर, 10 अंक",
-    ob_identity_sub: "शुरू करने के लिए अपनी जानकारी की पुष्टि करें। आप नाम और फ़ोटो बदल सकते हैं।",
+    ob_identity_sub: "यह निजी रहता है। पड़ोसियों को सिर्फ़ आपका @username दिखता है, जो आप अगले चरण में चुनेंगे।",
     ob_step_of: "चरण {n}/4",
     ob_picked_count: "{n} चुने गए",
     rating_new: "नया",
@@ -349,7 +349,9 @@ const strings: Record<string, string> = {
     chat_today: "आज",
     chat_yesterday: "कल",
     ob_change_photo: "फ़ोटो बदलें (वैकल्पिक)",
-    ob_google_email: "Google खाते का ईमेल",
+    ob_add_photo: "फ़ोटो जोड़ें",
+    ob_photo_optional: "वैकल्पिक — बाद में भी जोड़ सकते हैं।",
+    ob_phone_change: "बदलें",
     ob_age_confirm: "मैं पुष्टि करता/करती हूँ कि मेरी उम्र 18 वर्ष या उससे अधिक है।",
     ob_phone_why: "यह किसी को तभी दिखता है जब आप दोनों सौदा तय कर लेते हैं।",
     ob_phone_invalid: "10 अंकों का भारतीय मोबाइल नंबर डालें।",
@@ -439,7 +441,7 @@ const strings: Record<string, string> = {
     optional_settings_title: "वैकल्पिक सेटिंग्स और प्राथमिकताएं",
 
     // First-run onboarding — the four "light up your street" beats
-    ob_beat1_title: "क्या यह आप हैं?",
+    ob_beat1_title: "हम आपको क्या कहकर बुलाएँ?",
     ob_beat1_sub: "आपके Google खाते से — कभी भी बदल सकते हैं।",
     ob_beat1_confirm: "हाँ, यह मैं हूँ",
     ob_beat1_edit: "दूसरा नाम इस्तेमाल करें",

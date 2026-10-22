@@ -107,55 +107,60 @@ export function BeatHandle({
       onCta={() => onDone(value)}
     >
       {suggestions.length > 0 && (
-        <>
-          <div className="ob-label">{t("ob_beat2_pick")}</div>
-          <div className="ob-chips">
+        <div className="onb-field">
+          <div className="onb-label">{t("ob_beat2_pick")}</div>
+          <div className="onb-chips">
             {suggestions.map((s) => (
               <button
                 key={s}
                 type="button"
-                className={`chip-pill ${!usingCustom && chosen === s ? "active" : ""}`}
+                className={`onb-interest ${!usingCustom && chosen === s ? "active" : ""}`}
+                aria-pressed={!usingCustom && chosen === s}
                 onClick={() => { setChosen(s); setCustom(""); }}
               >
                 @{s}
               </button>
             ))}
           </div>
-        </>
+        </div>
       )}
 
-      <div className="ob-label" style={{ marginTop: suggestions.length > 0 ? 18 : 0 }}>
-        {suggestions.length > 0 ? t("ob_beat2_custom") : t("ob_beat2_title")}
-      </div>
-      <div className="ob-handle-field">
-        <span className="ob-handle-at">@</span>
-        <input
-          className="input ob-handle-input"
-          value={custom}
-          onChange={(e) => setCustom(normalizeAlias(e.target.value))}
-          placeholder="yourname"
-          maxLength={20}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          aria-label={t("ob_beat2_title")}
-        />
-        {usingCustom && (
-          <span className={`ob-handle-state ${avail}`}>
-            {avail === "checking" && <Loader className="spin" size={15} />}
-            {avail === "free" && <Check size={16} />}
-            {avail === "taken" && <XIcon size={16} />}
-          </span>
-        )}
-      </div>
-      <div className={`ob-hint ${usingCustom && avail === "taken" ? "bad" : ""}`}>
-        {usingCustom && avail === "taken"
-          ? t("ob_handle_taken")
-          : usingCustom && avail === "free"
-          ? t("ob_handle_free")
-          : usingCustom && avail === "checking"
-          ? t("ob_handle_checking")
-          : t("ob_handle_hint")}
+      <div className="onb-field">
+        <label className="onb-label" htmlFor="onboard-handle">
+          {suggestions.length > 0 ? t("ob_beat2_custom") : t("ob_beat2_title")}
+        </label>
+        <div className="onb-handle">
+          <span className="onb-handle-at">@</span>
+          <input
+            id="onboard-handle"
+            className="onb-input"
+            value={custom}
+            onChange={(e) => setCustom(normalizeAlias(e.target.value))}
+            placeholder="yourname"
+            maxLength={20}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-describedby="onboard-handle-hint"
+            aria-invalid={usingCustom && avail === "taken"}
+          />
+          {usingCustom && (
+            <span className={`onb-handle-state ${avail}`}>
+              {avail === "checking" && <Loader className="spin" size={15} />}
+              {avail === "free" && <Check size={16} />}
+              {avail === "taken" && <XIcon size={16} />}
+            </span>
+          )}
+        </div>
+        <div id="onboard-handle-hint" className={`onb-hint ${usingCustom && avail === "taken" ? "bad" : ""}`}>
+          {usingCustom && avail === "taken"
+            ? t("ob_handle_taken")
+            : usingCustom && avail === "free"
+            ? t("ob_handle_free")
+            : usingCustom && avail === "checking"
+            ? t("ob_handle_checking")
+            : t("ob_handle_hint")}
+        </div>
       </div>
     </BeatFrame>
   );

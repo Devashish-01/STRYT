@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, ArrowLeft } from "@/components/Icons";
+import { ArrowLeft } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { normalizeAlias } from "@/lib/publicName";
 import { onboardingService } from "@/services/core/onboardingService";
-import StreetScene from "@/components/StreetScene";
-import BrandLockup from "@/components/BrandLockup";
 import { BeatIdentity } from "./onboard/BeatIdentity";
 import { BeatHandle } from "./onboard/BeatHandle";
 import { BeatLocation, type PickedPlace } from "./onboard/BeatLocation";
@@ -68,21 +66,25 @@ export default function UserOnboard() {
   }
 
   return (
-    <div className="ob-screen">
-      <StreetScene litCount={beat} />
-      <div className="ob-top"><BrandLockup glow={0.85} size={22} /></div>
-      <div className="ob-progress" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={beat + 1}
-        aria-label={tf("ob_step_of", { n: beat + 1 })}>
-        {[0, 1, 2, 3].map((i) => <span key={i} className={i <= beat ? "on" : ""} />)}
-      </div>
-      {beat > 0 && (
-        <button className="ob-back" onClick={() => setBeat(beat - 1)} disabled={busy} aria-label={t("back_word")}>
-          <ArrowLeft size={18} />
+    <div className="onb">
+      <div className="onb-top">
+        {beat > 0 ? (
+          <button className="onb-back" onClick={() => setBeat(beat - 1)} disabled={busy} aria-label={t("back_word")}>
+            <ArrowLeft size={20} />
+          </button>
+        ) : <span className="onb-back-spacer" aria-hidden="true" />}
+        <div className="onb-progress" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={beat + 1}
+          aria-label={tf("ob_step_of", { n: beat + 1 })}>
+          {[0, 1, 2, 3].map((i) => <span key={i} className={i <= beat ? "on" : ""} />)}
+        </div>
+        <button className="onb-signout" disabled={busy} onClick={() => { signOut(); nav("/"); }}>
+          {t("sign_out")}
         </button>
-      )}
-      <div className="ob-stage">
+      </div>
+      {/* Keyed by beat so each step enters fresh and the scroll position resets. */}
+      <div className="onb-stage" key={beat}>
         {beat === 0 && (
-          <BeatIdentity {...identity} email={user.email} busy={busy}
+          <BeatIdentity {...identity} busy={busy}
             onDone={data => void step(async () => {
               await onboardingService.save("identity", data); setIdentity(data);
             }, 1)} />
@@ -109,9 +111,6 @@ export default function UserOnboard() {
             onDone={value => void finish(value)} onSkip={() => void finish([])} />
         )}
       </div>
-      <button className="ob-signout" disabled={busy} onClick={() => { signOut(); nav("/"); }}>
-        <LogOut size={15} /> {t("sign_out")}
-      </button>
     </div>
   );
 }

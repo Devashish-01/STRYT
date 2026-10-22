@@ -3,7 +3,6 @@ import { useQuery } from "@/hooks/useApi";
 import { catalogService } from "@/services";
 import { useI18n } from "@/lib/i18n";
 import { Check } from "@/components/Icons";
-import { Skeleton } from "@/components/states";
 import { BeatFrame } from "./BeatFrame";
 
 /**
@@ -55,27 +54,27 @@ export function BeatInterests({
       onSkip={onSkip}
     >
       {loading ? (
-        <div className="ob-interests">
-          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} h={44} r={14} mb={0} />)}
+        <div className="onb-interests" aria-hidden="true">
+          {[112, 96, 132, 88, 120, 104, 90, 126].map((w, i) => <span key={i} className="onb-skel" style={{ width: w }} />)}
         </div>
       ) : (
-        <div className="ob-interests">
+        <div className="onb-interests">
           {groups.map((c) => (
             <button
               key={c.id}
               type="button"
-              className={`ob-interest ${picked.includes(c.id) ? "active" : ""}`}
+              className={`onb-interest ${picked.includes(c.id) ? "active" : ""}`}
               aria-pressed={picked.includes(c.id)}
               onClick={() => toggle(c.id)}
             >
-              <span className="ob-interest-icon">{c.icon}</span>
-              <span className="ob-interest-name">{c.name}</span>
+              <span className="onb-interest-icon">{c.icon}</span>
+              <span>{c.name}</span>
               {picked.includes(c.id) && <Check size={15} aria-hidden="true" />}
             </button>
           ))}
         </div>
       )}
-      {picked.length > 0 && <p className="ob-hint" aria-live="polite">{tf("ob_picked_count", { n: picked.length })}</p>}
+      {picked.length > 0 && <p className="onb-hint" aria-live="polite">{tf("ob_picked_count", { n: picked.length })}</p>}
     </BeatFrame>
   );
 }

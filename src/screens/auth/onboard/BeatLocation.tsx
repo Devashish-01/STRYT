@@ -171,11 +171,11 @@ export function BeatLocation({
       onSkip={found ? undefined : onSkip}
     >
       {found ? (
-        <div className="ob-found">
-          <span className="ob-found-tick"><Check size={18} /></span>
+        <div className="onb-found">
+          <span className="onb-found-tick"><Check size={18} /></span>
           <div>
-            <div className="ob-found-area">{place.area || t("ob_beat3_title")}</div>
-            <div className="ob-found-count">
+            <div className="onb-found-area">{place.area || t("ob_beat3_title")}</div>
+            <div className="onb-found-count">
               {nearby === null
                 ? ""
                 : nearby.count > 0
@@ -189,41 +189,43 @@ export function BeatLocation({
         </div>
       ) : (
         <>
-          <div className="ob-locating-orb" aria-hidden="true">
-            {locating ? <Loader className="spin" size={30} /> : <Navigation size={30} />}
+          <div className="onb-orb" aria-hidden="true">
+            {locating ? <Loader className="spin" size={34} /> : <Navigation size={34} />}
           </div>
-          {denied && <div className="ob-hint bad">{t("ob_beat3_denied")}</div>}
-          {results.length === 0 && query.trim().length >= 2 && !searching && (
-            <div className="ob-hint" style={{ marginTop: 10 }}>{t("ob_beat3_no_results")}</div>
-          )}
+          {denied && <div className="onb-hint bad">{t("ob_beat3_denied")}</div>}
 
-          <div className="ob-label" style={{ marginTop: 18 }}>{t("ob_beat3_search")}</div>
-          <div className="ob-search-field">
-            <MapPin size={16} className="ob-search-icon" />
-            <input
-              ref={searchRef}
-              className="input ob-search-input"
-              value={query}
-              onChange={(e) => search(e.target.value)}
-              placeholder={t("neighborhood_placeholder")}
-              aria-label={t("ob_beat3_search")}
-            />
-            {searching && <Loader className="spin" size={14} />}
-          </div>
-          {results.length > 0 && (
-            <div className="ob-results">
-              {results.map((p, i) => (
-                <button
-                  key={`${p.lat},${p.lng},${i}`}
-                  type="button"
-                  className="ob-result"
-                  onClick={() => { setResults([]); setQuery(""); void settle(p.lat, p.lng, p.area, ++settleToken.current); }}
-                >
-                  <MapPin size={14} /> <span>{p.area}</span>
-                </button>
-              ))}
+          <div className="onb-field">
+            <label className="onb-label" htmlFor="onboard-place">{t("ob_beat3_search")}</label>
+            <div className="onb-search">
+              <MapPin size={17} className="onb-search-icon" />
+              <input
+                id="onboard-place"
+                ref={searchRef}
+                className="onb-input"
+                value={query}
+                onChange={(e) => search(e.target.value)}
+                placeholder={t("neighborhood_placeholder")}
+              />
+              {searching && <Loader className="spin onb-search-busy" size={15} />}
             </div>
-          )}
+            {results.length === 0 && query.trim().length >= 2 && !searching && (
+              <div className="onb-hint">{t("ob_beat3_no_results")}</div>
+            )}
+            {results.length > 0 && (
+              <div className="onb-results">
+                {results.map((p, i) => (
+                  <button
+                    key={`${p.lat},${p.lng},${i}`}
+                    type="button"
+                    className="onb-result"
+                    onClick={() => { setResults([]); setQuery(""); void settle(p.lat, p.lng, p.area, ++settleToken.current); }}
+                  >
+                    <MapPin size={15} /> <span>{p.area}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </BeatFrame>
