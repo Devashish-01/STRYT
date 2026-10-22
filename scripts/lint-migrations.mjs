@@ -1,6 +1,6 @@
 // Migration Linter for STRYT
 //
-// Enforces non-negotiable database guardrails from docs/database/HANDOFF.md:
+// Enforces non-negotiable database guardrails from archive/docs/database/HANDOFF.md:
 //   Rule 1: SECURITY DEFINER must pin `search_path = public`
 //   Rule 2: Functions in schema public must explicitly REVOKE permissions from public, anon
 //   Rule 3: No USING (true) or USING ((true OR ...)) on tables containing personal data (PII)
@@ -23,8 +23,10 @@ const ROOT = path.join(__dirname, "..");
 const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
 const APPLY_LOG_PATH = path.join(ROOT, "supabase", "APPLY_LOG.md");
 
-// All migrations up to 20260964 are applied to production and verified
-export const LATEST_APPLIED_MIGRATION = "20260964_drop_obsolete_bulk_deal_token_redeem.sql";
+// All migrations up to 20261003 are applied to production (see supabase/APPLY_LOG.md rows 60-66). The marker had stopped at
+// 20260964, so --all judged 14 already-applied, since-locked-down migrations (20260980-20260997) as new and failed CI on them.
+// Applied files are immutable, so the fix belongs here, not in them.
+export const LATEST_APPLIED_MIGRATION = "20261003_delivery_operations.sql";
 
 export const PII_TABLES = new Set([
   "users",

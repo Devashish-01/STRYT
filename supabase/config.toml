@@ -19,6 +19,10 @@
 #   - purge-deleted-accounts and moderation, for the same reason: a scheduler
 #     or trigger calls them with the secret key. moderation is also called by
 #     admins with their session, and checks each kind of caller itself.
+#   - firebase-phone-auth, the phone sign-in bridge: its caller has no
+#     Supabase session yet (that is what it mints). It authenticates the
+#     request itself by verifying a Firebase ID token against Google's keys,
+#     and is rate limited per IP and per phone (migration 20260998).
 #
 # Note: admin-profile-management/ and sync-bug-report/ are empty directories
 # in this repo (no index.ts) — nothing to declare until they have real code.
@@ -60,3 +64,6 @@ verify_jwt = true
 
 [functions.verification-review]
 verify_jwt = true
+
+[functions.firebase-phone-auth]
+verify_jwt = false
