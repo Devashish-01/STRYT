@@ -92,14 +92,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Commented out for the v1.0 submission: this permission's only call
-         site (promptBatteryExemptionForDuty, src/lib/batteryOptimization.ts)
-         is delivery's on-duty toggle, and DELIVERY_AGENT_ENABLED is false
-         for this release (src/lib/features.ts) — so it would be a declared,
-         unused permission, which is exactly the kind of thing Play review
-         flags. Restore alongside DELIVERY_AGENT_ENABLED for v1.1.
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    -->
+    <!-- REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is deliberately NOT declared. Play restricts it to a short allowlist
+         (alarms/timers, VoIP, task automation, companion devices) that delivery tracking is not on. A delivery rider is
+         instead sent to the system's battery-optimisation settings (BatteryOptimizationPlugin.openBatterySettings), which
+         needs no permission. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Capgo plugin marks GPS required; keep the app installable without GPS. -->
     <uses-feature android:name="android.hardware.location.gps" android:required="false" tools:replace="android:required" />

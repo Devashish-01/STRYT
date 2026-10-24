@@ -1,28 +1,27 @@
 import { useEffect, useState } from "react";
 import { Zap } from "@/components/Icons";
-import { requestIgnoreBatteryOptimizations } from "@/lib/batteryOptimization";
+import { openBatterySettings } from "@/lib/batteryOptimization";
+import { useI18n } from "@/lib/i18n";
 
 /**
- * Mounted once in App.tsx. Asks for the OEM battery-optimization exemption.
+ * Mounted once in App.tsx. Suggests the OEM battery-optimisation exemption by opening the system's battery settings.
  *
  * This is ONLY shown to a delivery agent going on duty — see
  * `promptBatteryExemptionForDuty()` in lib/batteryOptimization.ts.
  *
- * It used to fire for every Android user on first push registration, with copy
- * about notification reliability. That was the app's biggest Play-review risk:
- * `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is restricted to a narrow allowlist
- * (alarms/timers, VoIP, task automation, companion devices) and "so that
- * notifications arrive" is explicitly not on it.
+ * It used to fire for every Android user on first push registration, with copy about notification reliability, through the
+ * restricted `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission (alarms/timers, VoIP, task automation, companion devices only).
+ * Now there is no such permission: the button opens the settings list, which needs none.
  *
  * The comparable Indian apps (Zomato, Swiggy, Blinkit) dodge this entirely by
  * shipping a SEPARATE delivery-partner app, so only riders ever see rider-grade
  * permission requests. STRYT is one app carrying every role, so it has to draw
  * that line itself — which is what the duty gate does.
  *
- * The copy below is deliberately the same justification given to Play review:
- * an accepted run needs to keep reporting location until it's finished.
+ * The copy is the same justification given to Play review: an accepted run needs to keep reporting location until it's finished.
  */
 export default function BatteryOptimizationSheet() {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -40,33 +39,25 @@ export default function BatteryOptimizationSheet() {
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 4 }}>
           <Zap size={20} color="var(--delivery-600)" />
-          <h3 className="bold h2">Keep your run tracking</h3>
+          <h3 className="bold h2">{t("bat_title")}</h3>
         </div>
-        <p className="small muted" style={{ marginBottom: 14 }}>
-          While you're on a delivery, the shop and the customer follow your
-          progress from your location. Many phones (Xiaomi, Samsung, Oppo, Vivo,
-          OnePlus) stop background location to save battery, which freezes your
-          position mid-run and makes you look stuck.
-        </p>
-        <p className="small muted" style={{ marginBottom: 14 }}>
-          Letting STRYT skip battery optimisation keeps that working until you
-          finish. It only ever runs while you have an accepted delivery.
-        </p>
+        <p className="small muted" style={{ marginBottom: 14 }}>{t("bat_body_why")}</p>
+        <p className="small muted" style={{ marginBottom: 14 }}>{t("bat_body_how")}</p>
         <button
           className="btn btn-primary btn-block"
           onClick={async () => {
-            await requestIgnoreBatteryOptimizations();
+            await openBatterySettings();
             close();
           }}
         >
-          Allow
+          {t("bat_open_settings")}
         </button>
         <button
           className="btn btn-block"
           style={{ marginTop: 8, background: "transparent" }}
           onClick={close}
         >
-          Not now
+          {t("bat_not_now")}
         </button>
       </div>
     </div>
