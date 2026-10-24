@@ -28,6 +28,9 @@ import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable } from "@/lib/queueMath";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import { LiveOrderEta, LiveOrderHeadline } from "@/components/delivery/LiveOrderBits";
+import { isLiveOrder } from "@/lib/orderLists";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { MyQueueEntry } from "@/types";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -177,17 +180,36 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [nearbyRailLoading, offerNotificationPermission, scanner, locationOpen, payingQueueToken]);
 
+  // Home-delivery orders in progress get their own live card ("Your order"), and count as upcoming for as long as they are live —
+  // however late they run — rather than only while their scheduled time is still ahead.
+  const liveDeliveries = DELIVERY_AGENT_ENABLED
+    ? (myAppointments ?? []).filter((a) => a.fulfillmentType === "DELIVERY" && isLiveOrder(a))
+    : [];
   // Upcoming = still-live bookings scheduled in the future.
   const upcomingAppointments = (myAppointments ?? [])
-    .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now())
+    .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now() && !(DELIVERY_AGENT_ENABLED && a.fulfillmentType === "DELIVERY"))
     .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
-  const upcomingCount = upcomingAppointments.length;
+  const upcomingCount = upcomingAppointments.length + liveDeliveries.length;
   const nextAppointment = upcomingAppointments[0];
 
   // "Your day" — every live customer state, consolidated into one glanceable
   // rail (queues → next visit → active deals). Renders nothing when idle, so
   // the dashboard never carries empty banners.
   const todayItems: TodayItem[] = [];
+  // A delivery on its way is the most time-sensitive thing in the app, so it leads the rail.
+  for (const o of liveDeliveries.slice(0, 2)) {
+    todayItems.push({
+      key: `o:${o.id}`,
+      accent: "var(--delivery-600)",
+      icon: "🛵",
+      kicker: t("home_your_order"),
+      live: true,
+      title: o.targetName,
+      stat: <LiveOrderHeadline apt={o} />,
+      sub: <LiveOrderEta apt={o} />,
+      onClick: () => nav("/appointments"),
+    });
+  }
   for (const q of activeQueues) {
     // Called and not yet paid: the single highest-value action right now is
     // paying, not navigating away to find that button on another screen —

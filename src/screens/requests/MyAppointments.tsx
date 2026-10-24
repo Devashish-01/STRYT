@@ -18,8 +18,9 @@ import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { OrderLines } from "@/components/OrderLines";
+import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
-import { isLiveOrder } from "@/lib/orderLists";
+import { isLiveOrder, isRecentlyDelivered } from "@/lib/orderLists";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
@@ -30,9 +31,9 @@ import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
 
 // A booking counts as "upcoming" while it is still live: a slot booking until its time passes, a home-delivery order until it is
-// delivered or cancelled — however late it runs (see isLiveOrder).
+// delivered or cancelled — however late it runs (see isLiveOrder). One just delivered stays a few hours, in its "Delivered" state.
 function isUpcoming(a: AppointmentRecord): boolean {
-  return isLiveOrder(a);
+  return isLiveOrder(a) || isRecentlyDelivered(a);
 }
 
 // Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
@@ -154,9 +155,16 @@ export default function MyAppointments() {
     const all = data ?? [];
     // Upcoming = strictly future live bookings (slot is ahead of now, status PENDING or ACCEPTED).
     // Chronological order: earliest upcoming appointment first.
+    // Orders still in progress come first (the thing to look at), earliest first; one just delivered follows, most recent first.
     const upcoming = all
       .filter((a) => isUpcoming(a))
-      .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+      .sort((a, b) => {
+        const la = isLiveOrder(a) ? 0 : 1;
+        const lb = isLiveOrder(b) ? 0 : 1;
+        if (la !== lb) return la - lb;
+        const d = new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime();
+        return la === 0 ? d : -d;
+      });
 
     // Past = all appointments whose slot time has passed or that are COMPLETED/CANCELLED/REJECTED/NO_SHOW.
     // Reverse chronological order: most recent visit first.
@@ -171,7 +179,8 @@ export default function MyAppointments() {
     };
   }, [data, dismissedIds]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
-  const upcomingCount = upcomingList.length;
+  // The tab's number counts what is still in progress, not a delivery kept on the list for its "Delivered" moment.
+  const upcomingCount = upcomingList.filter((a) => isLiveOrder(a)).length;
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
@@ -399,10 +408,16 @@ export default function MyAppointments() {
                       </div>
                     )}
 
+                    {/* Delivery tracking comes first: it is the thing a customer opens this screen to look at.
+                        Feature-gated, and only for bookings the customer actually asked to have delivered. */}
+                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "PENDING" || apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} orderStatus={apt.status} readyAt={apt.readyAt} />
+                    )}
+
                     {(apt.packageName || apt.notes || apt.photoUrl) && (
                       <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
                         {apt.items && apt.items.length > 0 ? (
-                          <OrderLines lines={apt.items} />
+                          <OrderLines lines={apt.items} fee={apt.fulfillmentType === "DELIVERY" ? apt.deliveryFee : undefined} />
                         ) : (
                           apt.packageName && (
                             <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
@@ -411,7 +426,12 @@ export default function MyAppointments() {
                             </div>
                           )
                         )}
-                        {apt.notes && (
+                        {apt.fulfillmentType === "DELIVERY" && apt.deliveryAddressLine && (
+                          <div className="tiny" style={{ color: "var(--ink-700)" }}>
+                            📍 <strong>{t("ord_deliver_to")}</strong> {apt.deliveryAddressLine}
+                          </div>
+                        )}
+                        {apt.notes && !isAutoOrderNote(apt.notes, !!apt.items?.length) && (
                           <div className="tiny" style={{ color: "var(--ink-700)" }}>
                             📝 <strong>{t("your_note_label")}</strong> {apt.notes}
                           </div>
@@ -430,12 +450,6 @@ export default function MyAppointments() {
                     )}
 
                     <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />
-
-                    {/* Delivery tracking — live link + handoff code. Feature-gated, and only
-                        for bookings the customer actually asked to have delivered. */}
-                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "PENDING" || apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} orderStatus={apt.status} readyAt={apt.readyAt} />
-                    )}
 
                     {/* Payment status — shown for PENDING too (seller may require
                         payment before accepting) and COMPLETED too (an accepted
@@ -460,7 +474,7 @@ export default function MyAppointments() {
                         onClick={() => openPay(apt)}
                       >
                         <CreditCard size={13} />
-                        {loadingPay === apt.id ? t("loading_ellipsis") : apt.paymentStatus === "REJECTED" ? t("retry_payment") : apt.packagePrice ? tf("pay_amount", { amount: apt.packagePrice }) : t("pay_now")}
+                        {loadingPay === apt.id ? t("loading_ellipsis") : apt.paymentStatus === "REJECTED" ? t("retry_payment") : apt.packagePrice ? tf("pay_amount", { amount: amountDue(apt) }) : t("pay_now")}
                       </button>
                     )}
 

@@ -19,10 +19,12 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Package, MapPin, Clock, CheckCircle, Navigation, Phone } from "@/components/Icons";
 import { routableStops, openRoute, exceedsRouteCap, MAX_ROUTE_WAYPOINTS } from "@/lib/routeLink";
 import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
-import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
 import { useI18n } from "@/lib/i18n";
 import RiderOrderInfo from "@/components/delivery/RiderOrderInfo";
+import { RiderMission, RiderWhere } from "@/components/delivery/RiderMission";
+import { Celebrate } from "@/components/Celebrate";
+import { deliveredToday } from "@/lib/riderMission";
 import { lastKnownFix, setTrackingState, trackingControl, useTrackingState } from "@/features/delivery-tracking/trackingStore";
 import { useOnline } from "@/hooks/useOnline";
 import { isNetworkError, withRetry } from "@/lib/retry";
@@ -164,6 +166,8 @@ export default function DeliveryConsole() {
   }
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  // A delivery finished: confetti and a running count for the day — the one moment of the job worth marking.
+  const [celebrating, setCelebrating] = useState(false);
   const [decidingBatch, setDecidingBatch] = useState<string | null>(null);
   // The stop the "Can't deliver" sheet is open for, and whether its request is
   // in flight — `cancelBusy` also locks the sheet shut so a half-sent cancel
@@ -205,8 +209,9 @@ export default function DeliveryConsole() {
   // The run whose stop gets the persistent bottom action bar.
   const runningBatch = activeBatches[0] ?? null;
 
-  const soloActive = soloItems.filter((d) => d.status === "EN_ROUTE" || d.status === "ARRIVED");
-  const soloAssigned = soloItems.filter((d) => d.status === "ASSIGNED");
+  // A rider who has the bag in hand is working, whether or not they have tapped Start yet: that order belongs under Active, not Assigned.
+  const soloActive = soloItems.filter((d) => d.status === "EN_ROUTE" || d.status === "ARRIVED" || (d.status === "ASSIGNED" && !!d.pickedUpAt));
+  const soloAssigned = soloItems.filter((d) => d.status === "ASSIGNED" && !d.pickedUpAt);
   const soloHistory = soloItems.filter((d) => d.status === "DELIVERED" || d.status === "CANCELLED");
 
   const [tab, setTab] = useState<Tab>("ACTIVE");
@@ -259,8 +264,14 @@ export default function DeliveryConsole() {
       gpsAtTap = c ? { lat: c.lat, lng: c.lng } : null;
       await withRetry(() => deliveryService.updateStatus(d.id, next, c?.lat, c?.lng));
       haptics.success();
-      showToast(okMsg);
+      if (next === "DONE") {
+        showToast(tf("dlv_c_toast_delivered_n", { n: deliveredToday(items) + 1 }));
+        setCelebrating(true);
+      } else {
+        showToast(okMsg);
+      }
       refetch();
+      refetchBlockers();
     } catch (e) {
       if (isNetworkError(e)) keepForLater("status", d.id, { next, lat: gpsAtTap?.lat, lng: gpsAtTap?.lng });
       else showToast(riderError(e, t("dlv_c_err_update")));
@@ -461,6 +472,7 @@ export default function DeliveryConsole() {
 
   return (
     <div className="screen screen-boxed">
+      {celebrating && <Celebrate onDone={() => setCelebrating(false)} />}
       {/* Header — identity + one-tap switch back to Personal */}
       <div className="row between center-v" style={{ padding: "calc(14px + var(--safe-area-top)) 16px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <div className="row gap-10 center-v">
@@ -523,7 +535,7 @@ export default function DeliveryConsole() {
         type="button"
         className="row between center-v"
         style={{ width: "100%", padding: "10px 16px", borderBottom: "1px solid var(--line)", background: onDuty ? "var(--surface)" : "var(--ink-50)", opacity: dutyBlocked ? 0.75 : 1 }}
-        onClick={dutyBlocked ? () => setTab("ACTIVE") : toggleDuty}
+        onClick={dutyBlocked ? () => setTab(activeBatches.length + soloActive.length > 0 ? "ACTIVE" : "ASSIGNED") : toggleDuty}
         aria-pressed={onDuty}
         disabled={dutyBusy}
         aria-label={dutyBlocked ? t("dlv_c_duty_blocked_aria") : undefined}
@@ -536,6 +548,7 @@ export default function DeliveryConsole() {
             </span>
           )}
         </span>
+        {deliveredToday(items) > 0 && <span className="rm-today">{tf("dlv_c_today_count", { n: deliveredToday(items) })}</span>}
         <Toggle on={onDuty} />
       </button>
 
@@ -561,7 +574,9 @@ export default function DeliveryConsole() {
           <ListSkeleton count={3} />
         ) : tab === "ACTIVE" ? (
           activeBatches.length === 0 && soloActive.length === 0 ? (
-            <EmptyState emoji="🛵" title={t("dlv_c_empty_active_title")} text={t("dlv_c_empty_active_text")} />
+            deliveredToday(items) > 0
+              ? <EmptyState emoji="🎉" title={t("dlv_c_caught_up_title")} text={tf("dlv_c_caught_up_text", { n: deliveredToday(items) })} />
+              : <EmptyState emoji="🛵" title={t("dlv_c_empty_active_title")} text={t("dlv_c_empty_active_text")} />
           ) : (
             <>
               {activeBatches.map((b) => (
@@ -739,11 +754,13 @@ function NewRunGate({ batch, busy, queuePosition, queueTotal, nextBatch, soloWai
 /** The Navigate-icon + primary status action, shared by RunCard/DeliveryCard —
  *  rendered either inline in the card or inside the fixed bottom bar. */
 function ActionControls({
-  current, busy, onNavigate, onAdvance, onVerify, onCollect, onPickUp, primaryLabel,
+  current, busy, onNavigate, showNav, onAdvance, onVerify, onCollect, onPickUp, primaryLabel,
 }: {
   current: DeliveryItem;
   busy: boolean;
   onNavigate: (() => void) | null;
+  /** The sticky bottom bar keeps a navigate shortcut; inside a card the where-to-go block above already has one. */
+  showNav: boolean;
   onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
   onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
   onCollect: (d: DeliveryItem) => Promise<void>;
@@ -793,11 +810,9 @@ function ActionControls({
     const waitingForShop = current.orderReadyAt === null && !current.isOwnerDelivery;
     return (
       <div className="col gap-8">
-        {current.businessAddress && <div className="tiny muted">{t("dlv_pickup_at")}: {current.businessAddress}</div>}
-        {waitingForShop && <div className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("dlv_wait_pack_hint")}</div>}
         <div className="row gap-8">
-          {shopRoutable && (
-            <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, padding: 0 }} aria-label={t("dlv_navigate_to_shop")} onClick={() => openNativeDirections(current.businessLat!, current.businessLng!)}>
+          {showNav && shopRoutable && (
+            <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, minHeight: 48, padding: 0 }} aria-label={t("dlv_navigate_to_shop")} onClick={() => openNativeDirections(current.businessLat!, current.businessLng!)}>
               <Navigation size={16} />
             </button>
           )}
@@ -834,8 +849,8 @@ function ActionControls({
 
   return (
     <div className="row gap-8">
-      {onNavigate && (
-        <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, padding: 0 }} aria-label={t("dlv_c_navigate")} onClick={onNavigate}>
+      {showNav && onNavigate && (
+        <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, minHeight: 48, padding: 0 }} aria-label={t("dlv_c_navigate")} onClick={onNavigate}>
           <Navigation size={16} />
         </button>
       )}
@@ -912,11 +927,13 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
   ];
 
   const canNavigate = current.deliveryLat != null && current.deliveryLng != null;
+  const codeEntry = current.status === "ARRIVED" && !current.handoffVerified;
   const controls = (
     <ActionControls
       current={current}
       busy={busyId === current.id || heldIds.has(current.id)}
       onNavigate={canNavigate ? () => openNativeDirections(current.deliveryLat!, current.deliveryLng!) : null}
+      showNav={showActionBar}
       onAdvance={onAdvance}
       onVerify={onVerify} onCollect={onCollect} onPickUp={onPickUp}
       primaryLabel={t("dlv_c_start_stop")}
@@ -942,22 +959,11 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
       )}
 
       <div className="card col gap-10" style={{ padding: 14, border: "1.5px solid var(--delivery-600)" }}>
-        <div className="row between center-v">
-          <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{tf("dlv_c_stop_x_of_y", { x: current.stopOrder ?? 1, y: batch.items.length })}</span>
-          <DeliveryStatusPill status={current.status} />
-        </div>
+        <RiderMission d={current} stopLabel={tf("dlv_c_stop_x_of_y", { x: current.stopOrder ?? 1, y: batch.items.length })} />
 
-        <div className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
-          <MapPin size={14} color="var(--ink-500)" />
-          <div className="grow" style={{ minWidth: 0 }}>
-            <div className="small semi ellipsis">{current.customerName}</div>
-            <div className="tiny muted ellipsis">{current.deliveryAddressLine || current.customerArea || t("dlv_c_no_address")}</div>
-          </div>
-        </div>
+        <RiderWhere d={current} onNavigate={openNativeDirections} />
 
-        <RiderOrderInfo d={current} />
-
-        <DeliveryStepper status={current.status} showLabel={false} />
+        <RiderOrderInfo d={current} hideContact />
 
         {/* Scoped to THIS stop, not the run — one bad address doesn't end a
             shift. If it's the last live stop, the server closes the run. */}
@@ -1008,7 +1014,7 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
           )}
         </div>
 
-        {!showActionBar && controls}
+        {(!showActionBar || codeEntry) && controls}
       </div>
 
       {remaining.length > 0 && (
@@ -1052,7 +1058,7 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
         </div>
       )}
 
-      {showActionBar && <div className="delivery-action-bar">{controls}</div>}
+      {showActionBar && !codeEntry && <div className="delivery-action-bar">{controls}</div>}
     </div>
   );
 }
@@ -1093,12 +1099,14 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
     return () => clearTimeout(timer);
   }, [declineArmed]);
   const terminal = d.status === "DELIVERED" || d.status === "CANCELLED";
+  const codeEntry = d.status === "ARRIVED" && !d.handoffVerified;
   const canNavigate = d.deliveryLat != null && d.deliveryLng != null;
   const controls = !terminal && (
     <ActionControls
       current={d}
       busy={busy}
       onNavigate={canNavigate ? () => openNativeDirections(d.deliveryLat!, d.deliveryLng!) : null}
+      showNav={showActionBar}
       onAdvance={onAdvance}
       onVerify={onVerify} onCollect={onCollect} onPickUp={onPickUp}
       primaryLabel={t("dlv_c_start_delivery")}
@@ -1107,23 +1115,33 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
 
   return (
     <div className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
-      <div className="row between center-v">
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div className="semi">{d.businessName}</div>
-          <div className="tiny muted row gap-6 center-v" style={{ marginTop: 2 }}>
-            <Clock size={12} /> {whenLabel(d, t("dlv_c_anytime"))}
+      {!terminal && <RiderMission d={d} />}
+
+      {terminal ? (
+        <div className="row between center-v">
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="semi">{d.businessName}</div>
+            <div className="tiny muted row gap-6 center-v" style={{ marginTop: 2 }}>
+              <Clock size={12} /> {whenLabel(d, t("dlv_c_anytime"))}
+            </div>
+          </div>
+          <DeliveryStatusPill status={d.status} />
+        </div>
+      ) : (
+        <div className="tiny muted row gap-6 center-v"><Clock size={12} /> {whenLabel(d, t("dlv_c_anytime"))}</div>
+      )}
+
+      {terminal ? (
+        <div className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
+          <MapPin size={14} color="var(--ink-500)" />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="small semi ellipsis">{d.customerName}</div>
+            {(d.deliveryAddressLine || d.customerArea) && <div className="tiny muted ellipsis">{d.deliveryAddressLine || d.customerArea}</div>}
           </div>
         </div>
-        <DeliveryStatusPill status={d.status} />
-      </div>
-
-      <div className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
-        <MapPin size={14} color="var(--ink-500)" />
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div className="small semi ellipsis">{d.customerName}</div>
-          {(d.deliveryAddressLine || d.customerArea) && <div className="tiny muted ellipsis">{d.deliveryAddressLine || d.customerArea}</div>}
-        </div>
-      </div>
+      ) : (
+        <RiderWhere d={d} onNavigate={openNativeDirections} />
+      )}
 
       {/* The rider should know before arriving that cash is due at the door. */}
       {!terminal && d.amountDue > 0 && !d.cashCollectedAt && (
@@ -1132,27 +1150,9 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
         </div>
       )}
 
-      {!terminal && <RiderOrderInfo d={d} />}
+      {!terminal && <RiderOrderInfo d={d} hideContact />}
 
-      {!terminal && <DeliveryStepper status={d.status} showLabel={false} />}
-
-      {controls && !showActionBar && controls}
-
-      {d.status === "ASSIGNED" && !d.batchId && (
-        <button
-          type="button"
-          className="tiny semi"
-          disabled={busy}
-          style={{ alignSelf: "flex-start", minHeight: 32, color: declineArmed ? "var(--red-600)" : "var(--ink-500)" }}
-          onClick={() => {
-            if (!declineArmed) { haptics.warning(); setDeclineArmed(true); return; }
-            setDeclineArmed(false);
-            void onDeclineSolo(d);
-          }}
-        >
-          {declineArmed ? t("dlv_decline_single_confirm") : t("dlv_decline_single")}
-        </button>
-      )}
+      {controls && (!showActionBar || codeEntry) && controls}
 
       {d.status === "DELIVERED" && (
         <div className="row gap-6 center-v tiny" style={{ color: "var(--green-600)" }}>
@@ -1161,20 +1161,29 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
       )}
       {d.status === "CANCELLED" && <div className="tiny muted">{t("dlv_c_cancelled")}</div>}
 
-      {/* Deliberately quiet and last: the exit exists and is always reachable,
-          but it never competes with finishing the job. */}
+      {/* Always reachable as real, thumb-sized buttons — but outlined and quiet, so they never compete with finishing the job. */}
       {!terminal && (
-        <button
-          type="button"
-          className="tiny muted"
-          style={{ alignSelf: "flex-start", minHeight: 32, color: "var(--ink-500)" }}
-          onClick={() => onCantDeliver(d)}
-        >
-          {t("dlv_c_cant_deliver")}
-        </button>
+        <div className="rm-more">
+          {d.status === "ASSIGNED" && !d.batchId && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={busy}
+              style={declineArmed ? { borderColor: "var(--red-500)", color: "var(--red-600)" } : undefined}
+              onClick={() => {
+                if (!declineArmed) { haptics.warning(); setDeclineArmed(true); return; }
+                setDeclineArmed(false);
+                void onDeclineSolo(d);
+              }}
+            >
+              {declineArmed ? t("dlv_decline_single_confirm") : t("dlv_decline_single")}
+            </button>
+          )}
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => onCantDeliver(d)}>{t("dlv_c_cant_deliver")}</button>
+        </div>
       )}
 
-      {controls && showActionBar && <div className="delivery-action-bar">{controls}</div>}
+      {controls && showActionBar && !codeEntry && <div className="delivery-action-bar">{controls}</div>}
     </div>
   );
 }

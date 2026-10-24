@@ -15,3 +15,17 @@ export function isLiveOrder(
   if (a.fulfillmentType === "DELIVERY") return true;
   return new Date(a.scheduledForISO).getTime() > now;
 }
+
+/** How long a delivered order stays on the customer's Upcoming list before it moves to Past. */
+export const RECENTLY_DELIVERED_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * A home-delivery order that was handed over in the last few hours. It stays on the customer's Upcoming list in its "Delivered" state —
+ * the moment worth seeing, with the celebration and "Order again" — instead of vanishing the instant the rider taps done.
+ */
+export function isRecentlyDelivered(
+  a: Pick<AppointmentRecord, "status" | "fulfillmentType" | "createdAtISO">,
+  now: number = Date.now(),
+): boolean {
+  return a.fulfillmentType === "DELIVERY" && a.status === "COMPLETED" && now - new Date(a.createdAtISO).getTime() < RECENTLY_DELIVERED_MS;
+}

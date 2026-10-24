@@ -33,3 +33,13 @@ export function linesFromRows(rows: unknown): OrderLine[] | undefined {
     .filter((l) => l.quantity > 0);
   return lines.length > 0 ? lines : undefined;
 }
+
+/** The cart-summary note the order sheet used to write ("Order: Milk x1, Oil x1"). With the item lines now stored and shown, it only repeats them. */
+export function isAutoOrderNote(note: string | null | undefined, hasItems: boolean): boolean {
+  return hasItems && /^Order:\s/i.test((note ?? "").trim());
+}
+
+/** What the customer owes for an order: the items plus the delivery fee. */
+export function amountDue(apt: { packagePrice?: number | null; deliveryFee?: number | null }): number {
+  return (apt.packagePrice ?? 0) + (apt.deliveryFee ?? 0);
+}

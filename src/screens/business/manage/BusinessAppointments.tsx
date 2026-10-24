@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { inr } from "@/lib/format";
@@ -28,6 +28,8 @@ import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { AppointmentNote } from "@/components/appointments/AppointmentNote";
 import { OrderLines } from "@/components/OrderLines";
+import { OwnerOrderJourney } from "@/components/delivery/OwnerOrderJourney";
+import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
 import { RecordPaymentModal } from "@/components/appointments/RecordPaymentModal";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
@@ -53,6 +55,18 @@ export default function BusinessAppointments() {
     [id],
     `target_id=eq.${id}`
   );
+  // A new order arriving while the shop has this screen open deserves a nudge: a tick under the thumb and a line saying who it is from.
+  const knownOrderIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const fresh = knownOrderIds.current ? data.filter((a) => !knownOrderIds.current!.has(a.id) && a.status === "PENDING" && !a.isWalkIn) : [];
+    knownOrderIds.current = new Set(data.map((a) => a.id));
+    if (fresh.length > 0) {
+      haptics.success();
+      showToast(tf("own_new_order_toast", { name: ownerVisibleCustomerName(fresh[0]) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
   const { data: blockedData, refetch: refetchBlocked } = useQuery<BlockedSlot[]>(
     () => slotBlockService.list(id),
     [id]
@@ -409,14 +423,20 @@ export default function BusinessAppointments() {
     // payment actually clearing — otherwise a customer could get accepted
     // and seen to before ever paying, defeating the point of pay-first.
     const requiresPaymentFirst = b?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
+    // A home-delivery order the customer will pay the rider for: payment is the rider's job, so the shop is not shown a "Payment outstanding"
+    // box with Nudge. The shop still has a quiet "Record payment" for the day money changes hands another way.
+    const isDeliveryOrder = DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY";
+    const cod = isDeliveryOrder && apt.paymentStatus === "UNPAID" && !requiresPaymentFirst && (apt.status === "PENDING" || apt.status === "ACCEPTED");
+    const orderDelivery = deliveryMap ? ((deliveryMap as Record<string, import("@/services/engagement/deliveryService").AppointmentDelivery>)[apt.id] ?? null) : undefined;
+    const dueNow = isDeliveryOrder ? amountDue(apt) : (apt.packagePrice ?? apt.paymentAmount ?? 0);
     return (
       <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
         <div className="row between center-v">
           <div className="row gap-10 center-v">
             <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 42, height: 42 }} />
             <div>
-              <div className="row gap-6 center-v">
-                <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
+              <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
+              <div className="row wrap gap-6 center-v" style={{ marginTop: 3 }}>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_walkin_badge")}</span>}
                 {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_out_of_radius_badge")}</span>}
                 {apt.isAsap && <span className="badge badge-purple" style={{ fontSize: 9, padding: "1px 6px" }}>⚡ {t("dlv_asap_tag")}</span>}
@@ -433,10 +453,8 @@ export default function BusinessAppointments() {
                   ? `Today, by ${new Date(apt.scheduledForISO).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`
                   : `${apt.dateLabel} at ${apt.timeLabel}`}
               </div>
-              {apt.fulfillmentType === "DELIVERY" && (apt.deliveryFee ?? 0) > 0 && apt.packagePrice != null && (
-                <div className="tiny muted" style={{ marginTop: 2 }}>
-                  ₹{apt.packagePrice} + ₹{apt.deliveryFee} {t("dlv_fee_line").toLowerCase()}
-                </div>
+              {apt.fulfillmentType === "DELIVERY" && apt.deliveryAddressLine && (
+                <div className="tiny" style={{ marginTop: 3, color: "var(--ink-700)" }}>📍 {apt.deliveryAddressLine}</div>
               )}
             </div>
             {!apt.isWalkIn && apt.customerId && (
@@ -466,6 +484,10 @@ export default function BusinessAppointments() {
           </div>
         </div>
 
+        {isDeliveryOrder && (apt.status === "PENDING" || apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+          <OwnerOrderJourney apt={apt} delivery={orderDelivery} />
+        )}
+
         {apt.isOutOfRange && apt.status === "PENDING" && (
           <div className="row gap-8 center-v" style={{ background: "var(--amber-50)", border: "1px solid var(--amber-200)", padding: "8px 10px", borderRadius: 8 }}>
             <MapPin size={15} color="var(--amber-800)" style={{ flexShrink: 0 }} />
@@ -490,7 +512,7 @@ export default function BusinessAppointments() {
         )}
 
         {apt.items && apt.items.length > 0 ? (
-          <OrderLines lines={apt.items} />
+          <OrderLines lines={apt.items} fee={apt.fulfillmentType === "DELIVERY" ? apt.deliveryFee : undefined} />
         ) : (
           apt.packageName && (
             <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
@@ -499,7 +521,7 @@ export default function BusinessAppointments() {
           )
         )}
 
-        <AppointmentNote note={apt.notes} />
+        <AppointmentNote note={isAutoOrderNote(apt.notes, !!apt.items?.length) ? undefined : apt.notes} />
 
         {apt.photoUrl && (
           <div className="row gap-8 center-v" style={{ marginTop: 2 }}>
@@ -524,10 +546,17 @@ export default function BusinessAppointments() {
           <CancelAttributionNote apt={apt} viewpoint="OWNER" />
         )}
 
-        {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+        {cod && (
+          <div className="row between center-v gap-8" style={{ padding: "8px 10px", background: "var(--amber-50)", borderRadius: 10 }}>
+            <span className="tiny semi" style={{ color: "var(--amber-800)" }}>💵 {tf("own_cod", { n: inr(dueNow) })}</span>
+            <button type="button" className="tiny semi" style={{ color: "var(--ink-600)", minHeight: 32 }} onClick={() => setPaymentModalApt(apt)}>{t("own_record_payment")}</button>
+          </div>
+        )}
+
+        {!cod && (apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
           <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
             <div className="row between center-v">
-              <div className="tiny semi muted">Payment outstanding {apt.packagePrice || apt.paymentAmount ? `(${inr(apt.packagePrice ?? apt.paymentAmount ?? 0)})` : ""}</div>
+              <div className="tiny semi muted">Payment outstanding {dueNow ? `(${inr(dueNow)})` : ""}</div>
               <span className="badge badge-amber" style={{ fontSize: 10 }}>{t("bapt_unpaid")}</span>
             </div>
             <div className="row gap-8">
@@ -586,7 +615,7 @@ export default function BusinessAppointments() {
           </div>
         )}
 
-        {(apt.status === "PENDING" || apt.status === "ACCEPTED") && (
+        {(apt.status === "PENDING" || (apt.status === "ACCEPTED" && !isDeliveryOrder)) && (
           <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             {apt.status === "PENDING" && (
               <>
@@ -626,8 +655,8 @@ export default function BusinessAppointments() {
         )}
 
         {DELIVERY_AGENT_ENABLED && apt.status === "ACCEPTED" && !apt.readyAt && (apt.fulfillmentType === "DELIVERY" || awaitingIds.has(apt.id)) && (
-          <button className="btn btn-outline btn-sm row gap-6 center" disabled={packingId === apt.id} onClick={() => markPacked(apt)}>
-            <Package size={14} /> {t("dlv_mark_packed")}
+          <button className={`btn btn-sm btn-block row gap-6 center ${apt.fulfillmentType === "DELIVERY" ? "btn-green" : "btn-outline"}`} style={apt.fulfillmentType === "DELIVERY" ? { minHeight: 48, fontSize: 15 } : undefined} disabled={packingId === apt.id} onClick={() => markPacked(apt)}>
+            <Package size={apt.fulfillmentType === "DELIVERY" ? 17 : 14} /> {t("dlv_mark_packed")}
           </button>
         )}
 
@@ -643,6 +672,18 @@ export default function BusinessAppointments() {
             // A finished order can't be sent out again: show who delivered it, without an "Assign" button that can only fail.
             readOnly={apt.status !== "ACCEPTED"}
           />
+        )}
+
+        {/* The way out is always here, but it is the last and the quietest thing on an order that is on its way. */}
+        {isDeliveryOrder && apt.status === "ACCEPTED" && (
+          <button
+            type="button"
+            className="tiny semi"
+            style={{ alignSelf: "center", minHeight: 40, color: "var(--red-600)" }}
+            onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}
+          >
+            {t("own_cancel_order")}
+          </button>
         )}
       </div>
     );
@@ -899,6 +940,11 @@ export default function BusinessAppointments() {
 
                 <div>
                   <div className="tiny semi" style={{ marginBottom: 5 }}>{t("bapt_eta_label")}</div>
+                  <div className="row wrap gap-6" style={{ marginBottom: 8 }}>
+                    {["15 min", "30 min", "45 min", "1 hour"].map((v) => (
+                      <button key={v} type="button" className={`chip ${deliveryEta === v ? "active" : ""}`} onClick={() => { haptics.selection(); setDeliveryEta(v); }}>{v}</button>
+                    ))}
+                  </div>
                   <input
                     className="input"
                     placeholder={b?.deliveryTime || "e.g. 30–45 min"}

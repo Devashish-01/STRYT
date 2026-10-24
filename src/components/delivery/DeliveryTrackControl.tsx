@@ -1,27 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
 import { SafeImg } from "@/components/common";
-import { Package, Phone, CheckCircle, Share2 } from "@/components/Icons";
-import OrderProgress from "@/components/delivery/OrderProgress";
-import { ORDER_STAGES, orderStageIndex, stageLineKey } from "@/lib/deliveryStage";
+import { Package, Phone, Share2 } from "@/components/Icons";
+import { Celebrate } from "@/components/Celebrate";
+import { firstTime } from "@/lib/celebrated";
+import { ORDER_STAGES, orderStageIndex } from "@/lib/deliveryStage";
+import { JourneySteps } from "@/components/delivery/JourneySteps";
+import { JourneyRoad } from "@/components/delivery/JourneyRoad";
+import { etaDisplay, journeyFraction, milestoneIndex, stageCopy } from "@/lib/orderJourney";
 import type { AppointmentRecord } from "@/types";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { haptics } from "@/lib/haptics";
 import { trackingUrl } from "@/lib/trackingLink";
 
 /**
- * Customer's view of their delivery: progress only.
+ * Customer's view of their delivery, from the moment the order is placed to the knock at the door.
  *
- * There is deliberately NO live map or agent location here — that was withdrawn
- * as a product decision, and the restriction is enforced server-side
- * (my_delivery_progress returns no coordinates, and get_tracking nulls them for
- * the delivery branch), not just hidden in this component. What the customer does get is a time:
- * my_delivery_progress works out "minutes away" on the server from the rider's fresh position and returns only that number.
+ * There is deliberately NO live map or rider location here — a recorded product decision, enforced server-side
+ * (my_delivery_progress returns no coordinates, and get_tracking nulls them for the delivery branch), not just hidden in this
+ * component. The tracker still feels live: the server works out "minutes away" from the rider's fresh position and returns only that
+ * number, and the little rider on the shop-to-home strip glides along it as the number falls.
  *
- * The agent's name/phone/photo appear only once THIS delivery is actually under
- * way, so an assigned-but-not-started order discloses nothing about who's coming.
+ * The rider's name/phone/photo appear only once THIS delivery is actually under way, so an assigned-but-not-started order discloses
+ * nothing about who's coming.
  */
 export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, orderStatus = "ACCEPTED", readyAt }: {
   appointmentId: string;
@@ -34,6 +38,8 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
   const { t, tf } = useI18n();
   const [sharing, setSharing] = useState(false);
   const [readyBusy, setReadyBusy] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const [popKey, setPopKey] = useState(0);
   const { data: d, refetch } = useQuery(
     () => deliveryService.myProgress(appointmentId),
     [appointmentId],
@@ -63,6 +69,34 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
       window.removeEventListener("focus", onFocus);
     };
   }, [finished, refetch]);
+
+  const stageIdx = orderStageIndex({ status: orderStatus, readyAt }, d ? { status: d.status, pickedUp: d.pickedUp } : null);
+  const stage = stageIdx >= 0 ? ORDER_STAGES[stageIdx] : null;
+  const delivered = stage === "delivered";
+
+  // A step forward while the screen is open deserves a beat: a tick under the thumb and the picture popping in.
+  const lastStage = useRef<number | null>(null);
+  useEffect(() => {
+    if (stageIdx < 0) return;
+    if (lastStage.current != null && stageIdx > lastStage.current) {
+      haptics.success();
+      setPopKey((k) => k + 1);
+    }
+    lastStage.current = stageIdx;
+  }, [stageIdx]);
+
+  // The one big moment: it arrived. Once per order per device.
+  useEffect(() => {
+    if (!delivered) return;
+    if (firstTime(appointmentId)) {
+      setCelebrating(true);
+      haptics.success();
+    }
+  }, [delivered, appointmentId]);
+
+  // The longest "minutes away" seen on this delivery is the start of the strip, so the rider glides closer as the number falls.
+  const startEta = useRef<number | null>(null);
+  if (d?.status === "EN_ROUTE" && d.etaMinutes != null) startEta.current = Math.max(startEta.current ?? 0, d.etaMinutes);
 
   async function handleShare() {
     if (sharing) return;
@@ -100,29 +134,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
     }
   }
 
-  // my_delivery_progress returns nothing until an agent is separately
-  // assigned — a later, distinct step from the owner's ETA promise at Accept.
-  // Without this, the customer sees nothing at all for however long that gap
-  // lasts, even though the ETA they were told about is already sitting on
-  // the appointment record.
-  // No delivery yet: the order is waiting for the shop to accept, pack it, or send someone. Say which, with the same progress line
-  // the rest of the journey uses (it used to show nothing at all unless the owner had typed an ETA).
-  const stageIdx = orderStageIndex({ status: orderStatus, readyAt }, d ? { status: d.status, pickedUp: d.pickedUp } : null);
-  if (!d) {
-    if (stageIdx < 0 || orderStatus === "COMPLETED") return null;
-    return (
-      <div className="card col gap-8" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
-        <div className="row gap-8 center-v">
-          <Package size={15} color="var(--delivery-600)" />
-          <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{t(stageLineKey(ORDER_STAGES[stageIdx]))}</span>
-          {fallbackEtaText && stageIdx >= 1 && <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{fallbackEtaText}</span>}
-        </div>
-        <OrderProgress index={stageIdx} compact />
-      </div>
-    );
-  }
-
-  if (d.status === "CANCELLED") {
+  if (d?.status === "CANCELLED") {
     const reasonText =
       d.cancelReason === "CUSTOMER_UNAVAILABLE" ? t("dlv_trk_cancel_unavailable")
       : d.cancelReason === "ADDRESS_PROBLEM" ? t("dlv_trk_cancel_address")
@@ -157,84 +169,100 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
     );
   }
 
-  const label =
-    d.status === "ASSIGNED" ? (d.pickedUp ? t("dlv_trk_picked_up") : t("dlv_trk_assigned"))
-    : d.status === "EN_ROUTE" ? t("dlv_trk_on_way")
-    : d.status === "ARRIVED" ? t("dlv_trk_arrived")
-    : t("dlv_trk_delivered");
+  // No tracker for an order that ended without being delivered, or a finished one that never had a delivery row.
+  if (!stage || (!d && orderStatus === "COMPLETED")) return null;
 
-  // A computed "N min away" beats the owner's static promise once the rider is moving; fall back to that promise otherwise.
-  const timeText = d.status === "DELIVERED" ? null
-    : d.etaMinutes != null ? tf("dlv_trk_eta_min", { n: d.etaMinutes })
-    : d.etaText;
+  const arrived = d?.status === "ARRIVED";
+  const copy = stageCopy(stage, arrived);
+  const eta = d?.status === "EN_ROUTE" ? etaDisplay(d.etaMinutes) : null;
+  // A computed "N min away" beats the owner's static promise once the rider is moving; fall back to that promise before then.
+  const promised = (d?.etaText || fallbackEtaText || "").trim();
+  const showPromise = !eta && !arrived && !delivered && stageIdx >= 1 && promised !== "";
+  const here = milestoneIndex(stageIdx);
+  const fraction = journeyFraction(stage, arrived, d?.etaMinutes, startEta.current);
+  const code = (d?.status === "EN_ROUTE" || d?.status === "ARRIVED") && d.handoffCode && !d.handoffVerified ? d.handoffCode : null;
 
   return (
-    <div className="card col gap-9" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
-      <div className="row gap-8 center-v">
-        <Package size={15} color="var(--delivery-600)" />
-        <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{label}</span>
-        {timeText && d.status !== "ARRIVED" && (
-          <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{timeText}</span>
-        )}
-        <button
-          type="button"
-          className="icon-btn"
-          style={{ width: 28, height: 28, color: "var(--delivery-600)" }}
-          onClick={handleShare}
-          disabled={sharing}
-          title={t("dlv_trk_share")}
-          aria-label={t("dlv_trk_share")}
-        >
-          <Share2 size={14} />
-        </button>
-      </div>
-
-      {/* Progress line — the only "tracking" a customer gets. It starts at the order, not at the rider. */}
-      <OrderProgress index={stageIdx} compact />
-
-      {/* Queue position while they wait their turn on a multi-stop run. */}
-      {d.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (
-        <div className="tiny muted">
-          {(d.stopsBefore ?? 0) === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: d.stopsBefore ?? 0 })}
-        </div>
-      )}
-
-      {/* Agent identity — revealed only once the delivery has started. */}
-      {d.agentRevealed && d.agentName && (
-        <div className="row gap-9 center-v" style={{ background: "var(--surface)", borderRadius: 10, padding: "8px 10px" }}>
-          <SafeImg src={d.agentAvatar ?? undefined} variant="avatar" style={{ width: 30, height: 30, flexShrink: 0 }} />
-          <div className="grow" style={{ minWidth: 0 }}>
-            <div className="tiny semi ellipsis">{d.agentName}</div>
-            <div className="tiny muted">{t("dlv_trk_your_agent")}</div>
+    <>
+      {celebrating && <Celebrate onDone={() => setCelebrating(false)} />}
+      <div className={`trk${delivered ? " is-done" : ""}`} aria-live="polite">
+        <div className="trk-head">
+          <span key={popKey} className={`trk-emoji${popKey > 0 ? " pop" : ""}`} aria-hidden="true">{copy.emoji}</span>
+          <div style={{ minWidth: 0 }}>
+            <div className="trk-title">{t(copy.headlineKey)}</div>
+            <div className="trk-sub">{t(copy.subKey)}</div>
+            {!delivered && <div className="trk-live" style={{ marginTop: 6 }}><i /> {t("trk_live")}</div>}
           </div>
-          {d.agentPhone && (
-            <a className="btn btn-delivery btn-sm row gap-6 center" style={{ flexShrink: 0 }} href={`tel:${d.agentPhone}`}>
-              <Phone size={13} /> {t("dlv_trk_call")}
-            </a>
+          {eta && (
+            <div className="trk-eta">
+              {eta.kind === "now" ? <b style={{ fontSize: 17 }}>{t("trk_eta_now")}</b> : <><b>{eta.n}</b><span>{t("trk_eta_min")}</span></>}
+            </div>
+          )}
+          {showPromise && (
+            <div className="trk-eta">
+              <span>{t("trk_eta_promised")}</span>
+              <b style={{ fontSize: promised.length > 8 ? 14 : 20 }}>{promised}</b>
+            </div>
           )}
         </div>
-      )}
 
-      {/* The shop is reachable from the moment the order is dispatched, not only once a rider is on the way. */}
-      {d.status !== "DELIVERED" && d.businessPhone && (
-        <a className="btn btn-outline btn-sm row gap-6 center" href={`tel:${d.businessPhone}`}>
-          <Phone size={13} /> {t("dlv_trk_call_shop")}
-        </a>
-      )}
+        <div className="trk-body">
+          {/* Shop → home, with the rider gliding along it. Position comes from the stage and the server's minutes, never a location. */}
+          <JourneyRoad fraction={fraction} delivered={delivered} label={t(copy.headlineKey)} />
 
-      {/* Handoff code — the customer's half of the OTP exchange. */}
-      {(d.status === "EN_ROUTE" || d.status === "ARRIVED") && d.handoffCode && !d.handoffVerified && (
-        <div className="row gap-8 center-v" style={{ background: "var(--surface)", borderRadius: 10, padding: "8px 10px" }}>
-          <div className="grow tiny muted">{t("dlv_trk_show_code")}</div>
-          <div className="semi" style={{ letterSpacing: 3, fontSize: 16, color: "var(--delivery-600)" }}>{d.handoffCode}</div>
+          <JourneySteps here={here} delivered={delivered} />
+
+          {/* Queue position while they wait their turn on a multi-stop run. */}
+          {d?.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (
+            <div className="tiny muted">
+              {(d.stopsBefore ?? 0) === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: d.stopsBefore ?? 0 })}
+            </div>
+          )}
+
+          {/* The rider — revealed only once the delivery has started. */}
+          {d?.agentRevealed && d.agentName && !delivered && (
+            <div className="trk-person">
+              <SafeImg src={d.agentAvatar ?? undefined} variant="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
+              <div className="who">
+                <div className="small semi ellipsis">{d.agentName}</div>
+                <div className="tiny muted">{t("trk_rider_title")}</div>
+              </div>
+              {d.agentPhone && (
+                <a className="trk-round" href={`tel:${d.agentPhone}`} aria-label={t("dlv_trk_call")}>
+                  <Phone size={18} />
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* The customer's half of the hand-over: big enough to read across a doorstep. */}
+          {code && (
+            <div className="trk-code-card">
+              <div className="small semi" style={{ color: "var(--delivery-800)" }}>{t("trk_code_title")}</div>
+              <div className="trk-code" aria-label={code.split("").join(" ")}>
+                {code.split("").map((c, i) => <b key={i}>{c}</b>)}
+              </div>
+              <div className="tiny muted">{t("trk_code_hint")}</div>
+            </div>
+          )}
+
+          {!delivered && (
+            <div className="trk-actions">
+              {d?.businessPhone && (
+                <a className="btn btn-outline btn-sm grow row gap-6 center" href={`tel:${d.businessPhone}`}>
+                  <Phone size={14} /> {t("dlv_trk_call_shop")}
+                </a>
+              )}
+              {d && (
+                <button type="button" className="trk-round ghost" onClick={handleShare} disabled={sharing} title={t("dlv_trk_share")} aria-label={t("dlv_trk_share")}>
+                  <Share2 size={17} />
+                </button>
+              )}
+            </div>
+          )}
+
         </div>
-      )}
-
-      {d.status === "DELIVERED" && (
-        <div className="row gap-6 center-v tiny" style={{ color: "var(--green-600)" }}>
-          <CheckCircle size={14} /> {t("dlv_trk_delivered")}
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

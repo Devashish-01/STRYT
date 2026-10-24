@@ -18,6 +18,21 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+## #37 — Delivery is hard to follow for the customer, the rider and the shop, and has no moments worth enjoying
+
+**Reported:** "the customer is not able to track the delivery properly and the delivery agent is not able to see and manage the delivery properly and also the business owner and customer see the ui ux gaps which will make this easy and understandable and good to see — the humans should get dopamine out of everything."
+
+**What was wrong (seen by running a real order through all three accounts on the dev server and reading the screens):**
+* Customer: the tracker was seven unlabelled dots; no ETA, no address, no fee line; an auto-written "Order: …" note repeated the items; the pay button said ₹205 when the order was ₹235 (the delivery fee was left out); a delivered order dropped off "Upcoming" the instant it was delivered, so the customer never saw it arrive.
+* Rider: a picked-up order sat in the Assigned tab while Active said "No active delivery"; the next action was buried in unlabelled dots; "Decline" and "Can't deliver" were tiny grey links; the shop name and address repeated and the address was cut to one line; the tall code-entry form floated over the order details; "1 delivery in progress" was shown for an order not yet picked up and never cleared after the last delivery.
+* Shop: "Cancel order" was the loudest button on an accepted order; a "Payment outstanding / Nudge" box showed for cash-on-delivery orders, with the wrong amount (no delivery fee); no journey, no address, no hint what to do next; chips wrapped the customer's name; ETA was free text only.
+
+**Decision (2026-10-24):** the recorded rule that customers never see the rider's location (migration 20260853) stays. Tracking feels live without it: a minutes-away number from the server, a rider glide along a shop-to-home strip driven by stage and that number, five named steps, plain-words headlines.
+
+**Status:** Fixed in the working tree (app only, no database change), **uncommitted, not deployed**. Customer: `DeliveryTrackControl` rebuilt (headline, big ETA, strip, five named steps, rider card, code in big boxes, one-time confetti on delivery), live "Your order" card on Home, delivered order stays on Upcoming for 3 hours, fee and total shown, shareable link uses the same journey. Rider: `RiderMission` (one instruction + four named steps), `RiderWhere` (full address, round Navigate/Call), picked-up orders under Active, Decline/Can't deliver as real buttons, code form inline, "delivered today" counter, confetti and "that's N today" toast, caught-up screen. Shop: `OwnerOrderJourney` (five steps + next-step hint), Mark packed / Assign delivery as the big next action, Cancel order last and quiet, cash-on-delivery line with the right amount, one-tap ETA choices, a nudge when a new order arrives. Tests: `orderJourney`, `riderMission`, `orderLists`, `DeliveryTrackControl`. Checked by driving four real orders through all three accounts with screenshots; not yet seen on a phone.
+
+---
+
 ## #36 — Tapping a notification silently throws the user into another part of the app
 
 **Reported:** "if on any part, like on the business page, then by clicking on it is throwing the user on the other part — the app should ask if user want to switch, then only the part should switch, and the user should be able to filter the notification from the notification menu."
@@ -32,7 +47,7 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 **Root cause:** `appointment_create_walk_in_payment` stores the item lines in `appointment_items` but names the order from a caller-supplied string (the cart sent "3 items"); its insert fired `notify_on_appointment_created`, which sent the shop "New booking request — requested Walk-in — 3 items" with Accept/Decline on an already-accepted order. The appointment lists never read `appointment_items`, so the shop's card showed only "📦 3 items • ₹…". `appointment_items_select` also allowed only the owner and the customer, so team members with the appointments scope could not read the lines.
 
-**Status:** App half fixed in the working tree 2026-10-22 (uncommitted): the lists load the item lines, `OrderLines` shows them on the shop's and the customer's cards, and both pay sheets send the real item names. DB half written, **not applied**: `supabase/migrations/20261007_instore_order_items.sql` (order named from its items on the server, "Purchase to confirm" notification listing the items with no Accept/Decline, staff with the appointments scope can read the lines) with rollback and `supabase/tests/instore_order_items.test.sql`; dry run in `archive/output/instore_items_dryrun.sql` (expect `ALL_INSTORE_ITEM_CHECKS_PASSED`).
+**Status:** Fixed 2026-10-22/23. App half shipped in `420f4de` (the lists load the item lines, `OrderLines` shows them on the shop's and the customer's cards, both pay sheets send the real item names). DB half `supabase/migrations/20261007_instore_order_items.sql` applied by the owner 2026-10-23 (APPLY_LOG row 70): order named from its items on the server, "Purchase to confirm" notification listing the items with no Accept/Decline, staff with the appointments scope can read the lines. `supabase/tests/instore_order_items.test.sql` ended `ALL_INSTORE_ITEM_CHECKS_PASSED` against production (rolled back). Not yet seen on a real phone.
 
 ---
 

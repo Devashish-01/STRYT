@@ -1,5 +1,6 @@
 import { Phone } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
+import { isAutoOrderNote } from "@/lib/orderLines";
 import type { DeliveryItem } from "@/services/engagement/deliveryService";
 
 /**
@@ -7,9 +8,9 @@ import type { DeliveryItem } from "@/services/engagement/deliveryService";
  * Shown on every live stop. The customer's number only exists once the rider is on the way to them (the database
  * withholds it earlier), so before that only the shop's number appears.
  */
-export default function RiderOrderInfo({ d }: { d: DeliveryItem }) {
+export default function RiderOrderInfo({ d, hideContact = false }: { d: DeliveryItem; /** The where-to-go block already carries the call buttons. */ hideContact?: boolean }) {
   const { t } = useI18n();
-  const hasContact = !!d.customerPhone || !!d.businessPhone;
+  const hasContact = !hideContact && (!!d.customerPhone || !!d.businessPhone);
   const hasDetails = d.items.length > 0 || !!d.orderNotes || !!d.requestedWindow;
   if (!hasContact && !hasDetails) return null;
 
@@ -48,7 +49,7 @@ export default function RiderOrderInfo({ d }: { d: DeliveryItem }) {
               {d.requestedWindow}
             </div>
           )}
-          {d.orderNotes && (
+          {d.orderNotes && !isAutoOrderNote(d.orderNotes, d.items.length > 0) && (
             <div className="small" style={{ lineHeight: 1.4 }}>
               <span className="tiny semi muted">{t("dlv_note_label")}: </span>
               {d.orderNotes}

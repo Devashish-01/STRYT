@@ -6,7 +6,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { SafeImg } from "@/components/common";
 import { config } from "@/config";
-import DeliveryStepper from "@/components/delivery/DeliveryStepper";
+import { JourneySteps } from "@/components/delivery/JourneySteps";
+import { JourneyRoad } from "@/components/delivery/JourneyRoad";
+import { ORDER_STAGES } from "@/lib/deliveryStage";
+import { journeyFraction, milestoneIndex, stageCopy } from "@/lib/orderJourney";
 import { liveStatusToDeliveryStatus } from "@/lib/deliveryStatus";
 import { track } from "@/lib/analytics";
 import { useI18n } from "@/lib/i18n";
@@ -246,13 +249,26 @@ export default function TrackingPage() {
             </div>
           ) : (
             <>
-              <div style={{ width: "100%", maxWidth: 320 }}>
-                <DeliveryStepper status={liveStatusToDeliveryStatus(liveStatus)} showLabel={false} />
-              </div>
-              <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
+              {(() => {
+                // The link carries only progress — never a location — so the journey is drawn from the stage alone.
+                const ds = liveStatusToDeliveryStatus(liveStatus);
+                const stage = ds === "DELIVERED" ? "delivered" : ds === "EN_ROUTE" || ds === "ARRIVED" ? "on_the_way" : "assigned";
+                const copy = stageCopy(stage, ds === "ARRIVED");
+                const delivered = stage === "delivered";
+                return (
+                  <div style={{ width: "100%", maxWidth: 360 }} className="col gap-14">
+                    <div className="col center" style={{ textAlign: "center", gap: 6 }}>
+                      <span className="trk-emoji" aria-hidden="true">{copy.emoji}</span>
+                      <div className="trk-title" style={{ color: delivered ? "var(--green-700)" : undefined }}>{t(copy.headlineKey)}</div>
+                      <div className="trk-sub" style={{ color: delivered ? "var(--green-700)" : undefined }}>{t(copy.subKey)}</div>
+                    </div>
+                    <JourneyRoad fraction={journeyFraction(stage, ds === "ARRIVED", null, null)} delivered={delivered} label={t(copy.headlineKey)} />
+                    <JourneySteps here={milestoneIndex(ORDER_STAGES.indexOf(stage))} delivered={delivered} />
+                  </div>
+                );
+              })()}
+              <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 12, lineHeight: 1.6 }}>
                 {t("dlv_pub_no_location")}
-                {liveStatus === "ARRIVED" && ` ${t("dlv_pub_arrived_text")}`}
-                {liveStatus === "DONE" && ` ${t("dlv_pub_done_text")}`}
               </div>
             </>
           )}

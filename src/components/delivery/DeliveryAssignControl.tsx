@@ -89,8 +89,13 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
           )}
         </div>
       ) : readOnly ? null : !picking ? (
-        <button className="btn btn-outline btn-sm row gap-6 center" style={{ borderColor: "var(--delivery-600)", color: "var(--delivery-600)" }} onClick={() => setPicking(true)}>
-          <Package size={14} /> Assign delivery
+        // Filled once the order is packed — that is the next thing to do; outlined while it still has to be packed first.
+        <button
+          className={`btn btn-sm btn-block row gap-6 center ${packed === false ? "btn-outline" : "btn-delivery"}`}
+          style={packed === false ? { borderColor: "var(--delivery-600)", color: "var(--delivery-600)" } : { minHeight: 48, fontSize: 15 }}
+          onClick={() => setPicking(true)}
+        >
+          <Package size={packed === false ? 14 : 17} /> Assign delivery
         </button>
       ) : null}
 

@@ -8551,3 +8551,92 @@ button.set-row:active {
   .onb-progress span::after, .onb-back, .onb-input, .onb-interest { transition: none; }
   .onb-skel { animation: none; }
 }
+
+/* ---------- Order tracker (customer) + celebration ----------
+   One labelled journey for a home-delivery order: a headline in plain words, a shop-to-home strip with the rider gliding along it,
+   five named milestones, then the rider, the hand-over code and the shop's number. No map and no coordinates anywhere. */
+.trk { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); border: 1px solid var(--delivery-200); box-shadow: var(--shadow-sm); }
+.trk.is-done { border-color: var(--green-100); }
+.trk-head { display: flex; align-items: center; gap: 12px; padding: 14px; background: linear-gradient(135deg, var(--delivery-50), var(--delivery-100)); }
+.trk.is-done .trk-head { background: linear-gradient(135deg, var(--green-50), var(--green-100)); }
+.trk-emoji { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; font-size: 28px; background: var(--surface); box-shadow: var(--shadow-sm); animation: trkBob 2.6s ease-in-out infinite; }
+.trk-emoji.pop { animation: trkPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), trkBob 2.6s ease-in-out 0.55s infinite; }
+.trk-title { font-weight: 800; font-size: 17px; line-height: 1.2; color: var(--delivery-800); }
+.trk.is-done .trk-title { color: var(--green-700); }
+.trk-sub { margin-top: 3px; font-size: 13px; line-height: 1.35; color: var(--delivery-700); }
+.trk.is-done .trk-sub { color: var(--green-700); }
+.trk-eta { margin-left: auto; flex-shrink: 0; text-align: right; }
+.trk-eta b { display: block; font-size: 24px; line-height: 1; font-weight: 800; color: var(--delivery-800); }
+.trk-eta span { display: block; margin-top: 3px; font-size: 11px; font-weight: 700; color: var(--delivery-700); }
+.trk-live { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--delivery-700); }
+.trk-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--delivery-500); animation: trkLive 1.6s ease-out infinite; }
+.trk-body { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
+.trk-road { position: relative; height: 36px; }
+.trk-road-line { position: absolute; left: 16px; right: 16px; top: 50%; height: 5px; margin-top: -2px; border-radius: 3px; background: var(--ink-100); overflow: hidden; }
+.trk-road-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--delivery-500), var(--delivery-600)); transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.trk-road-end { position: absolute; top: 50%; margin-top: -11px; font-size: 20px; line-height: 22px; }
+.trk-road-end.shop { left: 0; }
+.trk-road-end.home { right: 0; }
+.trk-rider { position: absolute; top: 50%; margin-top: -20px; font-size: 24px; line-height: 24px; transform: translateX(-50%) scaleX(-1); transition: left 1.4s cubic-bezier(0.22, 1, 0.36, 1); filter: drop-shadow(0 2px 2px var(--ink-200)); }
+.trk-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+.trk-step { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; font-size: 10.5px; font-weight: 600; line-height: 1.15; color: var(--ink-500); }
+.trk-step.done, .trk-step.now { color: var(--delivery-800); }
+.trk-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--ink-100); color: var(--ink-500); transition: background 0.3s, color 0.3s; }
+.trk-step.done .trk-dot, .trk-step.now .trk-dot { background: var(--delivery-600); color: var(--white); }
+.trk-step.now .trk-dot { box-shadow: 0 0 0 5px var(--delivery-100); animation: trkRing 1.8s ease-in-out infinite; }
+.trk.is-done .trk-step .trk-dot, .trk-steps.all-done .trk-dot { background: var(--green-500); color: var(--white); box-shadow: none; animation: none; }
+.trk-steps.all-done .trk-step { color: var(--green-700); }
+.trk-person { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--ink-50); border: 1px solid var(--line); }
+.trk-person .who { flex: 1; min-width: 0; }
+.trk-round { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--delivery-600); color: var(--white); }
+.trk-round.ghost { background: var(--surface); color: var(--delivery-700); border: 1.5px solid var(--delivery-200); }
+.trk-code-card { padding: 12px; border-radius: var(--radius); background: var(--delivery-50); border: 1.5px dashed var(--delivery-300); text-align: center; }
+.trk-code { display: flex; justify-content: center; gap: 6px; margin: 8px 0 6px; }
+.trk-code b { width: 36px; height: 46px; display: grid; place-items: center; border-radius: 10px; font-size: 22px; font-weight: 800; background: var(--surface); border: 2px solid var(--delivery-200); color: var(--delivery-800); }
+.trk-actions { display: flex; gap: 8px; }
+
+.cel-layer { position: fixed; inset: 0; z-index: 2000; pointer-events: none; overflow: hidden; }
+/* --w wait, --d duration, --x sideways drift, --r start angle: set per particle by <Celebrate>; these are the defaults. */
+.cel-p { --w: 0s; --d: 2.4s; --x: 0px; --r: 0deg; position: absolute; top: -16px; width: 9px; height: 15px; border-radius: 2px; opacity: 0; animation: celFall var(--d) cubic-bezier(0.25, 0.6, 0.4, 1) var(--w) forwards; transform: rotate(var(--r)); }
+.cel-p.c0 { background: var(--brand-500); } .cel-p.c1 { background: var(--delivery-500); } .cel-p.c2 { background: var(--amber-500); }
+.cel-p.c3 { background: var(--pink-500); } .cel-p.c4 { background: var(--green-500); }
+
+@keyframes trkBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes trkPop { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+@keyframes trkLive { 0% { box-shadow: 0 0 0 0 var(--delivery-300); } 70%, 100% { box-shadow: 0 0 0 6px transparent; } }
+@keyframes trkRing { 0%, 100% { box-shadow: 0 0 0 4px var(--delivery-100); } 50% { box-shadow: 0 0 0 7px var(--delivery-50); } }
+@keyframes celFall { 0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(var(--r)); } 100% { opacity: 0.85; transform: translate3d(var(--x), 105vh, 0) rotate(calc(var(--r) + 640deg)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .trk-emoji, .trk-emoji.pop, .trk-live i, .trk-step.now .trk-dot { animation: none; }
+  .trk-road-fill, .trk-rider { transition: none; }
+  .cel-layer { display: none; }
+}
+
+/* ---------- Rider mission ("what do I do now") + where-to-go ---------- */
+.rm { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--delivery-200); background: var(--surface); }
+.rm-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: linear-gradient(135deg, var(--delivery-50), var(--delivery-100)); }
+.rm.waiting .rm-head { background: linear-gradient(135deg, var(--amber-50), var(--amber-100)); }
+.rm.done .rm-head { background: linear-gradient(135deg, var(--green-50), var(--green-100)); }
+.rm-emoji { width: 46px; height: 46px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; font-size: 25px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.rm-stop { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--delivery-700); margin-bottom: 2px; }
+.rm-title { font-weight: 800; font-size: 16px; line-height: 1.2; color: var(--delivery-800); overflow-wrap: anywhere; }
+.rm.waiting .rm-title { color: var(--amber-800); }
+.rm.done .rm-title { color: var(--green-700); }
+.rm-sub { margin-top: 3px; font-size: 12.5px; line-height: 1.35; color: var(--delivery-700); }
+.rm.waiting .rm-sub { color: var(--amber-700); }
+.rm-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 10px 8px 12px; }
+.rm-step { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; font-size: 10.5px; font-weight: 600; line-height: 1.15; color: var(--ink-500); }
+.rm-step.done, .rm-step.now { color: var(--delivery-800); }
+.rm-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--ink-100); color: var(--ink-500); }
+.rm-step.done .rm-dot, .rm-step.now .rm-dot { background: var(--delivery-600); color: var(--white); }
+.rm-step.now .rm-dot { box-shadow: 0 0 0 5px var(--delivery-100); animation: trkRing 1.8s ease-in-out infinite; }
+.rm.waiting .rm-step.now .rm-dot { background: var(--amber-500); box-shadow: 0 0 0 5px var(--amber-100); animation: none; }
+.rm.done .rm-dot { background: var(--green-500); color: var(--white); box-shadow: none; animation: none; }
+.rw { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--ink-50); border: 1px solid var(--line); }
+.rw-addr { margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--ink-700); overflow-wrap: anywhere; }
+.rw-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.rm-more { display: flex; gap: 8px; }
+.rm-more .btn { flex: 1; min-height: 44px; color: var(--ink-700); }
+.rm-today { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--amber-100); color: var(--amber-800); }
+@media (prefers-reduced-motion: reduce) { .rm-step.now .rm-dot { animation: none; } }
