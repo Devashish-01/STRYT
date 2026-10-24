@@ -1,8 +1,8 @@
 # STRYT — Privacy Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 18 October 2026
-**Version:** 1.0 (draft for legal review)
+**Last Updated:** 24 October 2026
+**Version:** 1.1 (draft for legal review) — adds home delivery (Section 3.12)
 
 > This Privacy Policy was drafted from a direct reading of the STRYT database schema (72 tables), Edge Functions, and client code so that the data categories, flows, and third parties described here reflect what the product actually does. Items only STRYT can confirm (legal entity name, registered address, Data Protection Officer / Grievance Officer identity, and the data-residency region of the hosting project) are marked and must be completed before publication and reviewed by qualified Indian counsel.
 
@@ -82,6 +82,14 @@ We collect only what the features you use require. Grouped by purpose:
 ### 3.11 Analytics
 - Anonymous, aggregate usage and performance data via **Vercel Analytics and Speed Insights** (website).
 
+### 3.12 Home delivery
+Some Businesses offer home delivery. It involves three kinds of people, and each sees different data.
+
+- **If you order for delivery (customer):** the delivery address you give (the text you type and the pin you drop), your name, your phone number, the items you ordered and any note or requested time, how you plan to pay, and a six-digit **hand-over code** you read out to the delivery partner. Your phone number is shown to the delivery partner **only once they are on their way to you**, and your real name only while the delivery is active. If you share a **tracking link**, anyone with the link sees the delivery's progress (for example "on the way"), never a location.
+- **If you deliver for a Business (delivery partner):** the Business adds you to its team with a delivery role. While you are **on duty and have an accepted delivery**, we collect your **precise location, including in the background** (when the app is closed or the screen is off), so the Business can see where you are and the customer gets an accurate arrival time. We show an in-app disclosure before the system permission prompt and a persistent notification while it is on. We keep **only your latest position — not a trail of where you have been** — and it is erased as soon as the delivery or run ends. We also record each step of the delivery (assigned, picked up, on the way, arrived, delivered, or why it could not be delivered) with the time and who did it, hand-over code attempts, any cash you collect and record, and, where the Business allows an order to be left at the door, the **photo and note** you take as proof. Once you set off, the customer sees your name, photo and phone number.
+- **If you are the Business:** you see the order, the customer's name and delivery address, your delivery partners' live location while they are delivering, proof photos, and a timeline of the order.
+- **Customers never see a delivery partner's location.** They see progress and an estimated "minutes away", which our servers work out from the partner's position.
+
 We do **not** intentionally collect special categories such as biometric, health, or financial-account credentials. Do not submit such data in free-text fields, photos, or documents unless a feature specifically requires it.
 
 ---
@@ -95,6 +103,7 @@ We process personal data to:
 - enable core features — requests/quotes, deals, bookings, queues, walk-ins, cart/checkout, and the payment claim/confirm records;
 - power reputation and trust features (reviews, vouches, verification, reports);
 - enable messaging and safety features (live location, emergency contacts, tracking links) at your instruction;
+- run home deliveries: assign and track them, confirm the hand-over, record cash collected, show customers progress and an arrival estimate, and keep a timeline of each order to resolve disputes;
 - send you service/transactional notifications and, where enabled, respond to support requests;
 - provide the statistical "smart price" suggestion (see Section 7);
 - prevent fraud, abuse, and security incidents, enforce our Terms, and moderate content;
@@ -109,7 +118,7 @@ We use personal data only for purposes compatible with those for which it was co
 
 5.1 **Your real name is private by default.** Strangers see your alias/handle. Your phone, email, city, exact location, posts, asks, badges, and rating are shown to others **only if you switch each on** in your privacy settings.
 
-5.2 **Exact location is private by default — from other Users.** Distances shown to other Users are computed server-side from the viewer's own location; your raw coordinates are not exposed **to them**. Exact location reaches another User only when you globally opt in, approve a specific one-time location request, or start a live share.
+5.2 **Exact location is private by default — from other Users.** Distances shown to other Users are computed server-side from the viewer's own location; your raw coordinates are not exposed **to them**. Exact location reaches another User only when you globally opt in, approve a specific one-time location request, start a live share, or — as a delivery partner — go on duty and accept a delivery, in which case the Business you deliver for sees it until the delivery ends.
 
 This is about other Users, not about our processors. To turn coordinates into an area name, and to answer a place search, those coordinates or that query are sent to our geocoding provider (Section 8.2). Displaying a map also sends the area you are looking at to the map-tile provider. These are service providers acting on our instructions, not other Users, but they do receive location data.
 
@@ -150,7 +159,7 @@ This is about other Users, not about our processors. To turn coordinates into an
 We do **not sell** your personal data. We share it only as follows:
 
 ### 8.1 With other Users
-As inherent to the features you use — e.g. a Seller sees your name/alias and details for a booking or deal you make with them; the recipient of a live-location share sees your live location; other Users see content you post per your privacy settings.
+As inherent to the features you use — e.g. a Seller sees your name/alias and details for a booking or deal you make with them; the recipient of a live-location share sees your live location; for a delivery, the delivery partner sees the customer's name, address and (once on the way) phone number, the customer sees the delivery partner's name, photo and phone number once they set off, and the Business sees the delivery partner's live location while they deliver; other Users see content you post per your privacy settings.
 
 ### 8.2 With processors / third-party services (Data Processors)
 - **Supabase** — database, authentication, and file storage infrastructure that hosts app data on our behalf.

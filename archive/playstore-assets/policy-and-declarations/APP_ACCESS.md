@@ -2,184 +2,156 @@
 
 **App:** STRYT · `in.stryt.app`
 **Console location:** App content → **App access**
-**Prepared:** 4 August 2026
+**Rewritten 2026-10-24** — delivery ships in this release, and sign-in is now **phone + one-time code**, so reviewers
+no longer need a Google account.
 
-> ⏸ **v1.0 STATUS: delivery is deferred.** `DELIVERY_AGENT_ENABLED` is `false`
-> for this submission — `/delivery`, the "Deliveries" console tab, and every
-> other delivery entry point are unreachable in this build. **Only sections
-> 1-3 below apply to this submission; section 4 is kept for v1.1 and marked
-> ⏸ DEFERRED.**
-
-Play rejects submissions where review cannot reach a declared feature. STRYT
-gates almost everything behind sign-in and gates consoles behind roles a
-new account does not have, so this form is not optional — answer
-**"All or some functionality is restricted"** and fill in the table below.
+Answer **"All or some functionality is restricted"** and add the four instruction sets below. The review accounts
+already exist in production, are onboarded, and need no business/provider password (checked 2026-10-24).
 
 ---
 
-## ⚠️ Read this before you fill anything in
+## How a reviewer signs in (no SMS needed)
 
-**Google is currently the only sign-in method.** `src/screens/auth/PhoneEntry.tsx`
-says so in a comment — phone and email OTP are hidden for launch. That means the
-reviewer must sign into a **real Google account you hand them**, and that is the
-single most fragile part of this submission:
+STRYT signs in with a mobile number and a 6-digit code. Google Firebase Authentication has **"phone numbers for
+testing"**: a fixed number and code that never send an SMS and skip reCAPTCHA. The three review accounts use those,
+so a reviewer types the number and the fixed code and is in. The welcome screen also offers "Continue with Google"
+— **tell reviewers to ignore it**.
 
-- **Turn 2-Step Verification OFF** on the review account. A reviewer signing in
-  from a Google datacentre IP cannot pass a phone challenge, and "couldn't log
-  in" is an instant rejection.
-- Sign into the account **once yourself, on a physical device**, before you
-  submit. A brand-new Google account signing in from an unfamiliar device is
-  exactly what Google's own risk checks block.
-- Do not use a personal account. Make a dedicated one.
+| Role | Mobile number | Code | Account |
+|---|---|---|---|
+| Customer | `9222222222` | `222222` | Priya Nair |
+| Shop owner | `9111111111` | `111111` | Rajesh Sharma — owns **Sharma General Store**, which offers home delivery |
+| Delivery partner | `9333333333` | `333333` | Suresh Kumar — on the shop's team with the Delivery role |
 
-If review bounces on login, the fastest fix is re-enabling email OTP — not
-arguing with the reviewer.
+Enter the 10-digit number (the +91 country code is pre-filled), tap Continue, then type the code.
+
+> These fixed codes work for **anyone who knows them**. That is acceptable during review (the data is demo data) but
+> remove the three numbers from Firebase → Authentication → Sign-in method → Phone → "Phone numbers for testing"
+> once Google has approved the app, and again before any wider launch.
 
 ---
 
 ## The form
 
-**Are any parts of your app restricted?** → **All or some functionality is
-restricted**
+**Are any parts of your app restricted?** → **All or some functionality is restricted**
 
-Add one instruction set per role. Play allows several; use them — a single
-customer login will not show a reviewer the business features they must
-assess for the background-location declaration.
-
----
-
-### 1. Customer (baseline)
+### 1. Customer
 
 | Field | Value |
 |---|---|
 | Instructions name | `Customer — standard account` |
-| Username | `<review-customer@gmail.com>` |
-| Password | `<password>` |
-| Any other instructions | see below |
+| Username | `9222222222` |
+| Password | `222222` |
 
 ```
-Sign-in is Google-only. On the welcome screen tap "Continue with Google" and
-choose the account above (it is already added to the test device / add it via
-the Google account picker).
+Sign in with the mobile number and the fixed code above (no SMS is sent). Ignore
+"Continue with Google". The account is already set up, so it lands on Home.
 
-This account has completed onboarding, so it lands directly on Home. From there:
-- Explore  — browse nearby businesses and providers on the map
-- Book      — open any business → Book → pick a slot
-- My People — the live-location-share feature (see instruction set 3)
-- Account → Delete account — the in-app deletion flow
+- Explore: browse nearby shops and providers.
+- Open "Sharma General Store" -> add items -> Checkout -> "Home delivery" -> Confirm.
+  Pay by cash on delivery; no payment is taken in the app. Afterwards Home shows a
+  live "Your order" card, and Appointments shows the order's progress.
+- Account -> My People: live location sharing (instruction set 4).
+- Account -> Delete account: the in-app deletion flow.
 
-No purchase is required anywhere in the app. STRYT processes no payments.
+STRYT processes no payments in the app; there is nothing to purchase.
 ```
 
----
-
-### 2. Business owner console
+### 2. Shop owner
 
 | Field | Value |
 |---|---|
-| Instructions name | `Business owner — manage console` |
-| Username | `<review-business@gmail.com>` |
-| Password | `<password>` |
+| Instructions name | `Shop owner — manage console and orders` |
+| Username | `9111111111` |
+| Password | `111111` |
 
 ```
-Sign in as above. This account already owns a verified demo business, so no
-onboarding or KYC upload is needed.
+Sign in as above. The account owns "Sharma General Store" and needs no business
+password. Open the account switcher (long-press the Profile tab) and choose
+"Sharma General Store" to enter the shop console.
 
-Account → switch to the business, or open Home → the business card → "Manage".
-Console sections: Catalog, Hours, Queue, Appointments, Q&A, Inbox.
-(Deliveries is not shown in this build — see the status note at the top of
-this file.)
-
-Note: the business console asks for a business password on entry. It is:
-    <business password>
+Orders: when the customer account places a home-delivery order it appears here as
+a new order.
+1. Accept (choose 30 min) -> Mark packed -> Assign delivery -> choose "suresh_k".
+2. Orders -> Deliveries tab -> "Live board" shows each delivery in progress,
+   including the delivery partner's position while a delivery is under way.
+3. Other sections: Catalog, Hours, Queue, Q&A, Inbox, Team & access.
 ```
 
-> Set this up **before** submitting: the business/provider consoles are behind a
-> separate password (`users.business_password_hash`). A reviewer who cannot get
-> past it will report the feature as broken.
+### 3. Delivery partner (home delivery)
 
----
+| Field | Value |
+|---|---|
+| Instructions name | `Delivery partner — delivery console` |
+| Username | `9333333333` |
+| Password | `333333` |
 
-### 3. Background location — live share (REQUIRED for the sensitive-permission review)
+```
+Sign in as above. This account is on Sharma General Store's team with the Delivery
+role, so a "Delivery" entry appears in the account switcher (long-press the
+Profile tab).
+
+To have something to deliver, an order must first be placed and prepared: use the
+Customer and Shop owner accounts above (instruction sets 1 and 2), assigning the
+order to "suresh_k". Then, as this account:
+1. Delivery -> turn ON DUTY. (On Android a sheet may suggest changing a battery
+   setting; it opens the phone's own settings page and can be skipped.)
+2. Assigned tab -> the order -> "Picked up from shop" -> "Start delivery".
+3. An in-app disclosure appears BEFORE the system dialog, stating that location is
+   collected even when the app is closed or not in use. Tap Continue and choose
+   "Allow all the time".
+4. A persistent "STRYT Live Tracking" notification is shown while the delivery is
+   under way. The shop owner's Live board shows the position.
+5. "I've arrived" -> enter the 6-digit code shown on the customer's screen ->
+   "Collect cash" -> the delivery is complete and location reporting stops.
+"Can't deliver?" is available at any step.
+
+Customers never see the delivery partner's location: they see progress and an
+estimated arrival time only.
+```
+
+### 4. Background location — live share (REQUIRED for the sensitive-permission review)
 
 | Field | Value |
 |---|---|
 | Instructions name | `Background location — My People live share` |
-| Username | `<review-customer@gmail.com>` |
-| Password | `<password>` |
+| Username | `9222222222` |
+| Password | `222222` |
 
 ```
-This is the feature the ACCESS_BACKGROUND_LOCATION declaration covers.
+This and instruction set 3 are the two features the ACCESS_BACKGROUND_LOCATION
+declaration covers.
 
-1. Sign in as the customer account. It already has one emergency contact saved.
-2. Home → the My People (people) icon.
-3. An in-app disclosure appears BEFORE any system dialog, stating that location
-   is collected even when the app is closed or not in use, and naming exactly who
-   receives it. Tap Continue.
+1. Sign in as the Customer. Its one emergency contact is the Shop owner account.
+2. Account -> My People -> Start sharing.
+3. An in-app disclosure appears BEFORE any system dialog, stating that location is
+   collected even when the app is closed or not in use. Tap Continue.
 4. Grant location "Allow all the time", and notifications if prompted.
-5. A persistent "STRYT live location" notification appears while sharing.
-6. Lock or background the device — the chosen contact keeps seeing live position.
-7. Stop from the in-app banner, or My People → Stop sharing.
+5. A persistent notification appears: "STRYT live location - Sharing your live
+   location with My People until you stop."
+6. Lock or background the device. Signed in as the Shop owner (another phone, or
+   stryt.in), open the chat with the customer: the live location card keeps
+   updating.
+7. Stop from the in-app banner, or My People -> Stop sharing.
 
-The share ends when the user stops it. Location is never collected in the
-background at any other time.
+The share ends when the user stops it, or by itself 8 hours after it started.
+Location is never collected in the background at any other time.
 ```
 
 ---
 
-### 4. Background location — delivery run (the second use of the same permission)
+### Admin console — do NOT declare this
 
-> ⏸ **DEFERRED to v1.1 — do not add this instruction set to this submission.**
-> `/delivery` redirects to `/home` with the flag off, so a delivery test
-> account has nothing to show a reviewer right now. Kept below so it's ready
-> to re-add when delivery ships.
-
-| Field | Value |
-|---|---|
-| Instructions name | `Background location — delivery run` |
-| Username | `<review-delivery@gmail.com>` |
-| Password | `<password>` |
-
-```
-The same permission also serves delivery tracking, so it is declared for both.
-
-The delivery console is gated by an active "delivery" grant issued by a business
-(RequireDeliveryAgent) — this account already holds one, so /delivery is
-reachable straight after sign-in.
-
-1. Sign in. Account → Delivery, or open stryt.in/delivery.
-2. Toggle ON DUTY. The same background-location disclosure appears first.
-3. Android only: a sheet then explains why STRYT asks to skip battery
-   optimisation — it is shown ONLY to a delivery agent going on duty, never to a
-   customer, and it can be declined without blocking the run.
-4. Accept the pre-seeded test order → En route → Arrived → Handoff.
-   "Can't deliver" is also available at any point.
-5. Go OFF DUTY to stop location reporting.
-
-While a run is active the shop and that order's customer can follow the agent's
-position on a map. Nobody else can.
-```
+`/admin/login` is internal staff tooling and uses its own admin credentials. **Leave it out of App access.** If
+review asks, answer that it is internal-only and restricted to STRYT staff.
 
 ---
 
-### 5. Admin console — do NOT declare this
+## Pre-submission checklist
 
-`/admin/login` exists and uses an admin login ID + password. **Leave it out of
-App access.** It is internal staff tooling, not user-facing functionality, and
-handing a reviewer credentials to a console that can force-delete accounts and
-grant roles is an unnecessary risk. If review ever asks about the route, answer
-that it is internal-only and gated to STRYT staff.
-
----
-
-## Pre-submission checklist for the review accounts
-
-- [ ] Two Google accounts created, **2FA off**, each signed into once on a real device
-- [ ] Customer account: onboarding completed, at least one emergency contact saved
-- [ ] Business account: owns a demo business, business password set and written above
-- [ ] ⏸ DEFERRED to v1.1: delivery account holding an active grant, one order queued
-- [ ] Every password in this file replaced with the real value **before** pasting into the Console
-- [ ] Demo data is safe to be screenshotted by a stranger — no real customer names, numbers, or addresses
-
-> Keep the filled-in copy of this file **out of git**. The version in the repo is
-> a template with placeholders; do not commit real credentials.
+- [ ] The three numbers above are listed under Firebase → Authentication → Sign-in method → Phone → **Phone numbers for testing**, with exactly these codes
+- [ ] Each account signed into once on a real device with the **release** build
+- [ ] Customer's My People contact is still the Shop owner (Account → My People)
+- [ ] Sharma General Store is open, delivery is switched on in its settings, and it has items in stock
+- [ ] Just before submitting for review: place one fresh order so the flow is easy to repeat (an accepted delivery that nobody starts is closed automatically about 3 hours after its time)
+- [ ] After approval: remove the Firebase test phone numbers

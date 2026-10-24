@@ -59,13 +59,19 @@ STRYT transforms how you discover, connect, and transact with local shops, skill
 • Continuous background location updates ensure your loved ones can see your journey safely even when your phone is locked.
 • Stop sharing instantly with a single tap at any time.
 
+🛵 HOME DELIVERY FROM LOCAL SHOPS
+• Order from shops that deliver and follow your order from "packing" to "on the way", with a live estimate of when it arrives.
+• A hand-over code keeps your order safe: only the person who has the code receives it.
+• Shops get a simple console to accept, pack and assign orders; delivery partners get one screen that always shows the next step.
+• A delivery partner's location is used only while they are delivering. Customers see progress and an arrival time — never a location.
+
 📢 STREET ALERTS & COMMUNITY UPDATES
 • Stay informed with neighborhood broadcasts, flash discounts, street events, and utility alerts.
 • Safe, verified community interactions designed to strengthen local neighborhood bonds.
 
 🔒 PRIVACY & SECURITY FIRST:
 • No annoying advertisements or intrusive ad trackers.
-• Your location is used only for nearby discovery and user-initiated live sharing. We never sell your personal data or track your movement history.
+• Your location is used only for nearby discovery, user-initiated live sharing, and — for delivery partners — tracking a delivery while it is under way. We never sell your personal data or track your movement history.
 • End-to-end encrypted transit (HTTPS/TLS) across all communications.
 • Easily manage your data or request account deletion at any time directly in-app or via our transparent web portal.
 

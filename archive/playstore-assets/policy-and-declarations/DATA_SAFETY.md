@@ -40,14 +40,17 @@ exceptions are documented in `legal/data-retention-policy.md` §3.4.
 discovery (`neighborhood_today`, map/Explore). Live share streams position
 while active — `ACCESS_BACKGROUND_LOCATION` +
 `FOREGROUND_SERVICE_LOCATION` in `android/app/src/main/AndroidManifest.xml:60-68`,
-driven by `src/lib/backgroundLocation.ts`. (⏸ Delivery runs are the same
-mechanism but are deferred to v1.1 — `DELIVERY_AGENT_ENABLED` is `false` for
-this submission, see `BACKGROUND_LOCATION_DECLARATION.md`.)
+driven by `src/lib/backgroundLocation.ts`. Delivery uses the same
+mechanism: while a delivery is under way the delivery partner's position is reported
+to the shop (`DeliveryTrackingRunner`, `update_delivery_position`), and the server turns
+it into a "minutes away" figure for the customer. Only the latest position is kept
+(no trail) and a database trigger erases it when the delivery or run ends. Customers
+never receive coordinates (`my_delivery_progress`, `get_tracking`).
 
 **Sharing — declare this explicitly:** precise location is shared **with other
 users the person chooses** — the contacts they start a My People live share
-with. (⏸ v1.1: also the shop and the customer on a delivery run.) It is
-**not** shared with advertisers, data brokers, or analytics providers.
+with, and — for a delivery partner — the shop they are delivering for. The customer is
+shown an arrival time, not a location. It is **not** shared with advertisers, data brokers, or analytics providers.
 
 > STRYT stores only the *last known* position, not a movement history. Say so in
 > the "data usage and handling" free text — it is true (`DataSettings.tsx`
@@ -55,8 +58,8 @@ with. (⏸ v1.1: also the shop and the customer on a delivery run.) It is
 
 **Background location declaration:** required separately under App content →
 Sensitive permissions. See `BACKGROUND_LOCATION_DECLARATION.md` in this folder —
-it needs a demo video. For v1.0 it covers **one** feature (My People live
-share); delivery is deferred to v1.1.
+it needs a demo video. It covers **two** features: My People live
+share and delivery (updated 2026-10-24 — delivery ships in this release).
 
 ---
 

@@ -1,18 +1,19 @@
 # Background location — demo video recording script
 
-**For:** the owner, recording the video Google Play asks for in the background-location declaration
-**Decision:** D19 — keep background location for My People live share in v1.0 (option A, 18 Sept 2026)
+**For:** the owner, recording the one video Google Play asks for in the background-location declaration
+**Updated 2026-10-24:** delivery ships in this release, so the video shows **both** features — My People live share
+(Part A) and a delivery (Part B). One video, two parts, one YouTube link.
 **Pairs with:** [`BACKGROUND_LOCATION_DECLARATION.md`](BACKGROUND_LOCATION_DECLARATION.md) (the text you paste)
 
-A person at Google watches this video. They are checking four things, in this order:
+A person at Google watches this video. They check four things for **each** feature:
 
-1. there is an **in-app disclosure** before Android's permission dialog;
+1. an **in-app disclosure** is shown before Android's permission dialog;
 2. it says location is collected **even when the app is closed or not in use**;
-3. the **feature** that needs it really exists and works;
+3. the **feature** that needs it exists and works;
 4. a **persistent notification** is visible the whole time location is collected in the background.
 
-If any of the four is missing or unclear, the declaration is rejected. Everything below is arranged so each is
-on screen, unmistakably.
+If any of the four is missing for either feature, the declaration is rejected. Everything below puts each on screen,
+unmistakably. Speak nothing; add the captions afterwards if your phone's editor allows.
 
 ---
 
@@ -22,77 +23,88 @@ on screen, unmistakably.
 
 | Item | Why |
 |---|---|
-| **Phone A** — the sharer | Records the video. Android 11 or newer, so the "Allow all the time" Settings screen appears — that is the step reviewers most want to see. |
-| **Phone B** — the contact | Shows the other side: the location actually arriving. A second phone, or a second account on a laptop at stryt.in. |
-| **Two STRYT accounts** | A = sharer, B = contact. Use the two accounts you give Google under *App access* (A = the customer account, B = the second one), so the reviewer can repeat exactly what the video shows. |
-| **A build of the release commit** | Best: installed from your Play **internal testing** track. If Play will not roll out that release until this declaration is filled in, record on a build of the same commit from Android Studio instead — the screens and the notification are identical. Either way it must include `528763b` and the P15-003 fix. |
+| **Phone A** — records the video | Android 11 or newer, so the "Allow all the time" Settings screen appears (reviewers look for it). Install the **same build you upload** (from the closed-test track, or the AAB/APK from CI). |
+| **Phone B** — the other side | A second phone, or a laptop at stryt.in. Used to show the shop owner seeing the location. |
+| The three review accounts | Sign in with the phone number and fixed code — no SMS is sent (see [`APP_ACCESS.md`](APP_ACCESS.md)): Customer **9222222222 / 222222**, Shop owner **9111111111 / 111111**, Delivery partner **9333333333 / 333333**. |
+| Screen recording on phone A | Swipe down → Screen record. Close other apps so no unrelated notification shows. |
 
-### Set it up
+### Set up (once)
 
-1. **On phone A, reset location permission** so the whole flow appears: Settings → Apps → STRYT → Permissions →
-   Location → **Don't allow**. The app shows the disclosure whenever background permission is not granted, so
-   this guarantees the reviewer sees it.
-2. **Make B a My People contact of A.** On phone A: Account → My People → **Emergency contacts** →
-   **Add a contact** → enter B's mobile number, email or username.
-   - Adding by number/email/username needs database update `20260988`, which is one of the 17 in
-     `../RELEASE_RUNBOOK.md` part 1. Do this after that is applied.
-   - Before then, only people A has already chatted with can be added — so send a chat message between A and B
-     first.
-3. **Make sure no share is already running** on A. If one is, stop it: Account → My People → **Stop sharing**.
-4. **Turn on screen recording** on phone A (swipe down → Screen record). Include touches if your phone offers
-   it. Close other apps so no unrelated notification appears.
+1. On phone A, **reset location permission**: Settings → Apps → STRYT → Permissions → Location → **Don't allow**.
+   The disclosure shows whenever background permission is not granted, so this guarantees the reviewer sees it.
+2. **Customer ↔ contact:** the Customer account already has the Shop owner account saved under
+   Account → My People → Emergency contacts (checked 2026-10-24).
+3. **An order waiting for the delivery partner (Part B).** Create it just before you record — an accepted delivery
+   that nobody starts is closed automatically about 3 hours after its time:
+   1. Customer account (phone A or B): open **Sharma General Store** → add two items → Checkout → **Home delivery** → Confirm.
+   2. Shop owner account: Orders → **Accept** (choose 30 min) → **Mark packed** → **Assign delivery** → *suresh_k*.
+4. Make sure no live share is running on the Customer account (My People → Stop sharing).
 
 ---
 
-## The recording — about 60 to 90 seconds
+## Part A — My People live share (about 60 seconds)
 
-Speak nothing; the screen should explain itself. If your phone lets you add captions afterwards, the text in
-*caption* is what to add.
+Record on phone A signed in as the **Customer** (9222222222).
+
+| # | Do this | What must be visible | Caption |
+|---|---|---|---|
+| 1 | Open STRYT on Home. | The app, signed in. | *STRYT — My People live location share* |
+| 2 | Tap **Account → My People**. | The My People screen with the contact listed. | *The user chooses who receives their location* |
+| 3 | Tap **Start sharing**. | — | — |
+| 4 | **Hold on the disclosure 3–4 seconds. Do not tap.** | *"Allow location in the background?"* and the sentence that STRYT collects precise location **even when the app is closed or not in use**. | *In-app disclosure, before the system dialog* |
+| 5 | Tap **Continue**, choose **While using the app**. | Android's location dialog. | *User accepts the disclosure* |
+| 6 | When Android opens **Settings → Location permission**, choose **Allow all the time**. | The "Allow all the time" option being selected. **This is the frame reviewers look for.** | *User grants background location* |
+| 7 | Allow notifications if asked; go back to STRYT. | The share shown as on. | *Live share is on* |
+| 8 | **Pull down the notification shade; hold 3 seconds.** | **"STRYT live location — Sharing your live location with My People until you stop."** | *Persistent notification while location is collected* |
+| 9 | Press **Home**, then **lock the screen** ~10 seconds. | Home screen, then lock screen. | *App closed and screen locked — sharing continues* |
+| 10 | **Show phone B**, signed in as the Shop owner: open the chat with the customer. | The live location card showing the position. | *The chosen contact sees the live location* |
+| 11 | Walk a few steps, or wait for an update, with B still on screen. | The position moves. | *Location keeps updating in the background* |
+| 12 | On A: **My People → Stop sharing**. | The share turns off; the notification disappears. | *The user can stop at any time* |
+
+---
+
+## Part B — Delivery (about 90 seconds)
+
+Switch phone A to the **Delivery partner** account: sign out, then sign in with **9333333333 / 333333**.
+Reset the location permission again if Android remembers "Allow all the time" from Part A (setup step 1), so the
+disclosure shows again.
 
 | # | Do this on phone A | What must be visible | Caption |
 |---|---|---|---|
-| 1 | Open STRYT on the Home screen. | The app, signed in. | *STRYT — My People live location share* |
-| 2 | Tap **Account → My People**. | The My People screen, with contact B listed. | *The user chooses who receives their location* |
-| 3 | Tap **Start sharing**. | — | — |
-| 4 | **Hold on the disclosure for 3–4 seconds.** Do not tap yet. | *"Allow location in the background?"* and the sentence **"STRYT collects your precise location even when the app is closed or not in use so My People can follow your live share on a map until you stop sharing."** | *In-app disclosure, shown before any system permission request* |
-| 5 | Tap **Continue**. | Android's location dialog. | *User accepts the disclosure* |
-| 6 | Choose **While using the app** (or *Precise*, then *While using*). | — | — |
-| 7 | Android asks for background access, or opens **Settings → Location permission**. Choose **Allow all the time**. | The **"Allow all the time"** option being selected. This is the frame reviewers look for. | *User grants background location in system Settings* |
-| 8 | If asked, allow **notifications**. Go back to STRYT. | The app shows the share as **on**. | *Live share is now on* |
-| 9 | **Swipe down the notification shade.** Hold 3 seconds. | A persistent notification: **"STRYT live location — Sharing your live location with My People until you stop."** | *A persistent notification is shown while location is collected* |
-| 10 | Press **Home** to leave the app, then **lock the screen** for about 10 seconds. | The home screen, then the lock screen. | *App closed and screen locked — sharing continues* |
-| 11 | **Show phone B** (hold it up to the camera, or cut to its screen recording). Open the chat with A. | The **live location card** in the chat, showing A's position. | *The chosen contact sees the live location* |
-| 12 | Walk a few steps, or wait for an update, with phone B still on screen. | The position on B updates. | *Location keeps updating in the background* |
-| 13 | Unlock phone A, open STRYT → **Account → My People → Stop sharing**. | The share turns off, and the notification disappears. | *The user can stop at any time* |
+| 1 | Open the account switcher (long-press the profile tab) → **Delivery**. | The Delivery console. | *Delivery partner console* |
+| 2 | Switch **On duty**. | The toggle on. If a "Keep your delivery tracking" sheet appears, **hold 3 seconds**, then tap **Open battery settings** and back (or **Not now**). | *Optional battery setting — no special permission used* |
+| 3 | Open **Assigned** → the order → tap **Picked up from shop** → then **Start delivery**. | The order card showing "Pick up the order", then "Deliver to …". | *Delivery partner starts a delivery* |
+| 4 | **Hold on the disclosure 3–4 seconds. Do not tap.** | The sentence that STRYT collects precise location **even when the app is closed or not in use** so the shop can see where the partner is and the customer gets an arrival time. | *In-app disclosure, before the system dialog* |
+| 5 | **Continue** → **While using the app** → in Settings choose **Allow all the time**. | "Allow all the time" being selected. | *User grants background location* |
+| 6 | **Pull down the notification shade; hold 3 seconds.** | **"STRYT Live Tracking — Sharing live location for active deliveries."** | *Persistent notification while location is collected* |
+| 7 | Press **Home**, **lock the screen** ~10 seconds. | Home, then the lock screen. | *App closed and screen locked — tracking continues* |
+| 8 | **Show phone B**, signed in as the Shop owner: Orders → **Deliveries** tab → **Live board** (the live map). | The delivery partner's position on the map. | *The shop sees where the delivery is* |
+| 9 | Show the Customer account (phone B, or switch): Home → **Your order** card. | "On the way to you" with minutes away — **no map, no location**. | *The customer sees progress and an arrival time, never the location* |
+| 10 | On A: **I've arrived** → enter the customer's code → **Collect cash** → done. | The "Delivered" celebration; the tracking notification disappears. | *Location reporting stops when the delivery ends* |
 
-**Length:** keep it short — Google reviews many of these. Check the Play Console field for its current
-length guidance when you upload.
+**Length:** short beats long — Google reviews many of these. Trim dead time, but **do not cut** Part A steps 4, 6, 8
+or Part B steps 4, 5, 6: those are the proof.
 
 ---
 
 ## After recording
 
-1. Trim the start and end. Do **not** cut steps 4, 7 or 9 — those are the proof.
-2. Check that no personal data is visible: another person's phone number, a home address, unrelated
-   notifications. Blur anything that is.
-3. Upload to YouTube as **Unlisted** (not Private — the reviewer needs the link to work) and paste the link into
-   the declaration form.
-4. Paste the description from `BACKGROUND_LOCATION_DECLARATION.md` §1.
-5. If Play Console also shows **Foreground service permissions**, use the same link there
-   (`BACKGROUND_LOCATION_DECLARATION.md` §1b).
+1. Check no personal data is visible beyond the test accounts (another person's number, a home address, unrelated
+   notifications). Blur anything that is.
+2. Upload to YouTube as **Unlisted** (not Private — the reviewer needs the link to work).
+3. Paste the link into **Background location access** and, if the Console shows it, **Foreground service
+   permissions**; paste the description from `BACKGROUND_LOCATION_DECLARATION.md` §1.
+4. Once Google approves the app, remove the Firebase test phone numbers (they let anyone who knows them sign in as
+   the review accounts) — see `OWNER_REMAINING_STEPS.md`.
 
 ---
 
 ## If the review comes back rejected
 
-The rejection email names the reason. The common ones, and what to check:
-
 | Reason | Check |
 |---|---|
-| "Prominent disclosure not shown" | Did step 4 hold long enough to read? Was permission reset before recording (setup step 1)? |
-| "Video does not show the feature" | Is step 11–12, the contact seeing the location, clearly on screen? |
-| "Feature does not require background location" | The description must say the share would stop working when the phone locks — `BACKGROUND_LOCATION_DECLARATION.md` §1 already does. |
-| "Notification not shown" | Step 9 — the shade must be pulled down and held. |
-
-If it is rejected twice, the fallback is option B from `../PLAY_LAUNCH_PLAN.md`: sharing only while the app is
-open, with no declaration. That is a code change the agent can make in an afternoon.
+| "Prominent disclosure not shown" | Did the disclosure stay on screen long enough to read? Was location permission reset before each part? |
+| "Video does not show the feature" | Part A step 10–11 and Part B steps 8–9 — the other side clearly on screen? |
+| "Feature does not require background location" | The description says the feature would stop working when the phone locks — `BACKGROUND_LOCATION_DECLARATION.md` §1 does. |
+| "Notification not shown" | Part A step 8 / Part B step 6 — the shade pulled down and held. |
+| "Unlisted permission" | The AAB must not contain `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`; it was removed on purpose. |

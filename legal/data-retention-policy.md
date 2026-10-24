@@ -71,6 +71,8 @@ The following are STRYT's retention targets. Except where a mechanism is hard-co
 | Active account profile & settings | While account is active; deleted/anonymised on account deletion |
 | Stories | Auto-expire 1 hour–7 days (product behaviour); Highlights until unpinned/deleted |
 | Requests/"asks" | Open until fulfilled or auto-expiry (up to 24h); records kept while account active *(policy default — configure)* |
+| **Delivery partner's live position** | Only the latest position is stored; it is erased automatically when the delivery or run ends *(hard-coded in the product — database trigger)* |
+| Delivery records (address, steps and times, hand-over attempts, cash records, proof photo and note, order timeline) | Same as appointments below: life of account + a period after completion for dispute/fraud/legal purposes *(policy default: e.g. up to 3 years — confirm)* |
 | Deals/Agreements, appointments, queue tokens, payment **records** | Life of account + a period after completion for dispute/fraud/legal purposes *(policy default: e.g. up to 3 years — confirm)* |
 | Direct messages | While account active; removed/anonymised on deletion *(policy default — configure)* |
 | Reviews, ratings, vouches, endorsements | Retained as community record; anonymised link to a deleted author |

@@ -26,6 +26,24 @@ start before the remaining engineering work, not after.
 
 ---
 
+## Status — 2026-10-24 (delivery ships in this release; everything the repo, database and CI can do is done)
+
+The owner-only list is in [`../launch/OWNER_REMAINING_STEPS.md`](../launch/OWNER_REMAINING_STEPS.md). Done since the last check:
+
+| Item | State |
+|---|---|
+| Delivery in this release | **Decided 2026-10-24: delivery ships.** `VITE_DELIVERY_AGENT_ENABLED=true` in both Android workflows; the delivery flow was rebuilt (GAPS #34–#37). |
+| Capacitor | **Done:** 8.4.3 (critical advisory GHSA-rvm3-566m-v7fv closed; `npm audit` no longer lists a critical). A debug build against it compiled. The remaining audit items are in code the app does not run (Firestore/gRPC server code pulled in by the Firebase auth plugin; React Router server-side rendering) and their fixes are breaking downgrades — accepted. |
+| Target SDK | 36 / compile 36 — meets the current Play target-API requirement. |
+| Battery-optimisation permission | **Changed:** `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is deliberately **not** declared (restricted by Play, delivery is not on its allowlist). Riders are sent to the system's battery settings page (`openBatterySettings`, no permission). |
+| In-app delivery disclosure | **Corrected** to say the shop sees the rider's location and the customer gets an arrival time (customers never see a location). |
+| Privacy policy / retention | **Updated** for delivery (privacy §3.12, §4, §5.2, §8.1; retention table). Still has placeholders pending the registered address in `legal/operator.yaml`. |
+| Play documents | **Rewritten for delivery:** background-location declaration (two uses), demo-video script (two parts), App access (phone + fixed codes), Data safety text (no new data types), store-listing text, quick-copy answers. |
+| Review accounts | Customer 9222222222, shop owner 9111111111 (owns Sharma General Store), delivery partner 9333333333 (delivery role) exist and are onboarded; the customer has the owner as its My People contact. |
+| Account-deletion purge | `purge-deleted-accounts` ACTIVE v8 in production; daily workflow green. |
+| `stryt.in` | **Still 429** on every URL: Vercel serves a bot challenge (`X-Vercel-Mitigated: challenge`). Owner step. |
+| Database security advisor | No new findings from the delivery work. Known/accepted: `spatial_ref_sys` (owned by supabase_admin, GAPS #31), intentionally policy-less attempt-log tables, PostGIS/pg_net in `public`, public RPCs the app calls, Leaked Password Protection (dashboard setting). |
+
 ## Status check — 2026-10-21 (verified from the repo and the public internet; Console state is still unknown to me)
 
 | Check | Result |
@@ -87,7 +105,7 @@ language switcher is hidden; a Hindi listing leading to a half-English app reads
 | | Item | Why it matters |
 |---|---|---|
 | 🔴 | **Disable the legacy `service_role` key** | A working one is in git history (`efd5031`), confirmed active in August. It bypasses RLS entirely — every table, and the KYC documents. Legacy `anon` is already disabled and the publishable key is live, so this is the last one. **Order:** create a secret key → swap `SUPABASE_SERVICE_ROLE_KEY` in GitHub Actions → push once and confirm OTA is green → *then* disable the legacy key. Testing after disabling breaks the pipeline. |
-| 🔴 | **`/legal/*` returns 429** | Verified 2026-09-25, including with an Android browser User-Agent. Play's crawler checks the privacy policy URL itself; a 429 fails submission on "Privacy policy not accessible". Vercel → Settings → Deployment Protection → exempt the legal routes, then confirm in an incognito browser. |
+| 🔴 | **`/legal/*` returns 429** | Verified 2026-09-25 and again 2026-10-24 (cause: Vercel bot challenge, `X-Vercel-Mitigated: challenge`), including with an Android browser User-Agent. Play's crawler checks the privacy policy URL itself; a 429 fails submission on "Privacy policy not accessible". Vercel → Settings → Deployment Protection → exempt the legal routes, then confirm in an incognito browser. |
 | 🟡 | Keystore password rotation | `docs/launch/KEYSTORE_ROTATION.md` — three GitHub secrets |
 | 🟡 | Leaked Password Protection | Supabase → Auth → enable. Still flagged by the security advisor |
 
@@ -122,7 +140,7 @@ drop-off: invite more than 12.
 
 | Item | Why |
 |---|---|
-| **Delivery agent flow** | `DELIVERY_AGENT_ENABLED = false`. Decided 18 Sept (D19). Fully built, but enabling it needs a second background-location declaration, its own demo video and test account — and there are zero delivery agents to use it. v1.1. |
+| ~~Delivery agent flow~~ | **Reversed 2026-10-24: delivery ships in this release** (see the status section above). The second background-location declaration, demo video and test accounts are prepared. |
 | **Font scale rework** | Was done, then lost to an uncommitted reset. Body text is 13px where iOS uses 17. Real, but the app has shipped at these sizes; a rejection over launch timing costs more than small text. Do it after approval. |
 | **Hindi / Marathi listings** | See store listing above. |
 | **Admin dashboard for `marketplace_health()`** | 4 requests in 30 days — a screen for a number that moves weekly is not worth building yet. Read it from the database on demand. |

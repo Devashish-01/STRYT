@@ -92,11 +92,13 @@ Navigate to: **Policy → App content**
 * **Is background location access required for your app's core functionality?** → **Yes**
 * **Core functionality description (Paste this text):**
   ```text
-  STRYT uses background location for one user-initiated feature, behind its own in-app disclosure and stoppable at any time.
+  STRYT uses background location for two features. Each has its own in-app disclosure before the permission prompt, shows a persistent notification the whole time it runs, and can be stopped by the user.
 
-  My People live location share: A user shares their precise location with contacts they explicitly choose, so those contacts can follow them on a map until the user stops sharing. Location must keep updating while the app is backgrounded or the screen is locked, which is the essential utility of the safety feature.
+  1. My People live share. A user shares their precise location with contacts they explicitly choose, so those contacts can follow them on a map until the user stops sharing (or after 8 hours). Location must keep updating while the app is in the background or the phone is locked, which is the whole point of the feature: a share that freezes when the phone locks does not work.
 
-  Nearby discovery, maps, and search use while-in-use location only. STRYT stores a last known position, not a historical trail.
+  2. Delivery. A delivery partner who works for a local shop goes on duty and starts a delivery. While a delivery is under way, the app reports the partner's precise location to the shop, so the shop can see where the order is, and our servers use it to work out the customer's estimated arrival time. Delivery partners ride or walk with the phone locked or in a pocket, so reporting has to continue in the background. It stops when the delivery is finished or cancelled. Customers are shown progress and an estimated arrival time only; they are never shown the partner's location. Only the latest position is stored (no movement history), and it is erased when the delivery ends.
+
+  Nearby discovery, maps and search use while-in-use location only.
   ```
 * **Video Demonstration:**
   * Prepare a short 30-second screen capture showing:
