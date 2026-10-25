@@ -146,7 +146,7 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
             }}
           />
         </div>
-        <div className="bold small ellipsis" style={{ maxWidth: "100%", fontSize: 13.5 }}>{safeName(p.displayName, "Local provider")}</div>
+        <div className="bold small ellipsis" style={{ maxWidth: "100%", fontSize: 13.5, color: "var(--ink-900)" }}>{safeName(p.displayName, "Local provider")}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%", fontSize: 11 }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
         <div className="row gap-4 center-v" style={{ marginTop: 1 }}>

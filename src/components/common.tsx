@@ -306,7 +306,9 @@ export function SafeImg({
     <img
       src={displaySrc}
       alt={alt}
-      className={className}
+      // An avatar is round and cropped to fill — without this, the ~two dozen call sites that pass only a size
+      // rendered a square, stretched person-shape.
+      className={variant === "avatar" && !className?.split(" ").includes("avatar") ? `avatar${className ? ` ${className}` : ""}` : className}
       style={{
         ...style,
         // Global `img { max-width: 100% }` collapses fixed-size avatars inside

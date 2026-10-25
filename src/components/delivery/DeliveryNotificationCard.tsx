@@ -77,6 +77,7 @@ export default function DeliveryNotificationCard({
   const isArrived = metadata.statusPill === "Arrived";
   const isEnRoute = metadata.statusPill === "En Route" || metadata.statusPill === "On the way";
   const formattedOtp = formatOtp(metadata.handoffCode);
+  const hasDetail = !!(metadata.pickupAddress || metadata.dropoffAddress || (metadata.stopCount ?? 0) > 0 || metadata.etaText || metadata.cancelReason || metadata.cancelNote);
 
   function copyOtp(e: React.MouseEvent) {
     e.stopPropagation();
@@ -183,8 +184,15 @@ export default function DeliveryNotificationCard({
         </div>
       )}
 
-      {/* Route & Delivery Detail Box */}
-      {(metadata.pickupAddress || metadata.dropoffAddress || metadata.stopCount || metadata.statusPill) && (
+      {/* A card whose only extra is a status gets just the pill — a bordered box around one pill is an empty-looking strip. */}
+      {!hasDetail && pill && (
+        <div className="row" style={{ marginTop: 8, paddingLeft: 56 }}>
+          <StatusPill label={pill} tone={metadata.tone} />
+        </div>
+      )}
+
+      {/* Route & Delivery Detail Box — only when it has route, stops, an ETA or a cancellation to show. */}
+      {hasDetail && (
         <div className="notif-dlv-route-box">
           {(metadata.pickupAddress || metadata.dropoffAddress) && (
             <div className="notif-dlv-route-row">

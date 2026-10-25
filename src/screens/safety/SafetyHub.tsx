@@ -148,9 +148,9 @@ export default function SafetyHub() {
         ) : list.length > 0 && (
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
             {list.map((c) => (
-              <div key={c.id} className="col center" style={{ gap: 4, width: 64 }}>
-                <SafeImg src={c.avatar} variant="avatar" style={{ width: 44, height: 44 }} />
-                <span className="tiny muted" style={{ textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 60 }}>{c.name}</span>
+              <div key={c.id} className="col center" style={{ gap: 6, width: 76 }}>
+                <SafeImg src={c.avatar} variant="avatar" className="avatar" style={{ width: 52, height: 52, border: "2px solid var(--surface)", boxShadow: "var(--shadow-sm)" }} />
+                <span className="tiny semi" style={{ textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 72, color: "var(--ink-700)" }}>{c.name}</span>
               </div>
             ))}
           </div>

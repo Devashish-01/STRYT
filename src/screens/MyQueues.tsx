@@ -7,6 +7,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle, Navigation, MessageCircle } from "@/components/Icons";
 import { useMessageUser } from "@/hooks/useMessageUser";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
@@ -62,6 +63,7 @@ function etaClock(min: number): string {
 
 export default function MyQueues() {
   const nav = useNavigate();
+  const { t } = useI18n();
   const { showToast, user } = useApp();
   const messageUser = useMessageUser();
   const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
@@ -211,6 +213,7 @@ export default function MyQueues() {
                 emoji="👥"
                 title={tab === "ACTIVE" ? "No active queues" : "No queue history yet"}
                 text={tab === "ACTIVE" ? "Join a shop's live queue and it'll show up here." : "Served and left queues appear here."}
+                action={tab === "ACTIVE" ? <button className="btn btn-primary" onClick={() => nav("/explore")}>{t("explore_now")}</button> : undefined}
               />
             ) : (
               list.map((q) => {

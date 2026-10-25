@@ -573,7 +573,7 @@ export default function QueueManager() {
                 </div>
               ))}
               {waiting.length === 0 && called.length === 0 && (
-                <p className="muted small center" style={{ padding: 20 }}>{qt("qm_queue_empty")}</p>
+                <p className="muted small center" style={{ padding: "28px 20px", textAlign: "center" }}>{qt("qm_queue_empty")}</p>
               )}
             </div>
 

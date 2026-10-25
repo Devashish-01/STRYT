@@ -269,7 +269,7 @@ export function MapCarousel({
                 />
               )}
               <span className="map-carousel__info">
-                <span className="map-carousel__title ellipsis">{r.title}</span>
+                <span className="map-carousel__title">{r.title}</span>
                 <span className="map-carousel__sub ellipsis">
                   {r.distanceKm != null ? pedestrianDistanceLabel(r.distanceKm, t) : r.sub}
                 </span>

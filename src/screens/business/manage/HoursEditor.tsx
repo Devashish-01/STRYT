@@ -126,10 +126,10 @@ export default function HoursEditor() {
         {/* ── Instant availability banner (presence — separate from bookable slots) ── */}
         <div className="card" style={{ background: openNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">
-            <div className="row gap-10 center-v">
-              <Zap size={22} color={openNow ? "var(--green-500)" : "var(--ink-400)"} />
-              <div>
-                <div className="row gap-6 center-v">
+            <div className="row gap-10 center-v" style={{ flex: 1, minWidth: 0 }}>
+              <Zap size={22} color={openNow ? "var(--green-500)" : "var(--ink-400)"} style={{ flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div className="row gap-6 center-v" style={{ flexWrap: "wrap" }}>
                   <div className="semi small">Shop open right now</div>
                   {isAuto ? (
                     <span className="badge badge-purple" style={{ fontSize: 10, padding: "2px 6px" }}>Auto schedule</span>
@@ -144,7 +144,7 @@ export default function HoursEditor() {
                 </div>
               </div>
             </div>
-            <button aria-pressed={openNow} onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }} aria-label="Toggle shop open now">
+            <button aria-pressed={openNow} onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0, marginLeft: 10 }} aria-label="Toggle shop open now">
               <Toggle on={openNow} />
             </button>
           </div>

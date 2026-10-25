@@ -38,9 +38,11 @@ export default function ReviewsManager() {
   const list = filter ? reviews.filter((r) => r.rating === filter) : reviews;
   const avg = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "—";
 
+  const noun = reviews.length === 1 ? "review" : "reviews";
+
   return (
     <div className="screen with-nav">
-      <AppBar title="Reviews" subtitle={filter ? `${avg}★ • ${list.length} of ${reviews.length} reviews` : `${avg}★ • ${reviews.length} reviews`} />
+      <AppBar title="Reviews" subtitle={filter ? `${avg}★ • ${list.length} of ${reviews.length} ${noun}` : `${avg}★ • ${reviews.length} ${noun}`} />
       <div className="screen-scroll">
         <div className="hscroll" style={{ paddingTop: 12 }}>
           <button className={`chip ${filter === null ? "active" : ""}`} onClick={() => setFilter(null)}>All</button>

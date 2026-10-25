@@ -350,7 +350,7 @@ export default function BusinessDetail() {
           {b.gallery.length > 0 && (
             <div className="row gap-6" style={{ position: "absolute", bottom: 12, right: 12 }}>
               {galleryPhotos.slice(0, 3).map((g, i) => (
-                <img
+                <SafeImg
                   key={i}
                   src={g.url}
                   alt={g.caption || tf("photo_n_of_m", { n: i + 1, m: galleryPhotos.length })}
@@ -380,7 +380,7 @@ export default function BusinessDetail() {
               </div>
               <div className="col" style={{ alignItems: "center", gap: 2 }}>
                 <Rating value={b.ratingAvg} size={14} />
-                <span className="tiny muted">{b.ratingCount} {t("reviews_suffix")}</span>
+                <span className="tiny muted">{b.ratingCount} {t(b.ratingCount === 1 ? "review_suffix_one" : "reviews_suffix")}</span>
               </div>
             </div>
 

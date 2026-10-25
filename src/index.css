@@ -1321,6 +1321,9 @@ h3, .h3 {
 .small { font-size: 13px; }
 .bold { font-weight: 700; }
 .semi { font-weight: 600; }
+/* Weight is emphasis: a semibold/bold small line is a name or a title, so it takes primary ink instead of the
+   secondary grey plain .small text gets. .muted still wins where a line is meant to be quiet. */
+.small:is(.semi, .bold):not(.muted) { color: var(--ink-900); }
 .ellipsis,
 .text-ellipsis {
   overflow: hidden;
@@ -4329,7 +4332,7 @@ button.set-row:active {
 .map-carousel__card {
   scroll-snap-align: start;
   flex-shrink: 0;
-  width: 152px;
+  width: 236px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -4389,17 +4392,23 @@ button.set-row:active {
 }
 
 .map-carousel__title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-900);
   max-width: 100%;
-  line-height: 1.2;
+  line-height: 1.25;
   text-align: left;
+  /* A long name wraps to two lines before it is cut, instead of being clipped to a few letters. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .map-carousel__sub {
-  font-size: 10.5px;
-  color: var(--ink-500);
+  font-size: 11.5px;
+  color: var(--ink-600);
   max-width: 100%;
   line-height: 1.25;
   text-align: left;

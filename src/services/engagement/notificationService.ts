@@ -56,16 +56,29 @@ const HANDLED_BOOKING: Record<string, { statusPill: string; tone: string }> = {
   NO_SHOW: { statusPill: "No-show", tone: "danger" },
 };
 
+const DELIVERY_ACTIONS = ["TRACK_DELIVERY", "CALL_RIDER", "CALL_CUSTOMER", "REASSIGN_DELIVERY", "READY_FOR_REDELIVERY", "ACCEPT_DELIVERY", "DECLINE_DELIVERY"];
+
+/** What a delivery notification should say once its order has ended, and in which tone. Null while the order is still live. */
+const FINISHED_ORDER: Record<string, { statusPill: string; tone: string } | undefined> = {
+  COMPLETED: { statusPill: "Delivered", tone: "success" },
+  CANCELLED: { statusPill: "Cancelled", tone: "danger" },
+  REJECTED: { statusPill: "Declined", tone: "danger" },
+  NO_SHOW: { statusPill: "No-show", tone: "danger" },
+};
+
 /**
  * A booking request notification keeps its Accept/Decline buttons in its stored metadata forever, so once the
  * booking was handled anywhere else (the console, another device, a teammate) the buttons stayed and tapping them
  * failed with INVALID_TRANSITION (E2E-007). This looks up the live status of those bookings in one query and shows
  * handled ones as handled. Best effort: if the lookup fails the list is returned unchanged.
  */
-async function reconcileBookingActions(sb: ReturnType<typeof getSupabase>, items: AppNotification[]): Promise<AppNotification[]> {
+export async function reconcileBookingActions(sb: ReturnType<typeof getSupabase>, items: AppNotification[]): Promise<AppNotification[]> {
   const pending = items.filter((n) => {
     const actions = (n.metadata?.actions ?? []) as string[];
-    return !!n.metadata?.appointmentId && (actions.includes("ACCEPT") || actions.includes("DECLINE"));
+    const bookingButtons = actions.includes("ACCEPT") || actions.includes("DECLINE");
+    // A delivery notification carries the one-time code and its own buttons; both are stale once the order is over.
+    const deliveryState = n.type === "DELIVERY" && (!!n.metadata?.handoffCode || actions.some((a) => DELIVERY_ACTIONS.includes(a)));
+    return !!n.metadata?.appointmentId && (bookingButtons || deliveryState);
   });
   if (pending.length === 0) return items;
   const ids = Array.from(new Set(pending.map((n) => String(n.metadata!.appointmentId))));
@@ -74,8 +87,18 @@ async function reconcileBookingActions(sb: ReturnType<typeof getSupabase>, items
   const statusById = new Map(data.map((a: { id: string; status: string }) => [a.id, a.status]));
   return items.map((n) => {
     const status = n.metadata?.appointmentId ? statusById.get(String(n.metadata.appointmentId)) : undefined;
+    if (!pending.includes(n)) return n;
+    if (n.type === "DELIVERY") {
+      const ended = status ? FINISHED_ORDER[status] : undefined;
+      if (!ended) return n;
+      // Over: no code to read out (not even inside the message), nothing to track or call, no stale "on the way", and the card
+      // says how it ended.
+      const code = n.metadata?.handoffCode;
+      const body = code ? n.body.split(code).join("••••••") : n.body;
+      return { ...n, body, metadata: { ...n.metadata, ...ended, actions: [], handoffCode: undefined, etaText: undefined } } as AppNotification;
+    }
     const handled = status ? HANDLED_BOOKING[status] : undefined;
-    if (!handled || !pending.includes(n)) return n;
+    if (!handled) return n;
     return { ...n, metadata: { ...n.metadata, ...handled, actions: [] } } as AppNotification;
   });
 }

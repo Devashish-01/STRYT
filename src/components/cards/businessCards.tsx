@@ -139,7 +139,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
       </div>
       <div style={{ marginTop: 7 }}>
         <div className="row between gap-6">
-          <span className="bold ellipsis small">{b.name}</span>
+          <span className="bold ellipsis small" style={{ color: "var(--ink-900)" }}>{b.name}</span>
         </div>
         <div className="row gap-6" style={{ marginTop: 3 }}>
           <Rating value={b.ratingAvg} size={11} />

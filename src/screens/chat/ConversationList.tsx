@@ -105,6 +105,8 @@ export default function ConversationList() {
             emoji="💬"
             title={t("no_messages_yet")}
             text={t("no_messages_desc")}
+            // A personal inbox with nothing in it has an obvious next step; a shop's or provider's inbox does not (customers write to them).
+            action={!scope || scope.scope === "CUSTOMER" ? <button className="btn btn-primary" onClick={() => nav("/explore")}>{t("explore_now")}</button> : undefined}
           />
         ) : filtered.length === 0 ? (
           <EmptyState illustration={<NoResultsIllustration />} emoji="🔍" title={t("no_matches")} text={tf("no_conversations_match", { query })} />

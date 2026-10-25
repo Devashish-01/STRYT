@@ -4,7 +4,9 @@
 /** Visual switch only. The clickable parent carries the state for assistive tech: `aria-pressed={on}` (E2E-012). */
 export default function Toggle({ on }: { on: boolean }) {
   return (
-    <span aria-hidden="true" style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
+    // inline-block: an inline span ignores width/height, so the track collapsed to nothing (and the knob hung
+    // outside the card) whenever the switch sat in a plain <button> instead of a flex row.
+    <span aria-hidden="true" style={{ display: "inline-block", verticalAlign: "middle", width: 44, height: 26, borderRadius: 999, background: on ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
       <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
     </span>
   );
