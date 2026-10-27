@@ -118,8 +118,9 @@ export const uploadService = {
     const path = decodeURIComponent(publicUrl.slice(at + marker.length).split("?")[0]);
     if (!path) return false;
     try {
-      const { error } = await getSupabase().storage.from(BUCKET).remove([path]);
-      return !error;
+      const { data, error } = await getSupabase().storage.from(BUCKET).remove([path]);
+      // Storage answers "nothing you may delete" with success and an empty list, not an error - count what went.
+      return !error && (data?.length ?? 0) > 0;
     } catch {
       return false;
     }

@@ -20,7 +20,7 @@ export default function ReportSheet({
   name,
   onClose,
 }: {
-  targetType: BookmarkTarget | "PROPOSAL" | "USER" | "POST" | "RATING" | "COMMENT" | "QUESTION";
+  targetType: BookmarkTarget | "PROPOSAL" | "USER" | "POST" | "RATING" | "COMMENT" | "QUESTION" | "STORY";
   targetId: string;
   name: string;
   onClose: () => void;

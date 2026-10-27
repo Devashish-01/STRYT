@@ -23,7 +23,7 @@ This Data Retention Policy explains how long STRYT keeps personal data and conte
 We keep your account and content while your account is active so the Platform works — your profile, listings, transactions, messages, reputation, and preferences. You can edit or delete much of this yourself at any time (profile fields, posts, stories, listings, catalogue items, etc.).
 
 **Self-expiring content:**
-- **Stories** expire automatically between **1 hour and 7 days** after posting (as set by you), unless pinned as **Highlights**, and are then removed. "Story views" records associated with an expired story are removed with it.
+- **Stories** expire automatically between **1 hour and 7 days** after posting (as set by you), unless pinned as **Highlights**, and are then removed. "Story views" and reactions on a story are removed with it, and the story's photo is removed from storage in the daily clean-up. Your own list of people or shops whose stories you muted is kept until you unmute them or delete your account.
 - **Requests/"asks"** carry an **auto-expiry of up to 24 hours** as chosen by you, after which they stop being shown as open.
 - **Live-location shares** run only until you stop them (or the share/session ends); **one-time location grants** are time-limited and revocable.
 - **Slot holds / short windows** (e.g. the ~10-minute deal confirmation window, appointment slot holds) lapse automatically.

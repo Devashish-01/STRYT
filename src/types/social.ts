@@ -16,6 +16,9 @@ export interface Story {
   caption: string;
   postedAt: string;
   expiresInHrs: number;
+  /** ISO timestamps from the database — what the viewer's "3h" and "expires in" are computed from. */
+  createdAt?: string;
+  expiresAt?: string;
   cta: string;
   viewed: boolean;
   tapTarget: string;

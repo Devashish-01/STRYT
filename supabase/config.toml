@@ -16,6 +16,8 @@
 #     verify_jwt must be false. send-push's own in-handler check is therefore
 #     the only authorization boundary; see the long comment in its index.ts
 #     before weakening it.
+#   - purge-expired-stories, the daily story-photo sweep: the GitHub workflow calls it with the secret key, like
+#     purge-deleted-accounts, and it compares that key itself.
 #   - purge-deleted-accounts and moderation, for the same reason: a scheduler
 #     or trigger calls them with the secret key. moderation is also called by
 #     admins with their session, and checks each kind of caller itself.
@@ -49,6 +51,11 @@ verify_jwt = true
 # that call. The self-serve user-deletion path is unaffected: it re-verifies
 # the caller's session token itself via sb.auth.getUser(), independent of this
 # gateway setting.
+verify_jwt = false
+
+[functions.purge-expired-stories]
+# Called daily by .github/workflows/purge-expired-stories.yml with the project's SECRET API key (not a JWT); the
+# function compares it exactly, as purge-deleted-accounts does.
 verify_jwt = false
 
 [functions.send-push]

@@ -129,7 +129,7 @@ active `delivery` grant + feature flag) — Active/Assigned/History, multi-stop 
 **Chat:** `/chats` `ConversationList` · `/chat/:id` `ChatThread`
 
 **Community/social (write actions; the read-only feed/detail routes are listed above under
-guest-browsable):** `/story/new` `StoryCompose` · `/community/new` `CommunityCompose` · `/lists` `Lists` ·
+guest-browsable):** `/story/new` `StoryCompose` · `/stories` → `/my-activity` (reaction notifications link here) · `/community/new` `CommunityCompose` · `/lists` `Lists` ·
 `/u/:id` `PublicProfile` · `/achievements` `Achievements`
 
 **Admin:** `/admin` `AdminPanel`
@@ -355,7 +355,7 @@ holds the files.
 | `AddToListSheet.tsx` | Save to custom list |
 | `QrScannerSheet.tsx` | QR scanner (heavy chunk) |
 | `LocationPicker*.tsx` | Location choose/sheet |
-| `Stories` (`src/components/Stories`) | Home stories bar |
+| `Stories` (`src/components/Stories` → `src/components/stories/`) | Stories: `StoriesBar` (rail on Home + Community hub), `StoryViewer` (+ `useStoryPlayer` clock/gestures, `useStoryViews`, `StorySheets`, `storyReply`); logic in `src/lib/stories.ts`; see `archive/docs/gaps/STORIES_GAP_LOG.md` |
 | `BottomNav.tsx` | Tab bar + create sheet |
 | `AccountSwitcher.tsx` | Switch customer/business/provider hat |
 | `ErrorBoundary.tsx` | Top-level error boundary |

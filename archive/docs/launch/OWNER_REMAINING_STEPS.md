@@ -37,6 +37,18 @@ by CI as the `stryt-playstore-aab` artifact.
   green → *then* disable the legacy key.
 - [ ] Auth → turn on **Leaked Password Protection** (the advisor still flags it; may need the Pro plan).
 
+## 3b. Stories (added 2026-10-25 — see `archive/docs/gaps/STORIES_GAP_LOG.md`)
+
+- [x] **`20261008_stories_complete.sql` — applied 2026-10-27** and checked from the app (reaction saves, mute works, a deleted
+  story's photo is really gone, a signed-out visitor loads stories). `APPLY_LOG.md` row 71 records it.
+- [ ] **Deploy the photo sweep.** One command, from the repo root, after `npx supabase login`:
+  `npx supabase functions deploy purge-expired-stories --project-ref gnswxlfmcwyhmzlfipql`
+  (`supabase/config.toml` already sets `verify_jwt = false` for it). Then push the repo so the daily workflow
+  `.github/workflows/purge-expired-stories.yml` exists on GitHub, and run it once by hand (Actions → *Purge expired stories* →
+  *Run workflow*) — it prints `rowsDeleted` / `photosRemoved`. It also clears the ~30 old orphan story photos in storage.
+  Until it is deployed nothing breaks: expired stories are already hidden and their rows are purged by the database job;
+  only their photo files linger.
+
 ## 4. Android signing and Firebase
 
 - [ ] **Rotate the keystore passwords** — `docs/launch/KEYSTORE_ROTATION.md` (three GitHub secrets).

@@ -367,6 +367,14 @@ export default function ChatThread() {
                 <LiveLocationCard shareId={shareId} endedHint={(msg.meta?.status) === "ENDED"} />
               ) : (
                 <>
+                  {msg.kind === "STORY_REPLY" && (
+                    <div className={`chat-story-ref${isMe ? " me" : ""}`}>
+                      {typeof msg.meta?.imageUrl === "string" && msg.meta.imageUrl && (
+                        <img src={msg.meta.imageUrl} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      )}
+                      <span>{isMe ? t("chat_story_reply_you") : t("chat_story_reply_them")}</span>
+                    </div>
+                  )}
                   {msg.imageUrl && (
                     <img
                       src={msg.imageUrl}

@@ -203,14 +203,24 @@ export const chatService = {
   },
 
   /** Send a message (optionally with an image) and update conversation preview + unread flag on the other side. */
-  async send(conversationId: string, body: string, conv: Conversation, imageUrl?: string): Promise<Message> {
+  async send(
+    conversationId: string,
+    body: string,
+    conv: Conversation,
+    imageUrl?: string,
+    /** A structured message (e.g. a reply to a story): `kind` picks how the thread draws it, `meta` is its payload. */
+    extra?: { kind: string; meta: Record<string, unknown> },
+  ): Promise<Message> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
 
     const { data: msg, error: msgErr } = await sb
       .from("messages")
-      .insert({ conversation_id: conversationId, sender_id: uid, body, image_url: imageUrl ?? null })
+      .insert({
+        conversation_id: conversationId, sender_id: uid, body, image_url: imageUrl ?? null,
+        ...(extra ? { kind: extra.kind, meta: extra.meta as never } : {}),
+      })
       .select()
       .maybeSingle();
     throwIfError(msgErr);
@@ -219,11 +229,30 @@ export const chatService = {
     const isA = uid === conv.participantA;
     await sb.from("conversations").update({
       last_message_at: new Date().toISOString(),
-      last_message_preview: imageUrl ? "📷 Photo" : body.slice(0, 80),
+      last_message_preview: imageUrl ? "📷 Photo" : extra?.kind === "STORY_REPLY" ? `↩ ${body}`.slice(0, 80) : body.slice(0, 80),
       ...(isA ? { has_unread_b: true, has_unread_a: false } : { has_unread_a: true, has_unread_b: false }),
     }).eq("id", conversationId);
 
     return toCamel<Message>(msg);
+  },
+
+  /**
+   * Reply to someone's story: opens (or finds) the chat with them - with the shop/provider's owner for a seller
+   * story - and sends the text as a STORY_REPLY message that carries the story's photo so the thread can show what
+   * was replied to. Returns the conversation so the viewer can offer "open chat".
+   */
+  async replyToStory(args: {
+    recipientUserId: string;
+    subject?: ChatSubject;
+    text: string;
+    story: { id: string; image: string; caption: string };
+  }): Promise<Conversation> {
+    const conv = await chatService.getOrCreate(args.recipientUserId, args.subject);
+    await chatService.send(conv.id, args.text, conv, undefined, {
+      kind: "STORY_REPLY",
+      meta: { storyId: args.story.id, imageUrl: args.story.image, caption: args.story.caption },
+    });
+    return conv;
   },
 
   /** Mark conversation as read for the current user (reset their unread flag + read-receipt timestamp). */

@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { loadSeen, rememberSeen, saveSeen } from "@/lib/stories";
 import type { BookmarkTarget } from "@/types";
 import { socialService } from "@/services/engagement/socialService";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
@@ -14,7 +15,10 @@ export function useSocialSlice(showToast: (msg: string) => void) {
       return [];
     }
   });
-  const [viewedStories, setViewedStories] = useState<string[]>([]);
+  // Which stories this device has watched. Kept across launches (a ring that goes bright again every time the
+  // app opens is a bug, not a feature); trimmed to the newest few hundred in lib/stories.ts.
+  const [viewedStories, setViewedStories] = useState<string[]>(() => loadSeen());
+  useEffect(() => { saveSeen(viewedStories); }, [viewedStories]);
   const [meToos, setMeToos] = useState<string[]>([]);
   const [likes, setLikes] = useState<string[]>([]);
   const [votes, setVotes] = useState<Record<string, string>>({});
@@ -95,7 +99,7 @@ export function useSocialSlice(showToast: (msg: string) => void) {
   );
 
   const markStoryViewed = useCallback((id: string) => {
-    setViewedStories((p) => (p.includes(id) ? p : [...p, id]));
+    setViewedStories((p) => rememberSeen(p, id) as string[]);
   }, []);
 
   const toggleMeToo = useCallback(

@@ -105,13 +105,13 @@ export default function BottomNav() {
 
             <div className="row between" style={{ marginBottom: 16, alignItems: "center" }}>
               <div>
-                <span className="semi" style={{ fontSize: 17, color: "var(--ink-900)" }}>What would you like to do?</span>
-                <p className="tiny muted" style={{ margin: "2px 0 0" }}>Share and connect with your neighborhood</p>
+                <span className="semi" style={{ fontSize: 17, color: "var(--ink-900)" }}>{t("create_sheet_title")}</span>
+                <p className="tiny muted" style={{ margin: "2px 0 0" }}>{t("create_sheet_sub")}</p>
               </div>
               <button
                 className="icon-btn"
                 onClick={() => setSheet(false)}
-                aria-label="Close modal"
+                aria-label={t("create_sheet_close")}
                 style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--ink-100)" }}
               >
                 <X size={18} />
@@ -126,8 +126,8 @@ export default function BottomNav() {
               >
                 <ActionIconBadge variant="amber" icon={Megaphone} size="md" />
                 <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>Post a request</div>
-                  <div className="tiny muted">Ask your street for help or a quote</div>
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_request_title")}</div>
+                  <div className="tiny muted">{t("create_request_sub")}</div>
                 </div>
                 <ChevronRight size={18} className="action-hub-card__arrow muted" />
               </button>
@@ -139,8 +139,8 @@ export default function BottomNav() {
               >
                 <ActionIconBadge variant="sunset" icon={Camera} size="md" />
                 <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>Share a story</div>
-                  <div className="tiny muted">Share a photo moment with people on your street</div>
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_story_title")}</div>
+                  <div className="tiny muted">{t("create_story_sub")}</div>
                 </div>
                 <ChevronRight size={18} className="action-hub-card__arrow muted" />
               </button>
@@ -152,8 +152,8 @@ export default function BottomNav() {
               >
                 <ActionIconBadge variant="emerald" icon={Users} size="md" />
                 <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>Post to community</div>
-                  <div className="tiny muted">Alert, shoutout, giveaway or lost & found</div>
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_post_title")}</div>
+                  <div className="tiny muted">{t("create_post_sub")}</div>
                 </div>
                 <ChevronRight size={18} className="action-hub-card__arrow muted" />
               </button>

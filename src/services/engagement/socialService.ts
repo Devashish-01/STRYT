@@ -4,6 +4,8 @@ import { toCamel } from "@/lib/caseMap";
 import { haversineKm } from "@/lib/geocode";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { aliasName } from "@/lib/publicName";
+import { clampStoryHours } from "@/lib/stories";
+import { uploadService } from "@/services/core/uploadService";
 import { ACHIEVEMENT_THRESHOLDS } from "@/lib/badges";
 import type {
   Story,
@@ -38,6 +40,8 @@ function rowToStory(row: Record<string, unknown>): Story {
     image:        row.image_url     as string,
     caption:      row.caption       as string,
     postedAt:     timeAgo(row.created_at as string),
+    createdAt:    (row.created_at as string | null) ?? undefined,
+    expiresAt:    (row.expires_at as string | null) ?? undefined,
     expiresInHrs: Math.max(0, Math.round(
       (new Date(row.expires_at as string).getTime() - Date.now()) / 3600000
     )),
@@ -79,7 +83,9 @@ const ACHIEVEMENT_DEFS = [
 
 async function filterStoriesByPrivacy(storiesList: Story[]): Promise<Story[]> {
   const uid = await currentUserId();
-  if (!uid) return [];
+  // A signed-out visitor may watch what is shared with everyone (the database already refuses the rest); it used to
+  // return nothing here, so a guest never saw a single story and the Home strip could never appear for one.
+  if (!uid) return storiesList.filter((s) => s.visibility !== "close_friends");
   return storiesList.filter((s) => {
     if (s.userId === uid) return true;
     if (s.hiddenUserIds && s.hiddenUserIds.includes(uid)) return false;
@@ -89,6 +95,10 @@ async function filterStoriesByPrivacy(storiesList: Story[]): Promise<Story[]> {
     return true;
   });
 }
+
+/** story_mutes arrives with 20261008, so the generated database types do not list it yet - an untyped handle
+ *  until they are regenerated (same approach the code used for user_blocks when that was new). */
+const storyMutes = () => (getSupabase() as unknown as { from: (t: string) => any }).from("story_mutes");
 
 // ── Service ───────────────────────────────────────────────────
 
@@ -134,6 +144,108 @@ export const socialService = {
     return data ? rowToStory(data as Record<string, unknown>) : null;
   },
 
+  /** Everything you have live right now, oldest first - including what you posted as a shop or provider. */
+  async myStories(): Promise<Story[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("stories")
+      .select("*")
+      .eq("user_id", uid)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => rowToStory(r as Record<string, unknown>));
+  },
+
+  /** A shop's or provider's live stories plus its saved Highlights, newest first (the owner's own view of them). */
+  async activeFor(ownerType: "business" | "provider", ownerId: string): Promise<Story[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("stories")
+      .select("*")
+      .eq("owner_type", ownerType)
+      .eq("owner_id", ownerId)
+      .or(`expires_at.gt.${new Date().toISOString()},is_highlighted.eq.true`)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r) => rowToStory(r as Record<string, unknown>));
+  },
+
+  /** Takes a story down for good: the row (its views and reactions go with it) and the photo. */
+  async deleteStory(story: Pick<Story, "id" | "image">): Promise<void> {
+    const sb = getSupabase();
+    const { data, error } = await sb.from("stories").delete().eq("id", story.id).select("id");
+    if (error) throw error;
+    // RLS answers "not yours" with zero rows, not an error - say so instead of pretending it worked.
+    if (!data || data.length === 0) throw new Error("STORY_NOT_DELETED");
+    // The row is gone either way; a photo that will not delete is swept up by the daily purge.
+    await uploadService.remove(story.image).catch(() => false);
+  },
+
+  /** Housekeeping: your own stories that expired a while ago (not Highlights) are deleted along with their photos,
+   *  so a person who keeps using the app never leaves old photos waiting for the daily purge. Best effort. */
+  async purgeMyExpiredStories(): Promise<number> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return 0;
+    const cutoff = new Date(Date.now() - 3600_000).toISOString();
+    const { data, error } = await sb
+      .from("stories")
+      .select("id, image_url")
+      .eq("user_id", uid)
+      .eq("is_highlighted", false)
+      .lt("expires_at", cutoff)
+      .limit(20);
+    if (error || !data?.length) return 0;
+    let removed = 0;
+    for (const r of data as { id: string; image_url: string }[]) {
+      try {
+        await socialService.deleteStory({ id: r.id, image: r.image_url });
+        removed++;
+      } catch { /* held by an open report, or already gone - leave it */ }
+    }
+    return removed;
+  },
+
+  /** `business:<id>` style keys of the people/shops you muted. */
+  async myStoryMutes(): Promise<Set<string>> {
+    const uid = await currentUserId();
+    if (!uid) return new Set();
+    const { data, error } = await storyMutes().select("owner_type, owner_id").eq("user_id", uid);
+    if (error) return new Set(); // before 20261008 is applied the table does not exist - nothing is muted
+    return new Set((data ?? []).map((r: { owner_type: string; owner_id: string }) => `${r.owner_type}:${r.owner_id}`));
+  },
+
+  async muteStoryAuthor(ownerType: "user" | "business" | "provider", ownerId: string): Promise<void> {
+    const uid = await currentUserId();
+    if (!uid) return;
+    const { error } = await storyMutes().upsert(
+      { user_id: uid, owner_type: ownerType, owner_id: ownerId },
+      { onConflict: "user_id,owner_type,owner_id", ignoreDuplicates: true },
+    );
+    if (error) throw error;
+  },
+
+  async unmuteStoryAuthor(ownerType: "user" | "business" | "provider", ownerId: string): Promise<void> {
+    const uid = await currentUserId();
+    if (!uid) return;
+    const { error } = await storyMutes().delete()
+      .eq("user_id", uid).eq("owner_type", ownerType).eq("owner_id", ownerId);
+    if (error) throw error;
+  },
+
+  /** People you blocked (your own list only - what blocked you is hidden by the database, not told to the app). */
+  async myBlockedIds(): Promise<Set<string>> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return new Set();
+    const { data, error } = await sb.from("user_blocks").select("blocked_user_id").eq("blocker_user_id", uid);
+    if (error) return new Set();
+    return new Set((data ?? []).map((r: { blocked_user_id: string }) => r.blocked_user_id));
+  },
+
   async postStory(params: {
     ownerType: "business" | "provider" | "user";
     ownerId?: string;
@@ -151,7 +263,7 @@ export const socialService = {
     hiddenUserIds?: string[];
   }): Promise<void> {
     const sb = getSupabase();
-    const expiresAt = new Date(Date.now() + params.expiresInHrs * 3600 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + clampStoryHours(params.expiresInHrs) * 3600 * 1000).toISOString();
     const ownerId = params.ownerId ?? params.userId ?? "";
     const row: Record<string, unknown> = {
       owner_type:    params.ownerType,
@@ -178,25 +290,26 @@ export const socialService = {
     const uid = await currentUserId();
     if (!uid) return;
     
-    // Attempt insert, ignore unique conflicts
-    await sb.from("story_views").upsert(
-      { story_id: storyId, viewer_user_id: uid },
-      { onConflict: "story_id,viewer_user_id" }
-    );
+    // A plain insert, never an upsert: ON CONFLICT needs the viewer to be able to read the row it touches, and
+    // until 20261008 only the story's author could - every upsert here was refused, so no view was ever recorded.
+    // 23505 = this person already viewed it, which is fine.
+    const { error } = await sb.from("story_views").insert({ story_id: storyId, viewer_user_id: uid });
+    if (error && error.code !== "23505") throw error;
   },
 
   async getStoryViewers(storyId: string): Promise<any[]> {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("story_views")
-      .select("created_at, reaction, viewer:users!viewer_user_id(id, name, avatar)")
+      .select("created_at, reaction, viewer:users!viewer_user_id(id, name, alias, avatar, show_name_publicly)")
       .eq("story_id", storyId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     return (data || []).map((v) => ({
       userId: v.viewer?.id,
-      name: v.viewer?.name,
+      // Strangers see an alias, never a real name unless the person opted in (publicName.ts).
+      name: aliasName({ alias: v.viewer?.alias, name: v.viewer?.name, showNamePublicly: v.viewer?.show_name_publicly }, "Neighbor"),
       avatar: v.viewer?.avatar,
       viewedAt: v.created_at,
       reaction: v.reaction ?? null,
@@ -208,10 +321,17 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("story_views").upsert(
-      { story_id: storyId, viewer_user_id: uid, reaction: emoji },
-      { onConflict: "story_id,viewer_user_id" }
-    );
+    // Update the row recordStoryView made; only when there is none yet, insert one with the reaction. (An upsert
+    // cannot be used: see recordStoryView.) Errors are thrown so the viewer can say the reaction did not go through.
+    const { data, error } = await sb.from("story_views")
+      .update({ reaction: emoji })
+      .eq("story_id", storyId)
+      .eq("viewer_user_id", uid)
+      .select("id");
+    if (error) throw error;
+    if (data && data.length > 0) return;
+    const { error: insertError } = await sb.from("story_views").insert({ story_id: storyId, viewer_user_id: uid, reaction: emoji });
+    if (insertError) throw insertError;
   },
 
   /** Save/unsave a story to the author's permanent "Highlights" reel — bypasses expires_at once set. */

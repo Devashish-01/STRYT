@@ -62,6 +62,7 @@ const MyQueues = lazy(() => import("./screens/MyQueues"));
 // is gone — its route now redirects to the hub so existing links still work.
 const NotificationSettings = lazy(() => import("./screens/settings/NotificationSettings"));
 const PrivacySettings = lazy(() => import("./screens/settings/PrivacySettings"));
+const MutedStories = lazy(() => import("./screens/settings/MutedStories"));
 const DiscoverySettings = lazy(() => import("./screens/settings/DiscoverySettings"));
 const LanguageSettings = lazy(() => import("./screens/settings/LanguageSettings"));
 const SecuritySettings = lazy(() => import("./screens/settings/SecuritySettings"));
@@ -489,7 +490,9 @@ export default function App() {
         // Sheet-first: every modal/sheet renders a .overlay whose backdrop
         // click closes it — so hardware BACK dismisses the topmost sheet
         // instead of popping the whole screen underneath it.
-        const overlays = document.querySelectorAll<HTMLElement>(".overlay");
+        // `[data-back-close]` is for full-screen layers that are not a `.overlay` (the story viewer and its sheets):
+        // a click on the element itself closes it.
+        const overlays = document.querySelectorAll<HTMLElement>(".overlay, [data-back-close]");
         if (overlays.length > 0) {
           overlays[overlays.length - 1].click();
           return;
@@ -656,6 +659,8 @@ export default function App() {
             <Route path="/followers" element={<Followers />} />
             <Route path="/queues" element={<MyQueues />} />
             <Route path="/my-activity" element={<MyActivity />} />
+            {/* "Someone reacted to your story" notifications link here (the database writes /stories). */}
+            <Route path="/stories" element={<Navigate to="/my-activity" replace />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/account/business-access" element={<BusinessAccess />} />
             {/* Staff entry point for the shared shop login. Inside the authed
@@ -669,6 +674,7 @@ export default function App() {
             <Route path="/settings" element={<Navigate to="/account" replace />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
             <Route path="/settings/privacy" element={<PrivacySettings />} />
+            <Route path="/settings/muted-stories" element={<MutedStories />} />
             <Route path="/settings/discovery" element={<DiscoverySettings />} />
             <Route path="/settings/language" element={<LanguageSettings />} />
             <Route path="/settings/security" element={<SecuritySettings />} />

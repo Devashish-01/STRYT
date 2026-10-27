@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { SettingsSection, SettingsToggleRow, SettingsRow } from "@/components/settings";
-import { UserCircle, FileText, Award, Eye, Pencil } from "@/components/Icons";
+import { UserCircle, FileText, Award, Eye, EyeOff, Pencil } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, profileControlService } from "@/services";
 import { errorMessage } from "@/lib/errorMessage";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * What neighbours can see about you. The four visibility flags that used to be
@@ -20,6 +21,7 @@ import { errorMessage } from "@/lib/errorMessage";
 export default function PrivacySettings() {
   const nav = useNavigate();
   const { user, refreshUser, showToast } = useApp();
+  const { t } = useI18n();
 
   const [showPosts, setShowPosts] = useState(user.showPostsPublicly ?? true);
   const [showAsks, setShowAsks] = useState(user.showAsksPublicly ?? true);
@@ -94,6 +96,15 @@ export default function PrivacySettings() {
             hint="When off, you're hidden from search and leaderboards"
             on={customerEnabled}
             onChange={handleToggleCustomerEnabled}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Stories">
+          <SettingsRow
+            icon={<EyeOff size={19} color="var(--brand-600)" />}
+            label={t("muted_row_label")}
+            hint={t("muted_row_hint")}
+            onClick={() => nav("/settings/muted-stories")}
           />
         </SettingsSection>
 

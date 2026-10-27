@@ -1,0 +1,33 @@
+name: Purge expired stories
+
+# Daily storage sweep for expired / orphaned story photos (the database rows are removed by the pg_cron job
+# `purge-expired-stories`). See supabase/functions/purge-expired-stories/index.ts.
+# Requires the same GitHub repo secrets as purge-deleted-accounts:
+#   VITE_SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY  (holds the project's sb_secret_… key)
+
+on:
+  schedule:
+    - cron: "45 3 * * *" # after the 03:17 UTC database purge
+  workflow_dispatch:
+
+jobs:
+  purge:
+    name: Run purge-expired-stories
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke edge function (secret key)
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SERVICE_ROLE_KEY" ]; then
+            echo "Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secrets — skipping."
+            exit 1
+          fi
+          # Secret keys travel on `apikey`; the function also accepts an exact-match Bearer — both are sent.
+          curl -sf -X POST "${SUPABASE_URL}/functions/v1/purge-expired-stories" \
+            -H "apikey: ${SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

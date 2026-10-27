@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { StoriesBar } from "@/components/Stories";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Package } from "@/components/Icons";
 import { ActionIconBadge } from "@/components/ActionIconBadge";
@@ -460,6 +461,10 @@ export default function Home() {
           <div className="page-pad" style={{ paddingBottom: 0 }}>
             <GuestRadiusNotice />
           </div>
+
+          {/* Stories — the street's moments, right under the search. Signed in: your own "+" is always here; a
+              visitor sees the strip only when someone nearby has posted. */}
+          <StoriesBar variant="home" />
 
           {/* Prompt banner when neighbourhood/GPS is missing */}
           {noLocation && (
