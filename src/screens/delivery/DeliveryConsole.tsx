@@ -325,7 +325,7 @@ export default function DeliveryConsole() {
     setBusyId(d.id);
     haptics.warning();
     try {
-      await deliveryService.declineSolo(d.id);
+      await deliveryService.declineSolo(d.id, d.businessId);
       showToast(t("dlv_declined_single_toast"));
       refetch();
       refetchBlockers();
@@ -421,7 +421,7 @@ export default function DeliveryConsole() {
     setDecidingBatch(batch.batchId);
     haptics.warning();
     try {
-      await deliveryService.declineBatch(batch.batchId);
+      await deliveryService.declineBatch(batch.batchId, batch.items[0]?.businessId);
       showToast(t("dlv_c_run_declined"));
       refetch();
     } catch (e) {

@@ -2142,30 +2142,45 @@ export type Database = {
       }
       events: {
         Row: {
+          actor_role: string | null
           app_version: string | null
           created_at: string
           id: string
           name: string
+          platform: string | null
           props: Json
+          seller_id: string | null
+          seller_type: string | null
           session_id: string | null
+          source: string
           user_id: string | null
         }
         Insert: {
+          actor_role?: string | null
           app_version?: string | null
           created_at?: string
           id?: string
           name: string
+          platform?: string | null
           props?: Json
+          seller_id?: string | null
+          seller_type?: string | null
           session_id?: string | null
+          source?: string
           user_id?: string | null
         }
         Update: {
+          actor_role?: string | null
           app_version?: string | null
           created_at?: string
           id?: string
           name?: string
+          platform?: string | null
           props?: Json
+          seller_id?: string | null
+          seller_type?: string | null
           session_id?: string | null
+          source?: string
           user_id?: string | null
         }
         Relationships: []

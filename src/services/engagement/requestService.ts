@@ -8,7 +8,8 @@ import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName, greetingName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
-import { track } from "@/lib/analytics";
+// No client analytics here: request, proposal, agreement and rating events are emitted by triggers on those tables
+// (supabase/migrations/20261009_analytics_v1.sql), so they also cover writes this service never sees.
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -313,8 +314,6 @@ export const requestService = {
     const { data: created, error } = await sb.from("requests").insert(row).select().maybeSingle();
     throwIfError(error);
     void leaderboardService.addPoints(uid, 2);
-    // Category only — never the title or description, which are free text a person typed.
-    track("request_created", { category: (cols.categoryName as string) ?? null });
     return toCamel<RequestPost>(created);
   },
 
@@ -410,9 +409,6 @@ export const requestService = {
     };
     const { data: created, error } = await sb.from("proposals").insert(row).select().maybeSingle();
     throwIfError(error);
-    // Who answered and how fast is the supply side's health. Never the price
-    // or the message: one is commercially sensitive, the other is free text.
-    track("proposal_created", { responder_type: responderType });
     return toCamel<Proposal>(created);
   },
 
@@ -460,7 +456,6 @@ export const requestService = {
     // supabase/legacy/migration_launch_hardening.sql.
     const { data, error } = await sb.rpc("accept_proposal", { p_proposal_id: proposalId });
     throwIfError(error);
-    track("proposal_accepted");
     return { agreementId: (data as string) ?? null, status: "PENDING" };
   },
 
@@ -562,8 +557,6 @@ export const requestService = {
     const { error } = await sb.rpc("agreement_complete", { p_id: id });
     throwIfError(error);
     if (uid) void leaderboardService.addPoints(uid, 5);
-    // The one that matters: a real-world thing actually happened.
-    track("deal_completed");
     return { ok: true, status: "COMPLETED" };
   },
 
@@ -627,8 +620,6 @@ export const requestService = {
     // Party-only, IN_PROGRESS/REVIEW→DISPUTED, validated server-side.
     const { error } = await sb.rpc("agreement_dispute", { p_id: id, p_reason: reason });
     throwIfError(error);
-    // Never the reason text — that is the user's own words about another person.
-    track("dispute_opened");
     return { ok: true, status: "DISPUTED" };
   },
 
@@ -678,8 +669,6 @@ export const requestService = {
       throw toApiError({ code: "ALREADY_RATED", message: "You've already rated this." }, 409);
     }
     throwIfError(error);
-    // Rating value only — never the comment, which is free text about a real person.
-    track("review_left", { ratee_type: ratee.type, rating });
     return { ok: true };
   },
 

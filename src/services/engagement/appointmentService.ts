@@ -3,7 +3,6 @@ import { aliasName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 import { errorCode, errorMessage } from "@/lib/errorMessage";
-import { track } from "@/lib/analytics";
 import { linesFromRows } from "@/lib/orderLines";
 
 const STORAGE_KEY = "stryt_appointments";
@@ -388,11 +387,8 @@ export const appointmentService = {
       if (error) throw error;
       const record = rowToRecord(data);
       upsertLocal(record); // keep a local cache for instant reads
-      // Shape of the booking only — no address, notes, names or times.
-      track("booking_created", {
-        target_type: payload.targetType,
-        fulfillment: payload.fulfillmentType ?? "IN_STORE",
-      });
+      // booking_created is emitted by the appointments trigger (20261009), which also sees queue joins and
+      // bookings made from the business console.
       return record;
     } catch (err) {
       // The double-booking unique index (appointments_no_double_book) rejects

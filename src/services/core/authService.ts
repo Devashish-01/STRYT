@@ -28,7 +28,7 @@ import { beginLoginAcceptance, cancelLoginAcceptance } from "@/lib/loginAcceptan
 import { OtpError, otpErrorKey, providerErrorLabel } from "@/lib/authErrors";
 import { canSendOtp, recordOtpSent } from "@/lib/otpThrottle";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { track } from "@/lib/analytics";
+import { EVENTS, resetAnalyticsSession, track } from "@/lib/analytics";
 import {
   isNativePlatform,
   nativeGoogleSignInViaFirebase,
@@ -140,12 +140,12 @@ export const authService = {
         await firebaseSendPhoneOtp(normalized);
       }
       recordOtpSent(normalized);
-      track("otp_sent", { native: isNativePlatform(), resend: opts.resend === true });
+      track(EVENTS.OTP_SENT, { is_native: isNativePlatform(), is_resend: opts.resend === true });
       return { ok: true, ttl: 300, autoVerified };
     } catch (e) {
       console.warn("sendOtp failed:", e);
       const key = otpErrorKey(e);
-      track("otp_failed", { step: "send", code: key, provider: providerErrorLabel(e), native: isNativePlatform() });
+      track(EVENTS.OTP_FAILED, { step: "send", error_code: key, provider_error_code: providerErrorLabel(e), is_native: isNativePlatform() });
       throw new OtpError(key, undefined, { cause: e });
     }
   },
@@ -168,7 +168,7 @@ export const authService = {
     } catch (e) {
       console.warn("verifyOtp (firebase) failed:", e);
       const key = otpErrorKey(e);
-      track("otp_failed", { step: "verify", code: key, provider: providerErrorLabel(e), native: isNativePlatform() });
+      track(EVENTS.OTP_FAILED, { step: "verify", error_code: key, provider_error_code: providerErrorLabel(e), is_native: isNativePlatform() });
       throw new OtpError(key, undefined, { cause: e });
     }
     if (!idToken) throw new OtpError("otp_err_generic");
@@ -179,7 +179,7 @@ export const authService = {
     });
     if (edgeErr || !edgeData?.session) {
       const failure = await edgeFailure(edgeErr, edgeData);
-      track("otp_failed", { step: "bridge", code: failure.key });
+      track(EVENTS.OTP_FAILED, { step: "bridge", error_code: failure.key });
       throw failure;
     }
 
@@ -190,7 +190,7 @@ export const authService = {
     });
     if (sessionError) {
       console.warn("verifyOtp (setSession) failed:", sessionError);
-      track("otp_failed", { step: "session", code: "otp_err_generic" });
+      track(EVENTS.OTP_FAILED, { step: "session", error_code: "otp_err_generic" });
       throw new OtpError("otp_err_generic", undefined, { cause: sessionError });
     }
 
@@ -201,7 +201,7 @@ export const authService = {
       await ensureProfile(user.id, phone, null, null);
     }
 
-    track("otp_verified", { native: isNativePlatform(), auto: otp === null });
+    track(EVENTS.OTP_VERIFIED, { is_native: isNativePlatform(), is_auto_verified: otp === null });
 
     // Firebase proved the number; its own session is no longer needed on the device.
     void (isNativePlatform() ? nativeFinishPhoneSignIn() : firebaseFinishPhoneSignIn());
@@ -282,6 +282,8 @@ export const authService = {
    *     navigation to stryt.in after logout.
    */
   async logout(): Promise<{ ok: true }> {
+    // First, before any await: the next person on this device must not inherit this analytics session.
+    resetAnalyticsSession();
     const sb = getSupabase();
     // Supabase is the primary session store — sign out here first.
     await sb.auth.signOut();

@@ -11,7 +11,7 @@ import { JourneyRoad } from "@/components/delivery/JourneyRoad";
 import { ORDER_STAGES } from "@/lib/deliveryStage";
 import { journeyFraction, milestoneIndex, stageCopy } from "@/lib/orderJourney";
 import { liveStatusToDeliveryStatus } from "@/lib/deliveryStatus";
-import { track } from "@/lib/analytics";
+import { EVENTS, track } from "@/lib/analytics";
 import { useI18n } from "@/lib/i18n";
 
 const anonSb = createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -87,7 +87,7 @@ export default function TrackingPage() {
       // A tracking link is the one STRYT URL that routinely travels through
       // WhatsApp and comes back. Whether it still resolves is the signal;
       // the token itself is never sent.
-      track("share_link_opened", { kind: "tracking", valid: !error && !!row });
+      track(EVENTS.SHARE_LINK_OPENED, { link_type: "tracking", is_valid: !error && !!row });
       if (error || !row) { setExpired(true); setLoading(false); return; }
       setAgreementId(row.agreement_id);
       setProviderLat(row.provider_lat ?? null);

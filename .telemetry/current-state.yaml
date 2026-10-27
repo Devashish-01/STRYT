@@ -1,0 +1,287 @@
+# Current State: reverse-engineered from codebase
+# Scanned: 2026-10-27
+# SDK: custom first-party wrapper (src/lib/analytics.ts) writing to the Supabase table public.events
+#      via supabase-js. Also present: @vercel/analytics + @vercel/speed-insights (page views / perf),
+#      Sentry + client_errors (errors, out of product-analytics scope).
+# Event-name whitelist: CHECK constraint events_name_known, last redefined in
+#      supabase/migrations/20261003_delivery_operations.sql:1296
+
+events:
+  # ── Marketplace loop (20260996_product_analytics) ─────────────────────────────
+  - name: "signup_completed"
+    status: LIVE
+    category_inferred: lifecycle
+    locations:
+      - file: "src/screens/auth/UserOnboard.tsx"
+        line: 60
+    properties: [interests, skipped_location]
+    source: frontend
+    trigger: "Onboarding finished, before the user profile refresh"
+
+  - name: "request_created"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 317
+    properties: [category]
+    source: frontend
+    trigger: "requestService.create, called from AskCompose"
+
+  - name: "request_viewed"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/screens/requests/RequestDetail.tsx"
+        line: 45
+    properties: [guest]
+    source: frontend
+    trigger: "RequestDetail mount / id change (useEffect)"
+
+  - name: "proposal_created"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 415
+    properties: [responder_type]
+    source: frontend
+    trigger: "requestService.submitProposal, called from SubmitProposal"
+
+  - name: "proposal_accepted"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 463
+    properties: []
+    source: frontend
+    trigger: "requestService.acceptProposal (RequestDetail, notification actions). acceptProposalCounter (line 468) has no track call."
+
+  - name: "booking_created"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/appointmentService.ts"
+        line: 392
+    properties: [target_type, fulfillment]
+    source: frontend
+    trigger: "appointmentService.create, called from AppointmentSheet. Queue joins (joinQueue) do not call it."
+
+  - name: "deal_completed"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 566
+    properties: []
+    source: frontend
+    trigger: "requestService.completeAgreement, called from AgreementScreen (request agreements only)"
+
+  - name: "dispute_opened"
+    status: LIVE
+    category_inferred: trust
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 631
+    properties: []
+    source: frontend
+    trigger: "requestService.dispute, called from AgreementScreen"
+
+  - name: "review_left"
+    status: LIVE
+    category_inferred: trust
+    locations:
+      - file: "src/services/engagement/requestService.ts"
+        line: 682
+    properties: [ratee_type, rating]
+    source: frontend
+    trigger: "requestService.rate, called from RateScreen"
+
+  - name: "share_link_opened"
+    status: LIVE
+    category_inferred: acquisition
+    locations:
+      - file: "src/screens/TrackingPage.tsx"
+        line: 90
+    properties: [kind, valid]
+    source: frontend
+    trigger: "Public tracking link resolved. Only kind observed: \"tracking\"."
+
+  # ── Phone sign-in funnel (20260999_otp_funnel_events) ─────────────────────────
+  - name: "otp_sent"
+    status: LIVE
+    category_inferred: lifecycle
+    locations:
+      - file: "src/services/core/authService.ts"
+        line: 143
+    properties: [native, resend]
+    source: frontend
+
+  - name: "otp_verified"
+    status: LIVE
+    category_inferred: lifecycle
+    locations:
+      - file: "src/services/core/authService.ts"
+        line: 204
+    properties: [native, auto]
+    source: frontend
+
+  - name: "otp_failed"
+    status: LIVE
+    category_inferred: lifecycle
+    locations:
+      - file: "src/services/core/authService.ts"
+        line: 148
+      - file: "src/services/core/authService.ts"
+        line: 171
+      - file: "src/services/core/authService.ts"
+        line: 182
+      - file: "src/services/core/authService.ts"
+        line: 193
+    properties: [step, code, provider, native]
+    source: frontend
+    notes: "step in {send, verify, bridge, session}. provider and native present only on send/verify."
+
+  # ── Delivery funnel (20261003_delivery_operations) ────────────────────────────
+  - name: "delivery_packed"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 731
+    properties: []
+    source: frontend
+    trigger: "markOrderReady, called from BusinessAppointments"
+
+  - name: "delivery_assigned"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 805
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 817
+    properties: [kind, stops]
+    source: frontend
+    notes: "kind=single (assignDelivery) or run (assignBatch). stops only on run."
+
+  - name: "delivery_picked_up"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 362
+    properties: []
+    source: frontend
+    trigger: "markPickedUp, from DeliveryConsole and the riderQueue offline outbox"
+
+  - name: "delivery_started"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 354
+    properties: []
+    source: frontend
+    notes: "Chosen by a ternary in updateStatus. Fires for live status LEAVING and ON_THE_WAY."
+
+  - name: "delivery_arrived"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 354
+    properties: []
+    source: frontend
+    notes: "updateStatus with status ARRIVED"
+
+  - name: "delivery_delivered"
+    status: LIVE
+    category_inferred: core_value
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 354
+    properties: []
+    source: frontend
+    notes: "updateStatus with status DONE"
+
+  - name: "delivery_failed"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 474
+    properties: [reason]
+    source: frontend
+    notes: "reason is the CancelReason enum (e.g. CUSTOMER_UNAVAILABLE). Free-text note is not sent."
+
+  - name: "delivery_declined"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 572
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 700
+    properties: [kind]
+    source: frontend
+    notes: "kind=run (declineBatch) or single (declineSolo)"
+
+  - name: "delivery_cash_collected"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 739
+    properties: []
+    source: frontend
+
+  - name: "delivery_cash_settled"
+    status: LIVE
+    category_inferred: fulfillment
+    locations:
+      - file: "src/services/engagement/deliveryService.ts"
+        line: 762
+    properties: []
+    source: frontend
+
+# Automatic envelope on every events row (set by wrapper or column defaults, not by callers)
+envelope:
+  client_sent: [name, props, session_id, app_version]
+  server_defaulted: [id, user_id, created_at]
+  notes: "user_id = auth.uid() column default, pinned by RLS. null for guests. id prefixed ev_."
+
+# Non-event telemetry that also records product behavior (database-side counters / logs)
+database_counters:
+  - name: "bump_business_metric"
+    location: "src/services/marketplace/businessService.ts:1006, :1015"
+    effect: "view → businesses.view_count + business_view_logs row. call/directions → businesses.call_count / directions_count"
+  - name: "bump_provider_views"
+    location: "src/services/marketplace/providerService.ts:254"
+    effect: "providers.view_count + provider_view_logs row"
+  - name: "marketplace_health(p_days)"
+    location: "supabase/migrations/20260996_product_analytics.sql:97"
+    effect: "Admin-only RPC computing requests, answer_rate, median minutes to first proposal, agreements, deals_completed, disputes, active_sellers from source tables"
+    call_sites: "None in src/ (only the generated type in src/types/database.types.ts)"
+
+identity:
+  identify_calls: "No identify() equivalent. Identity comes from the Supabase JWT on insert (user_id column default). No user traits are sent to the events sink."
+  group_calls: "No group() calls found. No business_id or provider_id is attached to events."
+  page_calls:
+    - location: "src/main.tsx:54"
+      details: "<Analytics /> from @vercel/analytics/react, automatic page views to Vercel"
+  anonymous_id:
+    - location: "src/lib/analytics.ts:66"
+      details: "session_id s_<uuid> in sessionStorage key stryt_analytics_session. Per tab session, not persisted."
+  reset_calls: "No reset on logout. session_id and the per-session counter are not cleared when the user signs out."
+
+patterns:
+  naming_style: snake_case
+  naming_format: "object_action, past tense (request_created, delivery_picked_up)"
+  centralized: true
+  error_handling: "try/catch in track() and send(). Fire-and-forget (void promise). Failures dropped silently."
+  rate_limit: "MAX_PER_SESSION = 500 events per JS module lifetime"
+  pii_handling: "props pass through scrubValue (src/lib/scrubPii.ts). DB caps props at 2 KB."
+  type_safety: "EventName union type mirrors the DB CHECK whitelist. Props typed as flat Record<string, primitive>."
+  call_location: "Mostly in service layer after a successful RPC/insert. 3 calls in screens (UserOnboard, RequestDetail, TrackingPage)."

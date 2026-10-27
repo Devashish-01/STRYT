@@ -1,7 +1,9 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { businessAccessService } from "@/services/marketplace/businessAccessService";
 import { aliasName } from "@/lib/publicName";
-import { track } from "@/lib/analytics";
+// Delivery lifecycle events (assigned, picked up, en route, arrived, delivered, failed, packed, cash) are emitted by
+// triggers in 20261009_analytics_v1.sql. Only a rider's decline — which leaves no clean row change — is sent from here.
+import { EVENTS, track } from "@/lib/analytics";
 import { toApiError } from "@/lib/supabasePage";
 
 /** The server's delivery refusal codes, in words an owner or rider can act on. Anything unrecognised is thrown untouched. */
@@ -351,7 +353,6 @@ export const deliveryService = {
       p_lng: lng ?? undefined,
     });
     if (error) throw friendlyDeliveryError(toApiError(error));
-    track(status === "ARRIVED" ? "delivery_arrived" : status === "DONE" ? "delivery_delivered" : "delivery_started");
   },
 
   /** Rider confirms they have the order from the shop. A run is picked up once, for every stop on it. */
@@ -359,7 +360,6 @@ export const deliveryService = {
     const sb = getSupabase();
     const { error } = await sb.rpc("delivery_mark_picked_up" as any, { p_delivery_id: deliveryId });
     if (error) throw friendlyDeliveryError(toApiError(error));
-    track("delivery_picked_up");
   },
 
   /**
@@ -471,7 +471,6 @@ export const deliveryService = {
       p_note: note?.trim() || undefined,
     });
     if (error) throw toApiError(error);
-    track("delivery_failed", { reason: reason });
   },
 
   /**
@@ -564,12 +563,13 @@ export const deliveryService = {
     if (error) throw friendlyDeliveryError(toApiError(error));
   },
 
-  /** Agent declines the whole run — every stop is unassigned so the owner can reassign. */
-  async declineBatch(batchId: string): Promise<void> {
+  /** Agent declines the whole run — every stop is unassigned so the owner can reassign. `businessId`, when the caller
+   *  knows it, attributes the decline to the shop in analytics. */
+  async declineBatch(batchId: string, businessId?: string): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("decline_delivery_batch", { p_batch_id: batchId });
     if (error) throw toApiError(error);
-    track("delivery_declined", { kind: "run" });
+    track(EVENTS.DELIVERY_DECLINED, { assignment_type: "run" }, businessId ? { type: "business", id: businessId } : undefined);
   },
 
   /**
@@ -692,12 +692,14 @@ export const deliveryService = {
     }
   },
 
-  /** Rider turns down a single (non-run) assignment that hasn't started; the order returns to the dispatch list. */
-  async declineSolo(deliveryId: string): Promise<void> {
+  /** Rider turns down a single (non-run) assignment that hasn't started; the order returns to the dispatch list.
+   *  `businessId`, when the caller knows it, attributes the decline to the shop in analytics. */
+  async declineSolo(deliveryId: string, businessId?: string): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("decline_solo_delivery" as any, { p_delivery_id: deliveryId });
     if (error) throw toApiError(error);
-    track("delivery_declined", { kind: "single" });
+    track(EVENTS.DELIVERY_DECLINED, { assignment_type: "single", delivery_id: deliveryId },
+      businessId ? { type: "business", id: businessId } : undefined);
   },
 
   /** Orders accepted for delivery that no rider has been assigned to yet — the dispatch board. */
@@ -728,7 +730,6 @@ export const deliveryService = {
     const sb = getSupabase();
     const { error } = await sb.rpc("mark_order_ready" as any, { p_appointment_id: appointmentId });
     if (error) throw toApiError(error);
-    track("delivery_packed");
   },
 
   /** Rider records the cash taken at the door. Returns the amount. */
@@ -736,7 +737,6 @@ export const deliveryService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("delivery_collect_cash" as any, { p_delivery_id: deliveryId });
     if (error) throw toApiError(error);
-    track("delivery_cash_collected");
     return Number(data ?? 0);
   },
 
@@ -759,7 +759,6 @@ export const deliveryService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("settle_agent_cash" as any, { p_business_id: businessId, p_agent_user_id: agentUserId });
     if (error) throw toApiError(error);
-    track("delivery_cash_settled");
     return Number(data ?? 0);
   },
 
@@ -802,7 +801,6 @@ export const deliveryService = {
       p_agent_user_id: agentUserId,
     });
     if (error) throw friendlyDeliveryError(toApiError(error));
-    track("delivery_assigned", { kind: "single" });
   },
 
   /** Owner/manager assigns N eligible appointments to one agent in a single run — the agent
@@ -814,7 +812,6 @@ export const deliveryService = {
       p_agent_user_id: agentUserId,
     });
     if (error) throw friendlyDeliveryError(toApiError(error));
-    track("delivery_assigned", { kind: "run", stops: appointmentIds.length });
   },
 
   /** Read the delivery for an appointment (owner + customer, RLS-scoped). */

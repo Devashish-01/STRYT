@@ -13,7 +13,10 @@ vi.mock("@/lib/supabaseClient", async (importOriginal) => ({
   currentUserId: async () => "u_1",
   getSupabase: () => ({ rpc, from }),
 }));
-vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
+vi.mock("@/lib/analytics", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/analytics")>()),
+  track: vi.fn(),
+}));
 
 beforeEach(() => {
   rpc.mockReset();
@@ -22,11 +25,13 @@ beforeEach(() => {
 });
 
 describe("pick-up and redelivery", () => {
-  it("confirms pick-up through its own RPC and records the funnel step", async () => {
+  it("confirms pick-up through its own RPC and leaves the funnel step to the database trigger", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
     await deliveryService.markPickedUp("dlv_1");
     expect(rpc).toHaveBeenLastCalledWith("delivery_mark_picked_up", { p_delivery_id: "dlv_1" });
-    expect(track).toHaveBeenCalledWith("delivery_picked_up");
+    // delivery_status_changed { status: 'picked_up' } comes from trg_analytics_deliveries (20261009) — a client copy
+    // would double count.
+    expect(track).not.toHaveBeenCalled();
   });
 
   it("says the shop hasn't packed the order in words a rider can act on", async () => {
@@ -185,17 +190,27 @@ describe("friendly delivery errors", () => {
   });
 });
 
-describe("funnel events carry no personal data", () => {
-  it("records categorical steps only", async () => {
+describe("delivery analytics", () => {
+  it("leaves lifecycle steps to the database — the client sends only a rider's decline", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
     await deliveryService.markOrderReady("apt_1");
     await deliveryService.cancelDelivery("dlv_1", "CUSTOMER_UNAVAILABLE", "rang the bell twice, nobody home");
-    await deliveryService.declineSolo("dlv_2");
+    await deliveryService.assignDelivery("apt_1", "u_2");
+    await deliveryService.assignBatch(["apt_1", "apt_2"], "u_2");
+    await deliveryService.updateStatus("dlv_1", "ON_THE_WAY");
+    await deliveryService.collectCash("dlv_1");
+    await deliveryService.settleCash("b_1", "u_2");
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it("attributes a decline to the shop, with ids but never personal data", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    await deliveryService.declineSolo("dlv_2", "b_1");
+    await deliveryService.declineBatch("bt_1", "b_1");
+    await deliveryService.declineBatch("bt_2");   // from a notification, shop unknown
     const calls = vi.mocked(track).mock.calls;
-    expect(calls).toContainEqual(["delivery_packed"]);
-    expect(calls).toContainEqual(["delivery_failed", { reason: "CUSTOMER_UNAVAILABLE" }]);
-    expect(calls).toContainEqual(["delivery_declined", { kind: "single" }]);
-    // the free-text note and every id stay out of analytics
-    expect(JSON.stringify(calls)).not.toMatch(/rang the bell|dlv_|apt_/);
+    expect(calls).toContainEqual(["delivery_declined", { assignment_type: "single", delivery_id: "dlv_2" }, { type: "business", id: "b_1" }]);
+    expect(calls).toContainEqual(["delivery_declined", { assignment_type: "run" }, { type: "business", id: "b_1" }]);
+    expect(calls).toContainEqual(["delivery_declined", { assignment_type: "run" }, undefined]);
   });
 });

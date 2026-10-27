@@ -1,0 +1,565 @@
+# STRYT target tracking plan
+# Inputs: .telemetry/product.md, .telemetry/current-state.yaml (audit 2026-10-27)
+# Diff from today: .telemetry/delta.md
+
+meta:
+  product: "STRYT"
+  version: "1.1.0"   # 1.1.0: Release 1 implemented (20261009_analytics_v1.sql + src/lib/analytics.ts). See changelog.md.
+  created: 2026-10-27
+  updated: 2026-10-27
+  implementation_status:
+    release_1: "built, not yet applied — client events + request/proposal/agreement/booking/deal/dispute/review/delivery db events"
+    release_2: "planned — agreement_cancelled, booking_cancelled, seller_created, seller_verified, team_member_added, conversation_started, community_post_created, search_performed, seller_viewed, seller_contacted, notification_opened"
+  owner: "STRYT product + engineering"
+  implementation: custom          # first-party Supabase sink, no vendor
+  destinations: [supabase_events]
+  naming_convention: "object_action, snake_case, past tense (kept from current state — e.g. request_created)"
+  pii_policy: none
+  internal_user_policy: by_role   # users with admin / super_admin roles are never recorded
+  north_star: deal_completed
+  sources:
+    db: "Emitted inside Postgres by triggers or RPCs on the source tables. Used for every state change. Authoritative: survives offline, ad blockers and staff-side actions."
+    client: "Emitted by track() in src/lib/analytics.ts. Used only for what the database cannot know: views, searches, taps, guest funnel, sign-in attempts."
+
+# -----------------------------------------
+# Event envelope — columns on public.events, not per-event props
+# -----------------------------------------
+envelope:
+  - name: id
+    type: string
+    format: "ev_*"
+    set_by: column default
+  - name: name
+    type: string
+    set_by: caller (CHECK-constrained whitelist)
+  - name: user_id
+    type: string
+    description: "Acting user. auth.uid() — from the JWT for client events, from the calling session for db events. Null for guests and for system actions (sweeps, timeouts)."
+    set_by: column default / emit_event()
+  - name: session_id
+    type: string
+    format: "s_*"
+    description: "Client events only. Rotated on sign-out."
+    set_by: track()
+  - name: source
+    type: string
+    enum: [client, db]
+    required: true
+    set_by: track() / emit_event()
+  - name: platform
+    type: string
+    enum: [web, android, ios, server]
+    required: true
+    description: "server for db events"
+  - name: app_version
+    type: string
+    required: false
+    description: "Client events only"
+  - name: seller_type
+    type: string
+    enum: [business, provider]
+    required: false
+    description: "Group context. Present whenever the event involves a seller (either as actor or as target)."
+  - name: seller_id
+    type: string
+    format: "b_* | p_*"
+    required: false
+    description: "Group id. Required whenever seller_type is set."
+  - name: actor_role
+    type: string
+    enum: [customer, seller, staff, system]
+    required: true
+    description: "Who caused the event. seller = owner of the business/provider, staff = team member acting on it, system = sweep/cron/timeout."
+  - name: created_at
+    type: datetime
+    set_by: column default
+
+# -----------------------------------------
+# Entities: Users
+# -----------------------------------------
+# No identify() — traits are read from source tables via an analytics view, so nothing is copied and nothing personal leaves its table.
+entities:
+  user:
+    id_property: user_id
+    id_format: "Supabase Auth UUID as text"
+    trait_source: "view analytics.user_traits over public.users + aggregates"
+    traits:
+      - name: created_at
+        type: datetime
+        update: one_time
+        required: true
+      - name: area
+        type: string
+        update: on_change
+        required: false
+        description: "Coarse neighbourhood label from users.area. Never coordinates, address, pincode or unit number."
+      - name: society_id
+        type: string
+        update: on_change
+        required: false
+      - name: language
+        type: string
+        enum: [en, hi, mr]
+        update: on_change
+        required: false
+      - name: has_business
+        type: boolean
+        update: on_change
+        required: true
+      - name: has_provider
+        type: boolean
+        update: on_change
+        required: true
+      - name: is_team_member
+        type: boolean
+        update: on_change
+        required: true
+      - name: first_deal_completed_at
+        type: datetime
+        update: one_time
+        required: false
+      - name: last_active_at
+        type: datetime
+        update: scheduled
+        required: false
+      - name: deals_completed_count
+        type: integer
+        update: scheduled
+        required: true
+      - name: requests_created_count
+        type: integer
+        update: scheduled
+        required: true
+
+# -----------------------------------------
+# Groups — flat, one level
+# -----------------------------------------
+groups:
+  - type: seller
+    is_top_level: true
+    id_format: "b_* (business) | p_* (provider)"
+    description: "A business storefront or an independent provider profile. Team members are users acting on a business, not a sub-group."
+    trait_source: "view analytics.seller_traits over public.businesses / public.providers + aggregates"
+    group_call_triggers:
+      creation: "seller_created event (db)"
+      trait_change: "Read live from source tables — no sync needed for classification traits"
+      scheduled: "Daily refresh of snapshot traits (see snapshot_sync)"
+    traits:
+      - name: seller_type
+        type: string
+        enum: [business, provider]
+        update: one_time
+        required: true
+      - name: category_id
+        type: string
+        update: on_change
+        required: false
+      - name: status
+        type: string
+        enum: [DRAFT, PENDING, ACTIVE, REJECTED, SUSPENDED, DELETED]
+        update: on_change
+        required: true
+      - name: is_verified
+        type: boolean
+        update: on_change
+        required: true
+      - name: area
+        type: string
+        update: on_change
+        required: false
+      - name: created_at
+        type: datetime
+        update: one_time
+        required: true
+      - name: pro_tier
+        type: string
+        enum: [BASIC, PRO, PREMIUM]
+        update: on_change
+        required: false
+        description: "Null today — STRYT is not monetizing. Ready for when Pro plans go live."
+      - name: team_member_count
+        type: integer
+        update: scheduled
+        required: false
+        description: "Businesses only"
+      - name: catalog_item_count
+        type: integer
+        update: scheduled
+        required: false
+      - name: views_30d
+        type: integer
+        update: scheduled
+        required: true
+      - name: proposals_sent_30d
+        type: integer
+        update: scheduled
+        required: true
+      - name: deals_completed_30d
+        type: integer
+        update: scheduled
+        required: true
+      - name: median_response_minutes_30d
+        type: number
+        update: scheduled
+        required: false
+
+# -----------------------------------------
+# Events (28)
+# -----------------------------------------
+events:
+
+  # ── Lifecycle ─────────────────────────────────────────────────────────────
+  - name: otp_sent
+    category: lifecycle
+    source: client
+    group_level: none
+    description: Phone verification code requested
+    properties:
+      - { name: is_native, type: boolean, required: true }
+      - { name: is_resend, type: boolean, required: true }
+    expected_frequency: low
+
+  - name: otp_verified
+    category: lifecycle
+    source: client
+    group_level: none
+    description: Phone number proven and session established
+    properties:
+      - { name: is_native, type: boolean, required: true }
+      - { name: is_auto_verified, type: boolean, required: true }
+    expected_frequency: low
+
+  - name: otp_failed
+    category: lifecycle
+    source: client
+    group_level: none
+    description: A step of phone sign-in failed
+    properties:
+      - { name: step, type: string, enum: [send, verify, bridge, session], required: true }
+      - { name: error_code, type: string, required: true, description: "App error key, e.g. otp_err_generic" }
+      - { name: provider_error_code, type: string, required: false, description: "Sanitised Firebase code. send/verify steps only" }
+      - { name: is_native, type: boolean, required: false }
+    expected_frequency: low
+
+  - name: signup_completed
+    category: lifecycle
+    source: client
+    group_level: none
+    description: New user finished onboarding
+    properties:
+      - { name: interest_count, type: integer, required: true }
+      - { name: has_location, type: boolean, required: true }
+    expected_frequency: low
+
+  - name: seller_created
+    category: lifecycle
+    source: db
+    group_level: seller
+    description: A business or provider profile was created (insert on businesses / providers)
+    properties:
+      - { name: category_id, type: string, required: false }
+      - { name: is_first_seller_for_user, type: boolean, required: true }
+    expected_frequency: low
+
+  - name: seller_verified
+    category: lifecycle
+    source: db
+    group_level: seller
+    description: Seller verification_status moved to VERIFIED
+    properties:
+      - { name: days_since_created, type: integer, required: true }
+    expected_frequency: low
+
+  # ── Core value: the request loop ──────────────────────────────────────────
+  - name: request_created
+    category: core_value
+    source: db
+    group_level: none
+    description: A neighbour posted an ask (insert on requests)
+    properties:
+      - { name: request_id, type: string, format: "r_*", required: true }
+      - { name: category_id, type: string, required: false }
+      - { name: is_bulk, type: boolean, required: true }
+    expected_frequency: medium
+
+  - name: request_viewed
+    category: core_value
+    source: client
+    group_level: none
+    description: A request detail was opened — the only measure of reach
+    properties:
+      - { name: request_id, type: string, format: "r_*", required: true }
+      - { name: is_guest, type: boolean, required: true }
+      - { name: is_viewer_seller, type: boolean, required: true, description: "Viewer holds a business or provider hat" }
+      - { name: entry_source, type: string, enum: [feed, notification, share_link, map, profile, direct], required: false }
+    expected_frequency: high
+
+  - name: proposal_created
+    category: core_value
+    source: db
+    group_level: seller
+    description: A seller answered a request (insert on proposals)
+    properties:
+      - { name: proposal_id, type: string, format: "pr_*", required: true }
+      - { name: request_id, type: string, format: "r_*", required: true }
+      - { name: is_first_proposal, type: boolean, required: true }
+      - { name: minutes_since_request, type: integer, required: true }
+      # price removed in 1.1.0: a seller's quote is commercially sensitive (existing STRYT rule, requestService.submitProposal)
+    expected_frequency: medium
+
+  - name: proposal_accepted
+    category: core_value
+    source: db
+    group_level: seller
+    description: The asker picked a proposal, directly or via a counter-offer (agreement created)
+    properties:
+      - { name: proposal_id, type: string, format: "pr_*", required: true }
+      - { name: request_id, type: string, format: "r_*", required: true }
+      - { name: agreement_id, type: string, format: "ag_*", required: true }
+      - { name: is_via_counter, type: boolean, required: true }
+      - { name: proposal_count, type: integer, required: true, description: "Proposals the request had when accepted" }
+    expected_frequency: medium
+
+  - name: agreement_cancelled
+    category: core_value
+    source: db
+    group_level: seller
+    description: An agreement ended without completion (status → CANCELLED)
+    properties:
+      - { name: agreement_id, type: string, format: "ag_*", required: true }
+      - { name: cancelled_from_status, type: string, enum: [PENDING, ACTIVE, DEPOSIT_PAID, IN_PROGRESS, REVIEW], required: true }
+      - { name: cancel_reason, type: string, enum: [confirmation_timeout, user_cancelled, admin], required: true }
+    expected_frequency: low
+
+  # ── Core value: bookings and queues ───────────────────────────────────────
+  - name: booking_created
+    category: core_value
+    source: db
+    group_level: seller
+    description: A customer booked an appointment or joined a live queue
+    properties:
+      - { name: booking_id, type: string, format: "apt_* | queue token uuid", required: true }
+      - { name: booking_type, type: string, enum: [appointment, queue], required: true }
+      - { name: fulfillment_type, type: string, required: false, description: "appointments.fulfillment_type (IN_STORE, DELIVERY, …)" }
+      # is_asap removed in 1.1.0: not stored on appointments (an RPC parameter only), so the trigger cannot see it
+    expected_frequency: medium
+
+  - name: booking_cancelled
+    category: core_value
+    source: db
+    group_level: seller
+    description: A booking ended without being served
+    properties:
+      - { name: booking_id, type: string, required: true }
+      - { name: booking_type, type: string, enum: [appointment, queue], required: true }
+      - { name: outcome, type: string, enum: [rejected, cancelled, no_show, left], required: true }
+    expected_frequency: low
+
+  # ── North star ────────────────────────────────────────────────────────────
+  - name: deal_completed
+    category: core_value
+    source: db
+    group_level: seller
+    description: "The real-world thing happened — request agreement COMPLETED, appointment COMPLETED, or queue token SERVED. One event across all three channels."
+    properties:
+      - { name: deal_type, type: string, enum: [request, appointment, queue], required: true }
+      - { name: deal_id, type: string, format: "ag_* | apt_* | queue token uuid", required: true }
+      - { name: customer_id, type: string, required: false, description: "Customer's user id (opaque UUID). The envelope user_id is whoever marked the deal done — often staff. Null only for walk-in queue guests. Added in 1.0.1." }
+      - { name: category_id, type: string, required: false }
+      - { name: fulfillment_type, type: string, required: false }
+      - { name: deal_value, type: integer, required: false, description: "INR agreed/paid amount when known — GMV, not revenue" }
+      - { name: minutes_to_complete, type: integer, required: true, description: "From request/booking creation" }
+      - { name: is_repeat_customer, type: boolean, required: true, description: "Customer had a prior completed deal with this seller" }
+    expected_frequency: medium
+
+  # ── Trust ─────────────────────────────────────────────────────────────────
+  - name: dispute_opened
+    category: trust
+    source: db
+    group_level: seller
+    description: An agreement moved to DISPUTED
+    properties:
+      - { name: agreement_id, type: string, format: "ag_*", required: true }
+      - { name: disputed_from_status, type: string, required: true }
+    expected_frequency: low
+
+  - name: review_left
+    category: trust
+    source: db
+    group_level: seller
+    description: A rating was submitted (insert on ratings)
+    properties:
+      - { name: rating_id, type: string, format: "rv_*", required: true }
+      - { name: ratee_type, type: string, enum: [user, provider, business], required: true }
+      - { name: rating, type: integer, required: true, description: "1–5" }
+      - { name: has_comment, type: boolean, required: true }
+      - { name: has_tip, type: boolean, required: true }
+    expected_frequency: low
+
+  # ── Fulfillment: delivery ─────────────────────────────────────────────────
+  - name: delivery_status_changed
+    category: fulfillment
+    source: db
+    group_level: seller
+    description: "A delivery moved through its lifecycle. Replaces the seven per-step delivery events. 'packed' fires for DELIVERY orders only."
+    properties:
+      - { name: delivery_id, type: string, required: false, description: "Always present except status = packed before a rider is assigned" }
+      - { name: booking_id, type: string, format: "apt_*", required: true }
+      - { name: status, type: string, enum: [packed, assigned, picked_up, leaving, on_the_way, arrived, delivered, failed], required: true }
+      - { name: previous_status, type: string, required: false }
+      - { name: failure_reason, type: string, required: false, description: "CancelReason enum. Required when status = failed. Free-text note never sent." }
+      - { name: assignment_type, type: string, enum: [single, run], required: false, description: "status = assigned" }
+      - { name: batch_id, type: string, required: false, description: "status = assigned and assignment_type = run. Replaces stop_count (1.1.0): one event per stop, so stops = count per batch_id." }
+    expected_frequency: medium
+
+  - name: delivery_declined
+    category: fulfillment
+    source: client
+    group_level: seller
+    description: "A rider turned down an assigned delivery or run. Seller context is set from the rider console; a decline from a notification may lack it."
+    properties:
+      - { name: assignment_type, type: string, enum: [single, run], required: true }
+      - { name: delivery_id, type: string, required: false, description: "single" }
+    expected_frequency: low
+
+  - name: delivery_cash_collected
+    category: fulfillment
+    source: db
+    group_level: seller
+    description: Rider recorded cash taken at the door
+    properties:
+      - { name: delivery_id, type: string, required: true }
+    expected_frequency: low
+
+  - name: delivery_cash_settled
+    category: fulfillment
+    source: db
+    group_level: seller
+    description: Owner settled a rider's collected cash
+    properties:
+      - { name: delivery_count, type: integer, required: true }
+    expected_frequency: low
+
+  # ── Discovery & engagement ────────────────────────────────────────────────
+  - name: search_performed
+    category: navigation
+    source: client
+    group_level: none
+    description: A search or map query returned results. Query text is never sent.
+    properties:
+      - { name: surface, type: string, enum: [search, map, category], required: true }
+      - { name: has_query, type: boolean, required: true }
+      - { name: category_id, type: string, required: false }
+      - { name: result_count, type: integer, required: true }
+      - { name: is_guest, type: boolean, required: true }
+    expected_frequency: high
+
+  - name: seller_viewed
+    category: navigation
+    source: client
+    group_level: seller
+    description: A business or provider profile was opened
+    properties:
+      - { name: is_guest, type: boolean, required: true }
+      - { name: entry_source, type: string, enum: [search, map, feed, category, notification, share_link, direct], required: false }
+    expected_frequency: high
+
+  - name: seller_contacted
+    category: core_value
+    source: client
+    group_level: seller
+    description: Customer tapped call or directions — the offline-deal signal
+    properties:
+      - { name: contact_method, type: string, enum: [call, directions], required: true }
+    expected_frequency: medium
+
+  - name: notification_opened
+    category: navigation
+    source: client
+    group_level: none
+    description: A push or in-app notification was tapped
+    properties:
+      - { name: notification_type, type: string, required: true, description: "notifications.type key, e.g. new_nearby_request" }
+      - { name: is_push, type: boolean, required: true }
+    expected_frequency: medium
+
+  - name: share_link_opened
+    category: acquisition
+    source: client
+    group_level: none
+    description: A STRYT link shared outside the app was opened
+    properties:
+      - { name: link_type, type: string, enum: [tracking], required: true }
+      - { name: is_valid, type: boolean, required: true }
+    expected_frequency: low
+
+  # ── Collaboration & community ─────────────────────────────────────────────
+  - name: team_member_added
+    category: collaboration
+    source: db
+    group_level: seller
+    description: A business added a named team member (insert on business_team_members)
+    properties:
+      - { name: role, type: string, enum: [OWNER, MANAGER, STAFF], required: true }
+      - { name: team_member_count, type: integer, required: true }
+    expected_frequency: low
+
+  - name: conversation_started
+    category: collaboration
+    source: db
+    group_level: seller
+    description: A new chat thread was opened (insert on conversations). Messages are not tracked.
+    properties:
+      - { name: conversation_id, type: string, format: "cv_*", required: true }
+      - { name: subject_type, type: string, required: false }
+    expected_frequency: medium
+
+  - name: community_post_created
+    category: collaboration
+    source: db
+    group_level: none
+    description: A community post was published (insert on community_posts)
+    properties:
+      - { name: post_id, type: string, format: "cm_*", required: true }
+      - { name: post_type, type: string, required: true, description: "community_posts.type" }
+      - { name: author_type, type: string, enum: [user, business, provider], required: true }
+    expected_frequency: medium
+
+# -----------------------------------------
+# Snapshot Sync
+# -----------------------------------------
+snapshot_sync:
+  cadence: daily
+  mechanism: "Materialized view refreshed by pg_cron. Classification traits stay live views."
+  traits:
+    - { entity: user, trait: last_active_at, type: datetime, source: "MAX(events.created_at) per user_id" }
+    - { entity: user, trait: deals_completed_count, type: integer, source: "COUNT of completed agreements + appointments + served queue tokens as customer" }
+    - { entity: user, trait: requests_created_count, type: integer, source: "COUNT(requests) per requester_user_id" }
+    - { entity: seller, trait: team_member_count, type: integer, source: "COUNT(business_team_members) per business_id" }
+    - { entity: seller, trait: catalog_item_count, type: integer, source: "COUNT(catalog_items) per seller" }
+    - { entity: seller, trait: views_30d, type: integer, source: "business_view_logs / provider_view_logs, last 30 days" }
+    - { entity: seller, trait: proposals_sent_30d, type: integer, source: "COUNT(proposals) by responder_entity_id, last 30 days" }
+    - { entity: seller, trait: deals_completed_30d, type: integer, source: "COUNT(events where name = deal_completed) by seller_id, last 30 days" }
+    - { entity: seller, trait: median_response_minutes_30d, type: number, source: "median minutes_since_request on proposal_created by seller_id, last 30 days" }
+
+# -----------------------------------------
+# Never tracked
+# -----------------------------------------
+excluded:
+  - "Safety: SOS alerts, emergency contacts, live location sharing — no events, ever"
+  - "Free text: request/proposal bodies, chat messages, search queries, review comments, dispute reasons"
+  - "Contact and location data: names, phone numbers, addresses, coordinates, pincode, unit number"
+  - "Admin console activity and any event whose actor holds admin / super_admin"
+  - "Page views in public.events (Vercel Analytics keeps traffic)"
+  - "Chat messages, likes, comments, story views — volume without decision value"
+  - "Billing events — not monetizing. Add pro_plan_purchased / lead_credits_purchased when Pro plans go live."
+
+implementation_notes:
+  - "All state-change events go through one SECURITY DEFINER function, public.emit_event(name, props, seller_type, seller_id, actor_role). Triggers and RPCs call it. Clients cannot."
+  - "Remove the client track() call for every event that moves to source: db — never double-track."
+  - "emit_event and track() both return early when the acting user has an admin / super_admin role."
+  - "Rotate session_id and reset the per-session counter on sign-out."
+  - "The events_name_known CHECK lists exactly the 28 names above. Rewrite historical delivery_* rows to delivery_status_changed in the same migration."
+  - "Every event with group_level: seller must carry seller_type + seller_id."
+  - "If staging shares the production Supabase project, add an env column. If it has its own project, nothing is needed."
+  - "marketplace_health() stays as the liquidity rollup. It can now be computed from events or from source tables interchangeably."

@@ -12,7 +12,7 @@ import { BeatInterests } from "./onboard/BeatInterests";
 import { LOCATION_SKIPPED_KEY, hasNoLocation } from "@/lib/locationPrompt";
 import { returnTo } from "@/lib/returnTo";
 import { errorCode, errorMessage } from "@/lib/errorMessage";
-import { track } from "@/lib/analytics";
+import { EVENTS, track } from "@/lib/analytics";
 
 /** Each completed beat is saved server-side; device storage is never a gate. */
 export default function UserOnboard() {
@@ -57,7 +57,7 @@ export default function UserOnboard() {
       await onboardingService.save("finish", { interests });
       // The end of the funnel that starts with a guest opening the app.
       // Count of interests only — not which ones, and nothing identifying.
-      track("signup_completed", { interests: interests.length, skipped_location: !place });
+      track(EVENTS.SIGNUP_COMPLETED, { interest_count: interests.length, has_location: !!place });
       await refreshUser({ throwOnError: true });
       nav(returnTo.consume(), { replace: true });
     } catch (err) {

@@ -24,7 +24,7 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
-import { track } from "@/lib/analytics";
+import { EVENTS, track } from "@/lib/analytics";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
@@ -40,10 +40,12 @@ export default function RequestDetail() {
 
   // How far an ask actually reaches. Fires once per request per mount, not on
   // every realtime refetch, so a live-updating page does not inflate the count.
-  // Guests are counted too — reach before sign-in is the whole question.
+  // Guests are counted too — reach before sign-in is the whole question. Whether the viewer can answer (holds a
+  // business or provider hat) separates supply reach from neighbours browsing.
+  const isViewerSeller = !isGuest && (user.roles ?? []).some((r) => r === "business_owner" || r === "provider");
   useEffect(() => {
-    if (id) track("request_viewed", { guest: isGuest });
-  }, [id, isGuest]);
+    if (id) track(EVENTS.REQUEST_VIEWED, { request_id: id, is_guest: isGuest, is_viewer_seller: isViewerSeller });
+  }, [id, isGuest, isViewerSeller]);
 
   // proposals is a separate table from requests, so the row-level subscription
   // above doesn't cover a new proposal landing — subscribe to it too.

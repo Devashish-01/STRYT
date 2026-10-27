@@ -136,11 +136,13 @@ describe("20261003_delivery_operations.sql", () => {
     expect(f).toContain("if not public.is_admin() then raise exception 'NOT_ALLOWED'");
   });
 
-  it("DLV-043: every client-side delivery event is in the analytics whitelist", () => {
-    const analytics = read("src/lib/analytics.ts");
-    const clientEvents = [...analytics.matchAll(/\| "(delivery_[a-z_]+)"/g)].map((m) => m[1]);
-    expect(clientEvents.length).toBe(10);
-    for (const e of clientEvents) expect(sql, `${e} must be whitelisted`).toContain(`'${e}'`);
+  it("DLV-043: the delivery funnel names it introduced are all whitelisted", () => {
+    // 20261009 moved the lifecycle steps to database triggers; only delivery_declined is still sent by the client.
+    // This pins what 20261003 itself shipped, so old native builds that still send these names keep landing.
+    for (const e of ["delivery_packed", "delivery_assigned", "delivery_picked_up", "delivery_started", "delivery_arrived",
+                     "delivery_delivered", "delivery_failed", "delivery_declined", "delivery_cash_collected", "delivery_cash_settled"]) {
+      expect(sql, `${e} must be whitelisted`).toContain(`'${e}'`);
+    }
     // and the existing names are kept
     for (const e of ["otp_sent", "otp_verified", "otp_failed", "booking_created"]) expect(sql).toContain(`'${e}'`);
   });
