@@ -19,6 +19,7 @@ import { errorMessage } from "@/lib/errorMessage";
 import { haptics } from "@/lib/haptics";
 import { usePartNavigation } from "@/hooks/usePartNavigation";
 import { useAccountOptions } from "@/hooks/useAccountOptions";
+import { track, EVENTS } from "@/lib/analytics";
 
 const Handshake = HandshakeIcon as any;
 
@@ -263,6 +264,7 @@ export default function Notifications() {
   const hasUnread = items.some((n) => !n.isRead);
 
   function open(n: AppNotification) {
+    track(EVENTS.NOTIFICATION_OPENED, { notification_type: n.type, is_push: false });
     if (!n.isRead) {
       invalidateBadges();
       locallyReadRef.current.add(n.id);

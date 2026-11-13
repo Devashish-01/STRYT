@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
 import { useApp } from "@/store";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import { useI18n } from "@/lib/i18n";
 import { inr } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
@@ -11,29 +12,33 @@ import { Package, Wallet } from "@/components/Icons";
  * What the shop owner needs above the delivery list: how many orders are waiting for a rider, the cash riders are holding,
  * and a 30-day summary. Every query degrades to "nothing to show" on failure, so a database that hasn't had migration
  * 20261001 yet leaves the existing list exactly as it was.
+ *
+ * The money panels (rider cash, unpaid deliveries, the summary with fees) need the `money` scope, as their functions do
+ * since 20261018 (GAPS #51). Without it the queries aren't even sent; the "waiting for a rider" line still shows.
  */
 export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { businessId: string; awaitingCount: number }) {
   const { t, tf } = useI18n();
   const { showToast } = useApp();
+  const canSeeMoney = useBusinessAccess().hasScope("money");
   const [settling, setSettling] = useState<string | null>(null);
   const [collecting, setCollecting] = useState<string | null>(null);
 
   const cashKey = `delivery:cash:${businessId}`;
   const { data: cash, refetch: refetchCash } = useQuery(
-    () => deliveryService.cashToSettle(businessId).catch(() => []),
-    [businessId],
+    () => (canSeeMoney ? deliveryService.cashToSettle(businessId).catch(() => []) : Promise.resolve([])),
+    [businessId, canSeeMoney],
     cashKey,
   );
   // Delivered but never paid: the rider handed over the goods without the money (or the customer said they'd pay later).
   const outstandingKey = `delivery:outstanding:${businessId}`;
   const { data: outstanding, refetch: refetchOutstanding } = useQuery(
-    () => deliveryService.cashOutstanding(businessId).catch(() => []),
-    [businessId],
+    () => (canSeeMoney ? deliveryService.cashOutstanding(businessId).catch(() => []) : Promise.resolve([])),
+    [businessId, canSeeMoney],
     outstandingKey,
   );
   const { data: stats } = useQuery(
-    () => deliveryService.stats(businessId, 30).catch(() => null),
-    [businessId],
+    () => (canSeeMoney ? deliveryService.stats(businessId, 30).catch(() => null) : Promise.resolve(null)),
+    [businessId, canSeeMoney],
     `delivery:stats:${businessId}`,
   );
 
@@ -67,7 +72,10 @@ export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { bus
     }
   }
 
-  const hasStats = !!stats && stats.delivered + stats.cancelled > 0;
+  // Render-side gate too: the query cache is per device, so on a shared phone an owner's cached rows must not show to staff.
+  const outstandingRows = canSeeMoney ? outstanding ?? [] : [];
+  const cashRows = canSeeMoney ? cash ?? [] : [];
+  const hasStats = canSeeMoney && !!stats && stats.delivered + stats.cancelled > 0;
 
   return (
     <div className="col gap-12">
@@ -81,14 +89,14 @@ export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { bus
         </div>
       )}
 
-      {(outstanding ?? []).length > 0 && (
+      {outstandingRows.length > 0 && (
         <div className="card col gap-10" style={{ padding: 14, border: "1px solid var(--red-100)" }}>
           <div className="row gap-8 center-v">
             <Wallet size={16} color="var(--red-600)" />
             <span className="semi small">{t("dlv_outstanding_title")}</span>
           </div>
           <div className="tiny muted">{t("dlv_outstanding_hint")}</div>
-          {(outstanding ?? []).map((o) => (
+          {outstandingRows.map((o) => (
             <div key={o.appointmentId} className="row between center-v">
               <div style={{ minWidth: 0 }}>
                 <div className="semi small ellipsis">{o.customerName}</div>
@@ -105,13 +113,13 @@ export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { bus
         </div>
       )}
 
-      {(cash ?? []).length > 0 && (
+      {cashRows.length > 0 && (
         <div className="card col gap-10" style={{ padding: 14 }}>
           <div className="row gap-8 center-v">
             <Wallet size={16} color="var(--amber-600)" />
             <span className="semi small">{t("dlv_cash_title")}</span>
           </div>
-          {(cash ?? []).map((c) => (
+          {cashRows.map((c) => (
             <div key={c.agentUserId} className="row between center-v">
               <div>
                 <div className="semi small">{c.agentName}</div>

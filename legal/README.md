@@ -2,7 +2,7 @@
 
 This folder contains STRYT's legal and policy documents, drafted from a direct reading of the STRYT codebase (frontend, the 72-table Supabase schema, Edge Functions, and configuration) so that each clause maps to functionality that actually exists in the product.
 
-> **Status: DRAFT for legal review — not yet in force.** Every document is version 1.0 and must be reviewed and approved by qualified Indian legal counsel, and the fill-in items below completed, before publication.
+> **Status: Published 12 November 2026.** Operator identity is sourced from `operator.yaml`. Re-run `node scripts/apply-legal-operator.mjs` after edits.
 
 ## Documents
 
@@ -63,7 +63,7 @@ Search the documents for these bracketed tokens if editing by hand:
 
 ---
 
-*Drafted 19 July 2026. Do not publish without legal review.*
+*Published 12 November 2026. Update via operator.yaml + apply-legal-operator.mjs.*
 
 ## Pending review — changes of 2026-09-18
 

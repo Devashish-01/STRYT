@@ -185,7 +185,7 @@ export default function LocationSettings() {
                   <div className="grow">
                     <div className="semi small muted">{g.requesterName}</div>
                     <div className="tiny muted">
-                      {g.status === "DENIED" ? "Request denied" : "Share revoked"} {formatRel(g.updatedAt)}
+                      {g.status === "DENIED" ? "Request denied" : g.status === "EXPIRED" ? "Share expired" : "Share revoked"} {formatRel(g.updatedAt)}
                     </div>
                   </div>
                   <span className="tiny" style={{ background: "var(--ink-100)", color: "var(--ink-600)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>

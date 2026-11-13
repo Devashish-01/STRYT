@@ -1973,6 +1973,7 @@ const strings: Record<string, string> = {
     bacc_catalog_text: "सामान, स्टॉक, काम के नमूने और समय",
     bacc_leads_text: "ग्राहकों को जवाब दें, भाव भेजें, सवालों के जवाब दें",
     bacc_delivery_text: "उन्हें सौंपे गए ऑर्डर लें और पहुँचाएं",
+    bacc_money_text: "डिलीवरी का हिसाब, बिना भुगतान वाली डिलीवरी, और राइडर से मिला कैश दर्ज करना",
     bacc_preset_front_desk: "स्वागत डेस्क",
     bacc_preset_store_manager: "दुकान प्रबंधक",
     bacc_preset_delivery_rider: "डिलीवरी करने वाला",
@@ -1987,6 +1988,7 @@ const strings: Record<string, string> = {
     scope_label_catalog: "कैटलॉग",
     scope_label_leads: "ग्राहक और भाव",
     scope_label_delivery: "डिलीवरी",
+    scope_label_money: "पैसा और राइडर कैश",
 
     // Account switcher — delegated access
     acc_team_member: "टीम का सदस्य",
@@ -2229,6 +2231,10 @@ const strings: Record<string, string> = {
     bapt_nudge_sent: "भुगतान की याद दिला दी 🔔",
     bapt_nudge_failed: "भुगतान की याद नहीं भेजी जा सकी।",
     bapt_no_show: "नहीं आया, दर्ज कर दिया",
+    bapt_mark_done: "हो गया — विज़िट पूरी करें",
+    bapt_marked_done: "पूरा दर्ज कर दिया",
+    bapt_mark_no_show: "ग्राहक नहीं आया? नहीं आया दर्ज करें",
+    bapt_updating: "अपडेट हो रहा है…",
     bapt_update_failed: "अपडेट नहीं हो सका। दोबारा कोशिश करें।",
     bapt_deliveries_assigned_one: "{n} डिलीवरी सौंपी",
     bapt_deliveries_assigned_many: "{n} डिलीवरी सौंपीं",

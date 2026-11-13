@@ -115,7 +115,7 @@ self.addEventListener("push", function (event) {
       renotify: true, // still alerts (sound/vibrate) when a tagged banner updates
       vibrate: [200, 100, 200],
       requireInteraction: false,
-      data: { deepLink },
+      data: { deepLink, type: data.type || "SYSTEM" },
     })
   );
 });
@@ -123,11 +123,13 @@ self.addEventListener("push", function (event) {
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
   const deepLink = (event.notification.data && event.notification.data.deepLink) || "/";
+  // The page records notification_opened from this; a tap that has to open a new window goes untracked.
+  const notificationType = (event.notification.data && event.notification.data.type) || "SYSTEM";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
       for (const c of cs) {
         if (c.url.includes(self.location.origin) && "focus" in c) {
-          c.postMessage({ type: "NAVIGATE", path: deepLink });
+          c.postMessage({ type: "NAVIGATE", path: deepLink, notificationType });
           return c.focus();
         }
       }

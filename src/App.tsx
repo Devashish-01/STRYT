@@ -24,9 +24,10 @@ import { usePartNavigation } from "./hooks/usePartNavigation";
 import { returnTo } from "./lib/returnTo";
 import { clearDeliveredNotifications } from "./lib/pushNotifications";
 import { contextHomePath } from "./lib/contextHome";
-import { LEGAL_VERSION } from "./lib/legal";
+import { accountGate, isAuthCallbackUrl } from "./lib/machines/accountGate";
 import { schedulePrefetch } from "./lib/prefetchRoutes";
 import { useI18n, type Lang } from "./lib/i18n";
+import { track, EVENTS } from "./lib/analytics";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -272,10 +273,7 @@ function GuestOrAuthLayout() {
   const { isAuthed, authReady, profileReady, profileLoadError, user } = useApp();
   const location = useLocation();
 
-  const isAuthCallback =
-    window.location.hash.includes("access_token=") ||
-    window.location.hash.includes("error=") ||
-    window.location.search.includes("code=");
+  const isAuthCallback = isAuthCallbackUrl();
 
   // Still resolving, or mid-OAuth-handoff: wait rather than briefly rendering
   // the guest experience to someone who does have a session.
@@ -295,14 +293,15 @@ function GuestOrAuthLayout() {
   // or finished first-login onboarding never saw those screens (E2E-029). Same order as ProtectedLayout.
   if (isAuthed && (profileLoadError || !user.id)) return <ProfileLoadError />;
   if (isAuthed && user.id) {
-    if (user.deletionScheduledAt) {
+    const gate = accountGate(user);
+    if (gate === "DELETION_PENDING") {
       return <Navigate to="/auth/deletion-pending" replace />;
     }
-    if (user.termsAcceptedVersion !== LEGAL_VERSION) {
+    if (gate === "TERMS") {
       returnTo.remember(location.pathname + location.search);
       return <Navigate to="/auth/terms" replace />;
     }
-    if (user.onboardingCompletedAt === null) {
+    if (gate === "ONBOARD") {
       // Onboarding's finish() consumes this, so a shared shop link opened by a brand-new user lands back on the shop.
       returnTo.remember(location.pathname + location.search);
       return <Navigate to="/auth/onboard" replace />;
@@ -324,10 +323,7 @@ function ProtectedLayout() {
   }, [isAuthed, user?.language, lang, setLang]);
 
   // Allow Supabase OAuth / magic-link to land and parse its token before any redirect.
-  const isAuthCallback =
-    window.location.hash.includes("access_token=") ||
-    window.location.hash.includes("error=") ||
-    window.location.search.includes("code=");
+  const isAuthCallback = isAuthCallbackUrl();
 
   if ((!authReady || isAuthCallback) && !isAuthed) {
     return <AuthSplash />;
@@ -354,9 +350,11 @@ function ProtectedLayout() {
 
   if (profileLoadError || !user.id) return <ProfileLoadError />;
 
+  // The order of the account gates lives in accountGate(); this layout decides what each means on its own paths.
+  const gate = accountGate(user);
+
   // Deletion pending: redirect to warning screen
-  const isDeletionPending = isAuthed && user.id && user.deletionScheduledAt;
-  if (isDeletionPending) {
+  if (gate === "DELETION_PENDING") {
     if (location.pathname !== "/auth/deletion-pending") {
       return <Navigate to="/auth/deletion-pending" replace />;
     }
@@ -370,10 +368,7 @@ function ProtectedLayout() {
   // accepted the CURRENT LEGAL_VERSION before using the app — bumping that
   // constant after a policy update re-prompts everyone here automatically.
   // A failed profile read is handled above, never treated as accepted.
-  const termsOutstanding =
-    isAuthed && !!user.id && !user.deletionScheduledAt &&
-    user.termsAcceptedVersion !== LEGAL_VERSION;
-  if (termsOutstanding) {
+  if (gate === "TERMS") {
     if (!location.pathname.startsWith("/auth/")) returnTo.remember(location.pathname + location.search);
     return location.pathname === "/auth/terms" ? <Outlet /> : <Navigate to="/auth/terms" replace />;
   }
@@ -390,8 +385,7 @@ function ProtectedLayout() {
   // "already onboarded" and silently skipped the location/phone/emergency-
   // contact step on their very first login. The flag is also account-level
   // (not localStorage), so skipping on one device sticks across all of them.
-  const needsOnboard = isAuthed && user.id && user.onboardingCompletedAt === null && location.pathname !== "/auth/onboard";
-  if (needsOnboard) {
+  if (gate === "ONBOARD" && location.pathname !== "/auth/onboard") {
     if (!location.pathname.startsWith("/auth/")) returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/onboard" replace />;
   }
@@ -408,17 +402,15 @@ function ProtectedLayout() {
 
 function PublicOnlyLayout() {
   const { isAuthed, authReady, profileReady, profileLoadError, activeContext, user } = useApp();
-  const isAuthCallback =
-    window.location.hash.includes("access_token=") ||
-    window.location.hash.includes("error=") ||
-    window.location.search.includes("code=");
+  const isAuthCallback = isAuthCallbackUrl();
 
   if (!authReady || isAuthCallback) return <AuthSplash />;
   if (isAuthed && !profileReady) return <AppShellSkeleton />;
   if (isAuthed && (profileLoadError || !user.id)) return <ProfileLoadError />;
   if (isAuthed && !isAuthCallback) {
-    if (user.deletionScheduledAt) return <Navigate to="/auth/deletion-pending" replace />;
-    if (user.termsAcceptedVersion !== LEGAL_VERSION) return <Navigate to="/auth/terms" replace />;
+    const gate = accountGate(user);
+    if (gate === "DELETION_PENDING") return <Navigate to="/auth/deletion-pending" replace />;
+    if (gate === "TERMS") return <Navigate to="/auth/terms" replace />;
     // G1 — a BRAND NEW user is about to be bounced to /auth/onboard by
     // ProtectedLayout's needsOnboard gate. Consuming the remembered path here
     // would destroy it before onboarding could honour it: the guest who tapped
@@ -426,7 +418,7 @@ function PublicOnlyLayout() {
     // land on /home with the shop forgotten — the conversion earned, then
     // thrown away at the last step. Leave it for UserOnboard.finish() to
     // consume; an existing user still consumes it here as before.
-    if (user.id && user.onboardingCompletedAt === null) {
+    if (user.id && gate === "ONBOARD") {
       return <Navigate to="/auth/onboard" replace />;
     }
 
@@ -539,6 +531,9 @@ export default function App() {
     };
     const onSwMessage = (e: MessageEvent) => {
       if (e.data?.type === "NAVIGATE" && typeof e.data.path === "string" && e.data.path.startsWith("/")) {
+        if (typeof e.data.notificationType === "string") {
+          track(EVENTS.NOTIFICATION_OPENED, { notification_type: e.data.notificationType, is_push: true });
+        }
         goGuarded(e.data.path);
       }
     };

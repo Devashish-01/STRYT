@@ -23,6 +23,11 @@ import { getRelatableBusinessCover, getRelatableBusinessGallery, enrichCatalogIt
 async function updateQueueToken(tokenId: string, patch: Record<string, unknown>): Promise<void> {
   const sb = getSupabase();
   const { data, error } = await sb.from("queue_tokens").update(patch as TablesUpdate<"queue_tokens">).eq("id", tokenId).select("id");
+  // The queue-token state machine lives in enforce_queue_token_customer_update (20261013): a refused move means the
+  // token already moved on (served, left, expired, payment confirmed) — say that, not the raw code.
+  if (error && /QUEUE_STATUS_NOT_YOURS_TO_SET|PAYMENT_STATUS_NOT_YOURS_TO_SET/.test(error.message ?? "")) {
+    throw new Error("This visit has already moved on. Refresh to see where it stands.");
+  }
   throwIfError(error);
   if (!data || data.length === 0) {
     throw new Error("Couldn't update — you may not have permission, or it was already changed.");

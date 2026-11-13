@@ -94,10 +94,15 @@ const replacements = [
   ["[CITY, STATE OF REGISTERED OFFICE]", op.jurisdiction_city_state],
 ];
 
+// Longest first, so a backticked token (`[X]`) is replaced whole before its bare form
+// ([X]) — otherwise the value is left wrapped in code backticks.
+replacements.sort((a, b) => b[0].length - a[0].length);
+
 const headerEffective = [
   [/^\*\*Effective Date:\*\*.*$/m, `**Effective Date:** ${op.effective_date}`],
   [/^\*\*Last Updated:\*\*.*$/m, `**Last Updated:** ${op.effective_date}`],
-  [/^\*\*Version:\*\*.*$/m, `**Version:** 1.0`],
+  // Keep each document's own version number (privacy policy is 1.1); drop only the draft note.
+  [/^\*\*Version:\*\*\s*([\d.]+).*$/m, "**Version:** $1"],
 ];
 
 const stripPatterns = [

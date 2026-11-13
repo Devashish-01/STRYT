@@ -1,6 +1,6 @@
 # STRYT — Delete Your Account
 
-**Last Updated:** 4 August 2026
+**Last Updated:** 12 November 2026
 
 This page explains how to delete your STRYT account and what happens to your
 data when you do. It forms part of the [Privacy Policy](privacy-policy.md) and

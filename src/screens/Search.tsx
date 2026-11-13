@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, X, TrendingUp, Clock, Bell } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
@@ -12,6 +12,7 @@ import { useI18n, englishStrings } from "@/lib/i18n";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Business, Provider } from "@/types";
 import { errorMessage } from "@/lib/errorMessage";
+import { track, EVENTS } from "@/lib/analytics";
 
 const TREND_KEYS = ["search_trend_1", "search_trend_2", "search_trend_3", "search_trend_4", "search_trend_5", "search_trend_6"] as const;
 const RECENT_KEY = "stryt_recent_searches";
@@ -42,7 +43,7 @@ export default function Search() {
   }, [debounced]);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [openOnly, setOpenOnly] = useState(false);
-  const { user, showToast } = useApp();
+  const { user, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
 
   // Debounce input so we don't hit the API on every keystroke.
@@ -74,6 +75,21 @@ export default function Search() {
   const [provCursor, setProvCursor] = useState<string | null>(null);
   const [provHasMore, setProvHasMore] = useState(false);
   const [loadingMoreProv, setLoadingMoreProv] = useState(false);
+
+  // One search_performed per query. The typed text never leaves the device — only that there was one. Keyed on the
+  // query, because a cached result and its revalidation arrive as two result sets for the same search.
+  const trackedQueryRef = useRef("");
+  useEffect(() => {
+    if (!query || !results || loading || trackedQueryRef.current === query) return;
+    trackedQueryRef.current = query;
+    track(EVENTS.SEARCH_PERFORMED, {
+      surface: "search",
+      has_query: true,
+      result_count: results.businesses.data.length + results.providers.data.length,
+      is_guest: isGuest,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, loading]);
 
   useEffect(() => {
     setExtraBiz([]);

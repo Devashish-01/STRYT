@@ -1,8 +1,8 @@
 # STRYT — Disclaimer
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 This Disclaimer forms part of the [Terms & Conditions](terms-and-conditions.md) and should be read with them and the other STRYT policies. It highlights important limitations about the STRYT platform (the app, **https://stryt.in**, and the native Android and iOS apps). Nothing here excludes any liability that cannot be excluded under applicable Indian law, including non-waivable rights under the Consumer Protection Act, 2019.
 
@@ -95,7 +95,3 @@ To the maximum extent permitted by law, STRYT's liability is limited and exclude
 ## 15. Contact
 
 Questions about this Disclaimer: contact@stryt.in, **Account → Help & Support**, or the Grievance Officer (see the [Grievance Redressal Policy](grievance-redressal-policy.md)).
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

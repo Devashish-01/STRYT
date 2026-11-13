@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isAgreementClosed } from "@/lib/machines/agreement";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
@@ -8,7 +9,6 @@ import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { ChevronRight } from "@/components/Icons";
 import { useApp } from "@/store";
-import type { AgreementStatus } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
 import { AGREEMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { useI18n } from "@/lib/i18n";
@@ -23,9 +23,8 @@ export default function Agreements() {
   const { data, loading, error, refetch } = useQueryWithRealtime(() => requestService.agreements(), "agreements", [user.id], undefined, `home:agreements:${user.id}`);
 
   const agreements = data ?? [];
-  const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
-  const active = agreements.filter((a) => !TERMINAL.includes(a.status));
-  const completed = agreements.filter((a) => TERMINAL.includes(a.status));
+  const active = agreements.filter((a) => !isAgreementClosed(a.status));
+  const completed = agreements.filter((a) => isAgreementClosed(a.status));
   const list = tab === "active" ? active : completed;
 
   return (

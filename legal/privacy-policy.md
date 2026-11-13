@@ -1,16 +1,14 @@
 # STRYT — Privacy Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 24 October 2026
-**Version:** 1.1 (draft for legal review) — adds home delivery (Section 3.12)
-
-> This Privacy Policy was drafted from a direct reading of the STRYT database schema (72 tables), Edge Functions, and client code so that the data categories, flows, and third parties described here reflect what the product actually does. Items only STRYT can confirm (legal entity name, registered address, Data Protection Officer / Grievance Officer identity, and the data-residency region of the hosting project) are marked and must be completed before publication and reviewed by qualified Indian counsel.
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.1
 
 ---
 
 ## 1. Who we are (Data Fiduciary)
 
-STRYT (the "Platform" — the app, **https://stryt.in**, and the native Android and iOS apps) is operated by `[STRYT OPERATOR LEGAL NAME]`, `[REGISTERED ADDRESS]` ("STRYT", "we", "us"). For the purposes of the **Digital Personal Data Protection Act, 2023 ("DPDP Act")**, STRYT is the **Data Fiduciary** that determines the purposes and means of processing your personal data. In these terms "you" / "Data Principal" means the individual whose personal data we process.
+STRYT (the "Platform" — the app, **https://stryt.in**, and the native Android and iOS apps) is operated by Devashish Patel, 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005 ("STRYT", "we", "us"). For the purposes of the **Digital Personal Data Protection Act, 2023 ("DPDP Act")**, STRYT is the **Data Fiduciary** that determines the purposes and means of processing your personal data. In these terms "you" / "Data Principal" means the individual whose personal data we process.
 
 This Policy explains what personal data we collect, why, how, with whom we share it, how long we keep it, and the rights you have. It should be read with the [Terms & Conditions](terms-and-conditions.md), [Cookie Policy](cookie-policy.md), and [Data Retention Policy](data-retention-policy.md).
 
@@ -227,10 +225,10 @@ You also have the right to complain to the **Data Protection Board of India** if
 
 For any question, request, or grievance about your personal data:
 
-- **Grievance Officer:** `[NAME, designation]` — see the [Grievance Redressal Policy](grievance-redressal-policy.md)
+- **Grievance Officer:** Devashish Patel, Grievance Officer — see the [Grievance Redressal Policy](grievance-redressal-policy.md)
 - **Email:** contact@stryt.in (general) / support@stryt.in (support)
 - **In app:** Account → Help & Support
-- **Postal:** `[REGISTERED OFFICE ADDRESS]`
+- **Postal:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
 
 We will acknowledge and address grievances within the timelines set out in the Grievance Redressal Policy and applicable law.
 
@@ -238,7 +236,7 @@ We will acknowledge and address grievances within the timelines set out in the G
 
 ## 14. Children
 
-The Platform is for Users **18 and older** and is not directed at children (persons under 18 under the DPDP Act). We do not knowingly process children's personal data without verifiable parental/guardian consent. If we learn we have, we will delete it and close the account. (Note: the Platform does not yet implement technical age assurance — an open compliance item flagged for STRYT.) See Terms Section 48.
+The Platform is for Users **18 and older** and is not directed at children (persons under 18 under the DPDP Act). We do not knowingly process children's personal data without verifiable parental/guardian consent. If we learn we have, we will delete it and close the account. You confirm you are 18 or older when you sign up; we do not otherwise verify age. See Terms Section 48.
 
 ---
 
@@ -257,7 +255,3 @@ The Platform may contain links or content from third parties (e.g. a Seller's ex
 ## 17. Changes to this Policy
 
 We may update this Policy from time to time. We will update the "Last Updated" date and, for material changes, provide notice through the Platform. Continued use after changes take effect constitutes acceptance, to the extent permitted by law.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

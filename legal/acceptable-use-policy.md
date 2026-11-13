@@ -1,8 +1,8 @@
 # STRYT — Acceptable Use Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 This Acceptable Use Policy ("AUP") applies to everyone who uses STRYT (the app, **https://stryt.in**, and the native Android and iOS apps) in any role. It forms part of the [Terms & Conditions](terms-and-conditions.md) and should be read with the [Community Guidelines](community-guidelines.md). Breaching this AUP is a breach of the Terms and may lead to content removal, feature restriction, suspension, or termination, and where appropriate reporting to authorities.
 
@@ -100,7 +100,3 @@ If you discover a security vulnerability, report it promptly and privately throu
 - Use the in-app **Report** option on a profile, listing, request, post, or review.
 - Use **Account → Help & Support** for other concerns.
 - For grievances and legal notices, see the [Grievance Redressal Policy](grievance-redressal-policy.md).
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

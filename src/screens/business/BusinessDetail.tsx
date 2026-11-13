@@ -43,6 +43,7 @@ import { useI18n } from "@/lib/i18n";
 import { openExternal } from "@/lib/openExternal";
 import { errorMessage } from "@/lib/errorMessage";
 import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
+import { track, EVENTS } from "@/lib/analytics";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -112,6 +113,10 @@ export default function BusinessDetail() {
   useEffect(() => {
     if (!b) return;
     pushRecentlyViewed({ type: "business", id: b.id, name: b.name, image: b.coverImage });
+    // The shop's own owner and team looking at their page is not reach.
+    if (b.ownerUserId !== user.id && !manageableBusinessIds.includes(b.id)) {
+      track(EVENTS.SELLER_VIEWED, { is_guest: isGuest }, { type: "business", id: b.id });
+    }
     // `b` is excluded deliberately — a fresh object reference every refetch
     // even when nothing meaningful changed; `b?.id` is the correct identity
     // check so this doesn't re-push on every render.
@@ -408,12 +413,13 @@ export default function BusinessDetail() {
                 Everything that needs an *account* (book/message/follow/save) is
                 what's replaced by the prompt below. */}
             <div className="row gap-10" style={{ marginTop: 16 }}>
-              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> {t("call")}</a>}
+              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => { businessService.recordInteraction(b.id, "CALL").catch(() => {}); track(EVENTS.SELLER_CONTACTED, { contact_method: "call" }, { type: "business", id: b.id }); }}><Phone size={17} /> {t("call")}</a>}
               {!isOwner && (
               <button
                 className="btn btn-outline grow"
                 onClick={() => {
                   businessService.recordInteraction(b.id, "DIRECTIONS").catch(() => {});
+                  track(EVENTS.SELLER_CONTACTED, { contact_method: "directions" }, { type: "business", id: b.id });
                   showToast("Opening Google Maps…");
                   const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
                   const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${b.lat},${b.lng}&travelmode=driving`;
@@ -807,7 +813,10 @@ export default function BusinessDetail() {
               <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
             {/* Real location map — one tap opens turn-by-turn directions */}
-            <MiniMap lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city} />
+            <MiniMap
+              lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city}
+              onDirections={isOwner ? undefined : () => track(EVENTS.SELLER_CONTACTED, { contact_method: "directions" }, { type: "business", id: b.id })}
+            />
 
             {/* Q&A */}
             <div>

@@ -1,24 +1,23 @@
 # STRYT — Terms & Conditions
 
-**Effective Date:** [To be set by STRYT on publication — see Section 54]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review — not yet published)
-
-> **Reviewer's note (delete before publication).** This document was drafted from a direct reading of the STRYT codebase (frontend, Supabase database schema of 72 tables, Edge Functions, and configuration) so that every clause maps to functionality that actually exists in the product. Where the product genuinely does not yet do something (for example, in-app paid subscriptions or a payment gateway), the clause says so rather than inventing terms. Items that only the company can supply — legal entity name, registered address, GST/CIN, and the named Grievance Officer — are listed in **Section 0 (Operator Information)** and must be completed by STRYT and confirmed by qualified Indian legal counsel before this document is published. Do not publish with the bracketed placeholders in Section 0 unfilled.
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 ---
+---
 
-## 0. Operator Information (to be completed before publication)
+## 0. Operator Information
 
 The STRYT application, website (**https://stryt.in**), and native Android and iOS applications (together, the **"Platform"**) are operated by:
 
-- **Legal entity name:** `[STRYT OPERATOR LEGAL NAME — e.g. "____ Private Limited" / proprietorship name]`
-- **Registered office:** `[REGISTERED ADDRESS, City, State, PIN]`
-- **CIN / registration no.:** `[CIN or firm registration number, if applicable]`
-- **GSTIN:** `[GST number, if registered]`
+- **Legal entity name:** Devashish Patel
+- **Registered office:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
+- **CIN / registration no.:** Not applicable
+- **GSTIN:** Not applicable
 - **General contact email:** contact@stryt.in *(present in the codebase)*
 - **Support email / in-app support:** support@stryt.in and **Account → Help & Support** in the app *(present in the codebase)*
-- **Grievance Officer:** `[NAME, designation, email, phone — see grievance-redressal-policy.md]`
+- **Grievance Officer:** Devashish Patel, Grievance Officer — grievance@stryt.in / +91 95897 81311
 
 In these Terms, **"STRYT"**, **"we"**, **"us"**, and **"our"** refer to the operator named above. **"You"** and **"User"** refer to any person who accesses or uses the Platform in any capacity.
 
@@ -52,7 +51,7 @@ If there is a direct conflict between these Terms and a specific policy on a top
 
 In these Terms, unless the context requires otherwise:
 
-- **"Account"** — a user account created through Google Sign-In (via Firebase Authentication), giving access to signed-in features.
+- **"Account"** — a user account created through Google Sign-In or phone sign-in (both via Firebase Authentication), giving access to signed-in features.
 - **"Guest"** — a person who uses the Platform without signing in; Guest access is limited to browsing content within approximately 1 kilometre of the device.
 - **"Customer"** — the default role of every signed-in User.
 - **"Business" / "Merchant"** — a shop or outlet listing created and operated by a User from the business management console.
@@ -95,13 +94,13 @@ In these Terms, unless the context requires otherwise:
 
 4.3 You must not use the Platform if you are barred from doing so under any applicable law, or if your Account has previously been suspended or terminated by STRYT.
 
-4.4 **Assumption/limitation (flagged for STRYT):** the Platform currently authenticates via Google Sign-In and does not implement an automated age-verification gate. Eligibility under Section 4.1 is therefore established by your acceptance of these Terms and your representation of age. STRYT should treat implementing age assurance as an open compliance item, particularly in light of the DPDP Act's rules on children (see Section 48).
+4.4 **How eligibility is confirmed.** When you sign up you confirm, by ticking an un-ticked box, that you are 18 or older, and STRYT records when you did so. STRYT does not otherwise verify your age; eligibility under Section 4.1 rests on that confirmation and your acceptance of these Terms (see also Section 48).
 
 ---
 
 ## 5. User Accounts
 
-5.1 **Creation.** Accounts are created and accessed through Google Sign-In (via Firebase Authentication). You are responsible for maintaining the security of the Google account you use to sign in. A phone/email one-time-password sign-in method exists in the codebase but is not currently enabled.
+5.1 **Creation.** Accounts are created and accessed through Google Sign-In or phone sign-in (a one-time code sent by SMS), both via Firebase Authentication. You are responsible for maintaining the security of the Google account or mobile number you use to sign in.
 
 5.2 **Profile.** On first sign-in you may set a display name, a public handle (**alias**), a neighbourhood, a profile photo or emoji avatar, a phone number, a preferred language (English, Hindi, or Marathi), and a discovery/alert radius. You may skip onboarding and complete it later.
 
@@ -378,7 +377,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 25. Third Party Services
 
-25.1 The Platform relies on third-party services, including: **Google Sign-In via Firebase Authentication** (authentication), **Supabase** (backend database, storage, and authentication infrastructure), **Mapbox** (primary geocoding and place search), **OpenStreetMap / Nominatim** (fallback geocoding and map tile data), **UPI/NPCI** (the payment rails you use directly), **Firebase Cloud Messaging** and browser Web Push (notifications), **Vercel** (hosting and analytics), and an **SMTP email** service (support ticket delivery).
+25.1 The Platform relies on third-party services, including: **Firebase Authentication** (Google Sign-In and phone sign-in by SMS code), **Supabase** (backend database, storage, and authentication infrastructure), **Mapbox** (primary geocoding and place search), **OpenStreetMap / Nominatim** (fallback geocoding and map tile data), **UPI/NPCI** (the payment rails you use directly), **Firebase Cloud Messaging** and browser Web Push (notifications), **Vercel** (hosting and analytics), and an **SMTP email** service (support ticket delivery).
 
 25.2 Your use of these third-party services may be subject to their own terms and privacy policies. STRYT does not control and is not responsible for third-party services, and their availability or changes may affect the Platform.
 
@@ -388,7 +387,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 26. Google Services
 
-26.1 Sign-in uses your Google account through Firebase Authentication. Your use of Google Sign-In is subject to Google's terms and privacy policy. STRYT receives only the basic profile information necessary to create and operate your Account (see the Privacy Policy).
+26.1 Sign-in uses Firebase Authentication, either with your Google account or with a one-time code sent by SMS to your mobile number. Your use of these Google services is subject to Google's terms and privacy policy. STRYT receives only the basic profile information necessary to create and operate your Account (see the Privacy Policy).
 
 26.2 The native Android and iOS apps use the device's native sign-in picker and native location services. Distribution of the apps may be subject to Google Play and Apple App Store policies where applicable.
 
@@ -569,7 +568,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 ## 44. Data Storage
 
-44.1 The Platform's data is stored and processed on cloud infrastructure (Supabase and Vercel). Depending on provider configuration, data may be stored or processed on servers located outside India. Where personal data is transferred or processed outside India, STRYT will comply with the DPDP Act and applicable law. **(Flagged for STRYT: confirm the actual data-residency region of your Supabase project and reflect it here.)**
+44.1 The Platform's data is stored and processed on cloud infrastructure (Supabase and Vercel). Depending on provider configuration, data may be stored or processed on servers located outside India. Where personal data is transferred or processed outside India, STRYT will comply with the DPDP Act and applicable law.
 
 44.2 Categories of data stored, and the basis for storing them, are described in the Privacy Policy.
 
@@ -601,7 +600,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 48.3 A parent or guardian who believes a child has used the Platform should contact the Grievance Officer (see `grievance-redressal-policy.md`).
 
-48.4 **Assumption/limitation (flagged for STRYT):** the Platform does not currently implement technical age assurance. STRYT should treat age verification and child-data controls as an open DPDP compliance item.
+48.4 STRYT relies on the age confirmation you give at sign-up (Section 4.4) and does not otherwise verify age. If we learn that an account belongs to a person under 18, we will close it and delete its personal data.
 
 ---
 
@@ -613,7 +612,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 ## 50. Jurisdiction
 
-50.1 Subject to Section 51 (Arbitration), the courts at `[CITY, STATE OF REGISTERED OFFICE — e.g. "Pune, Maharashtra"]`, India shall have exclusive jurisdiction over any dispute arising out of or relating to these Terms, and you consent to the personal jurisdiction of those courts. **(Flagged for STRYT: set this to the seat consistent with your registered office in Section 0.)**
+50.1 Subject to Section 51 (Arbitration), the courts at Indore, Madhya Pradesh, India shall have exclusive jurisdiction over any dispute arising out of or relating to these Terms, and you consent to the personal jurisdiction of those courts.
 
 ---
 
@@ -621,7 +620,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 51.1 Any dispute, controversy, or claim arising out of or relating to these Terms or the Platform that is not resolved through the Grievance Redressal process (see `grievance-redressal-policy.md`) shall, to the extent permitted by law, be referred to and finally resolved by **arbitration** under the Arbitration and Conciliation Act, 1996.
 
-51.2 The arbitration shall be conducted by a sole arbitrator appointed by STRYT (or as otherwise agreed in writing by the parties), the seat and venue of arbitration shall be `[CITY as in Section 50]`, India, the language shall be English, and the award shall be final and binding.
+51.2 The arbitration shall be conducted by a sole arbitrator appointed by STRYT (or as otherwise agreed in writing by the parties), the seat and venue of arbitration shall be Indore, Madhya Pradesh, India, the language shall be English, and the award shall be final and binding.
 
 51.3 Nothing in this Section prevents either party from seeking urgent interim or injunctive relief from a competent court, or limits any non-waivable statutory right of a consumer under the Consumer Protection Act, 2019, including recourse to consumer dispute redressal forums.
 
@@ -632,7 +631,7 @@ Without limiting the Acceptable Use Policy, you must not:
 - **General:** contact@stryt.in
 - **Support:** support@stryt.in, or **Account → Help & Support** in the app
 - **Grievance Officer:** as named in `grievance-redressal-policy.md`
-- **Postal:** `[REGISTERED OFFICE ADDRESS — Section 0]`
+- **Postal:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
 
 ---
 
@@ -648,7 +647,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 54.1 These Terms take effect on the Effective Date shown at the top of this document, which STRYT will set on publication, and remain in effect while you use the Platform.
 
-54.2 This version (1.0) is a **draft prepared for legal review** and is not yet in force. It must be reviewed and approved by qualified Indian legal counsel, and the Operator Information in Section 0 completed, before publication.
+54.2 This version (1.0) is effective as of 12 November 2026. Material updates will bump the in-app legal version and re-prompt acceptance.
 
 ---
 

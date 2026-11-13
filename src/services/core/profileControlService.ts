@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabaseClient";
+import { agreementClosedFilter } from "@/lib/machines/agreement";
 import { throwIfError } from "@/lib/supabasePage";
 import { functionUrl } from "@/config";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
@@ -69,7 +70,7 @@ export const profileControlService = {
         .from("agreements")
         .select("*", { count: "exact", head: true })
         .or(`requester_user_id.eq.${uid},responder_user_id.eq.${uid}`)
-        .not("status", "in", '("COMPLETED","CANCELLED","DISPUTED")');
+        .not("status", "in", agreementClosedFilter());
       if (activeAgreements && activeAgreements > 0) {
         throw new Error("You still have active deals. Finish or cancel them before deleting your account.");
       }

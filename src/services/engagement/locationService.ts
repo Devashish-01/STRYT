@@ -5,7 +5,7 @@ export interface LocationGrant {
   id: string;
   ownerUserId: string;
   requesterUserId: string;
-  status: "PENDING" | "APPROVED" | "DENIED" | "REVOKED";
+  status: "PENDING" | "APPROVED" | "DENIED" | "REVOKED" | "EXPIRED";
   requesterName?: string;
   requesterAvatar?: string;
   // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
@@ -122,7 +122,7 @@ export const locationService = {
       .from("location_share_grants")
       .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, requester:users!requester_user_id(name, avatar)")
       .eq("owner_user_id", uid)
-      .in("status", ["REVOKED", "DENIED"])
+      .in("status", ["REVOKED", "DENIED", "EXPIRED"])
       .order("updated_at", { ascending: false })
       .limit(20);
     if (error) return [];
@@ -141,18 +141,22 @@ export const locationService = {
   },
 
   // The viewer's own outbound grant status toward a given owner.
-  // Yields "NONE" on any error so the profile control degrades gracefully.
+  // Yields "NONE" on any error so the profile control degrades gracefully. An approval lasts 24 hours (20261016): once it has
+  // run out — EXPIRED, or APPROVED past expires_at before the sweep reaches it — the viewer is back to "NONE" and may ask again.
   async myStatusToward(ownerUserId: string): Promise<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "REVOKED"> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return "NONE";
     const { data, error } = await sb
       .from("location_share_grants")
-      .select("status")
+      .select("status, expires_at")
       .eq("owner_user_id", ownerUserId)
       .eq("requester_user_id", uid)
       .maybeSingle();
-    if (error) return "NONE";
-    return (data?.status as any) ?? "NONE";
+    if (error || !data) return "NONE";
+    const expired = data.status === "EXPIRED"
+      || (data.status === "APPROVED" && !!data.expires_at && new Date(data.expires_at).getTime() <= Date.now());
+    if (expired) return "NONE";
+    return data.status as "PENDING" | "APPROVED" | "DENIED" | "REVOKED";
   },
 };

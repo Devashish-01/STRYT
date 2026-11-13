@@ -3,7 +3,7 @@ import { SCOPE_LABEL_KEYS, type Scope } from "@/services/marketplace/businessAcc
 
 export type ConsoleMode = "owner" | "full_delegate" | "team_member";
 
-const SCOPE_ORDER: Scope[] = ["queue", "appointments", "catalog", "leads", "delivery"];
+const SCOPE_ORDER: Scope[] = ["queue", "appointments", "money", "catalog", "leads", "delivery"];
 
 export function resolveConsoleMode(isOwner: boolean, accessLevel: AccessLevel): ConsoleMode {
   if (isOwner) return "owner";

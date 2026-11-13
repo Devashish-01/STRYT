@@ -1,8 +1,8 @@
 # STRYT — Cookie & Local Storage Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 This Cookie & Local Storage Policy explains how the STRYT website (**https://stryt.in**) and app use cookies, browser **local storage**, and similar technologies. It forms part of, and should be read with, our [Privacy Policy](privacy-policy.md) and [Terms & Conditions](terms-and-conditions.md).
 
@@ -27,7 +27,7 @@ We use these technologies in the following categories.
 ### 2.1 Strictly necessary (always on)
 These are essential for the Platform to function and cannot be switched off through the app.
 
-- **Sign-in / session** — keeping you securely signed in between visits. Our authentication provider (Supabase, using Google Sign-In) stores your session token in browser local storage so you don't have to log in on every page.
+- **Sign-in / session** — keeping you securely signed in between visits. Our authentication provider (Supabase, after Google Sign-In or phone sign-in) stores your session token in browser local storage so you don't have to log in on every page.
 - **Security and integrity** — supporting access controls and preventing misuse.
 
 ### 2.2 Functional / preferences
@@ -52,7 +52,7 @@ These remember your choices to improve your experience.
 
 Some technologies are set by the third-party services that power the Platform:
 
-- **Google / Firebase** — for Google Sign-In and, on the app, push notifications.
+- **Google / Firebase** — for Google Sign-In, phone sign-in (SMS code) and, on the app, push notifications.
 - **Supabase** — session and infrastructure.
 - **Vercel** — hosting and anonymous analytics.
 
@@ -64,7 +64,7 @@ These providers process the relevant data under their own terms and privacy noti
 
 - **Browser controls.** You can block or delete cookies and clear local storage through your browser settings. Note that clearing the **strictly necessary** session storage will sign you out, and clearing preferences will reset choices like language and dismissed prompts.
 - **Preferences in-app.** You can change your language and many settings directly in the app.
-- **Analytics.** Where your browser or region provides do-not-track / privacy controls, we honour applicable requirements. **(Flagged for STRYT: if you operate in regions requiring a cookie-consent banner, add one before enabling any non-essential cookies there.)**
+- **Analytics.** Where your browser or region provides do-not-track / privacy controls, we honour applicable requirements.
 - **Push notifications.** Enable or disable them via your browser or device settings; see Terms Section 31.
 
 Because much of what STRYT stores is **strictly necessary** or **your own saved preferences**, disabling it may break sign-in or degrade functionality.
@@ -80,7 +80,3 @@ We may update this Policy as the Platform or our providers change. We will updat
 ## 6. Contact
 
 Questions about this Policy: contact@stryt.in, or **Account → Help & Support** in the app. For data-rights requests, see the [Grievance Redressal Policy](grievance-redressal-policy.md).
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

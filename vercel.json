@@ -102,6 +102,10 @@
       "destination": "/legal/privacy-policy.html"
     },
     {
+      "source": "/legal/account-deletion",
+      "destination": "/legal/account-deletion.html"
+    },
+    {
       "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|version\\.json|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
       "destination": "/index.html"
     }

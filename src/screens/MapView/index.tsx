@@ -40,6 +40,7 @@ import { loadMapboxStyle, makeMapboxTransformRequest } from "./mapboxFallback";
 // maplibre itself stays in the chunk react-map-gl loads when a map mounts.
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useMapViewport } from "./useMapViewport";
+import { track, EVENTS } from "@/lib/analytics";
 import { paletteFor, retintFor } from "./mapPalette";
 
 // The default basemap — OpenFreeMap's open-source vector style, built from
@@ -487,6 +488,20 @@ export default function MapView() {
   // otherwise recomputed on every render because a fresh [] is never === the last one.
   const businesses = useMemo(() => bizPage?.data ?? [], [bizPage?.data]);
   const providers  = useMemo(() => provPage?.data ?? [], [provPage?.data]);
+
+  // One search_performed per map area (~1 km cell + radius), once both feeds have loaded. Never the coordinates.
+  const trackedAreaRef = useRef("");
+  useEffect(() => {
+    if (!bizPage || !provPage || bizLoading || provLoading || trackedAreaRef.current === geoCacheKey) return;
+    trackedAreaRef.current = geoCacheKey;
+    track(EVENTS.SEARCH_PERFORMED, {
+      surface: "map",
+      has_query: false,
+      result_count: bizPage.data.length + provPage.data.length,
+      is_guest: isGuest,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizPage, provPage, bizLoading, provLoading]);
   const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
   const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
   const places     = (nearbyPlaces ?? []).filter((pl) => pl.lat && pl.lng);

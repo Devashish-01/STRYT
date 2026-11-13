@@ -18,6 +18,273 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+> **#38–#47 come from one audit (2026-11-13): "find all of the implicit state machines in my app … do an in-detail search as a CTO".**
+> Method: every `status`/`*_status` column in the live database (project `gnswxlfmcwyhmzlfipql`), each one's UPDATE RLS policies,
+> column grants and BEFORE/AFTER UPDATE triggers, the live definitions of the transition functions, and every place the app writes
+> or tests a status. All claims below were read from the **live** database, not from migration files. Nothing was executed against
+> real rows: no exploit was run, because several of these triggers send notifications that a rollback can't undo.
+> Production holds almost no data yet (5 businesses, 0 open appointments/requests/queue tokens), so none of these has hurt anyone yet.
+> **Common root cause:** `authenticated` has column-level UPDATE on almost every `status` column, so wherever an RLS UPDATE policy
+> exists, the client can write *any* status, *from any* status. Transition rules live in RPCs, but on these tables the RPC is optional.
+> **#48–#50 were found while fixing #38–#47** ("fix all one by one", 2026-11-13).
+
+## #53 — Turning the shop login off doesn't sign out the staff who used it; login IDs aren't validated
+
+**Severity:** P2 (access that the owner believes ended keeps working for up to 30 days). It only became reachable on 2026-11-13: until #52
+was fixed, every save of the shop login failed, so it couldn't be turned off either.
+
+**Reported:** found while verifying 20261018 in the live catalog, 2026-11-13.
+
+**Root cause:** production has two `set_business_login` functions. The 6-argument one (from before 20261006, not called by the app) checks the
+login ID (4–30 safe characters with a letter, or the owner's own 10-digit mobile), lower-cases it, and when the login is turned off sets every
+PENDING / ACTIVE `business_access_sessions` row of the business to REVOKED. `20261006_team_access_fixes.sql` added the 8-argument version
+(access level + scopes) without either behaviour, and that is the one the app calls (`businessAccessService.setLogin` always sends
+`p_access_level` / `p_scopes`). So turning the login off leaves shared-password sessions running until `expires_at` (`session_hours`, up to
+720 h), and any login ID is accepted. The old function also revoked **named** team grants, which is too broad: they don't come from the
+shared password.
+
+**Fix (owner chose to record where each session came from, 2026-11-13):** `supabase/migrations/20261019_shop_login_sessions.sql`.
+`business_access_sessions.source` = `SHARED_LOGIN` (set by `business_login_attempt`) or `GRANT` (the default; the three grant functions also set it
+when they turn an existing row into a named grant). Backfill by expiry (named grants never expire); production had one row, a named grant,
+and no saved logins. The 8-argument `set_business_login` checks and lower-cases the login id (4–40 characters: `suggest_business_login`
+can return up to 33), keeps the old password when saved with an empty one, and when the login is turned off revokes only `SHARED_LOGIN`
+sessions and notifies each person. The 6-argument version is dropped. The app already said "Turning this off ends every session opened
+with it" (`bacc_login_on_hint`); now it's true. No app change. Rollback + `supabase/tests/shop_login_sessions.test.sql` (passes in PGlite;
+fails against the old function). Noticed, not changed: `grant_team_access` (not called by the app) looks up the grantee's row with no
+status filter, so with an old REVOKED row present it can pick that one; a candidate to drop.
+
+**Status:** Fixed. Applied by the owner 2026-11-13, checked in the live catalog (APPLY_LOG row 76).
+
+---
+
+## #52 — An owner can't save the shop login: `set_business_login` can't find `crypt`
+
+**Severity:** P2 (the shared-password team login can't be set up or changed).
+
+**Reported:** found while writing the test for #51, 2026-11-13.
+
+**Root cause:** `20261006_team_access_fixes.sql` rewrote `set_business_login` with `search_path = public`, but on Supabase pgcrypto's
+`crypt` / `gen_salt` live in the `extensions` schema (checked in the live catalog). Every save raises
+`function gen_salt(unknown) does not exist`. The same trap `20260830_fix_switch_pin_search_path.sql` fixed for the Switch PIN;
+`business_login_attempt` in the same migration got it right.
+
+**Fix:** in `20261018_money_scope.sql` (the function is rewritten there anyway): `search_path to 'public', 'extensions'`. The
+rollback keeps the fix. Covered by `money_scope.test.sql` (the PGlite stub now keeps `crypt` in `extensions`, as live does).
+
+**Status:** Fixed. Applied 2026-11-13 with 20261018 (APPLY_LOG row 75). But see #53: the version the app calls has other regressions.
+
+---
+
+## #51 — Any team member with the "appointments" scope can see rider cash totals and mark riders' cash settled
+
+**Severity:** P2 (staff permissions; an owner granting "Orders" doesn't expect "money").
+
+**Reported:** found while planning Phase 3, the Counter (`archive/docs/plans/COUNTER_DESK_PLAN.md` §0), 2026-11-13.
+
+**Root cause:** live `business_cash_to_settle`, `settle_agent_cash`, `business_cash_outstanding` and `business_delivery_stats`
+(fees collected) check only `has_business_scope(p_business_id, uid, 'appointments')`. That is the same scope a counter worker needs to
+see orders at all. The UI matches the functions: `DeliveryOwnerPanels` renders on the Deliveries tab of `BusinessAppointments` for
+anyone who can open that screen. Owner-only money (Payments page, settings, the Dashboard money card) is correctly gated. Also
+noted, minor: `bump_business_metric` lets any signed-in user add views, calls and directions to any business; the
+`*_redemption_stats` functions return counts for any deal or agreement.
+
+**Fix (owner chose the new scope, 2026-11-13):** `supabase/migrations/20261018_money_scope.sql`. The four functions require `money`
+(or ownership / FULL); the four scope writers (`grant_team_access`, `grant_team_member_access`, `update_team_member_scopes`,
+`set_business_login`) accept it; every grant and saved login with `appointments` gets `money` appended. Per-order payments stay on
+`appointments`. App: `Scope` gains `money`; Team access offers it (only with the delivery flag, since everything it guards is delivery
+money) right after Orders, and `toggleScope` keeps the two together; "Full" includes it, "Front desk" doesn't; `DeliveryOwnerPanels`
+neither fetches nor renders the money panels without it. Rollback + `supabase/tests/money_scope.test.sql` (passes in PGlite; fails
+against the old functions). `bump_business_metric` / redemption stats left as noted.
+
+**Status:** Fixed. Migration **applied by the owner 2026-11-13**; test passed in production; checked in the live catalog (APPLY_LOG row 75). App half uncommitted, not shipped.
+
+---
+
+## #50 — "Promoted" / "Boosted" flags are set by the client, with no payment and no expiry sweep
+
+**Severity:** P3 now (boosts are free), **P1 the day boosts are charged for**.
+
+**Root cause:**
+* `businessService.buyBoost` (`src/services/marketplace/businessService.ts`, ~line 1030) inserts a `boosts` row and then sets `businesses.is_boosted = true, boosted_until = …` with a direct client UPDATE. There is no payment step, and the owner UPDATE policy lets an owner set `is_boosted` without buying anything.
+* Proposals take `isBoosted` straight from the Submit-quote form (`SubmitProposal.tsx:56`), and `RequestDetail` sorts boosted quotes first.
+* `requestService` REQUEST_COLUMNS also passes `isBoosted` / `viewCount` from the client.
+* No cron clears `is_boosted` after `boosted_until` (not in `cron.job`). I did not check whether every reader compares the date.
+
+**Fix plan (decision needed before boosts cost money):** a `buy_boost` RPC that records the payment and sets the flag, a column guard like #39 on `is_boosted` / `boosted_until` / `view_count`, and `boosted_until` added to `expire_stale_rows()`. Not done: this is pricing and ranking, a different risk area from the state-machine fixes.
+
+**Status:** Open.
+
+---
+
+## #49 — A live-location recipient kept getting the sharer's position after the share ended or expired
+
+**Severity:** P1 (safety / privacy).
+
+**Root cause:** live `get_live_share` relabelled an expired share as `ENDED`, but still returned `lat` / `lng` / `accuracy` / `heading` for any ended or expired share. Live `update_live_share` accepted new positions on a share whose `expires_at` had passed, because the row stays `ACTIVE` until the sharer's next `start_live_share`. So if the sharer's app kept sending, a recipient could follow them past the promised 8 hours. Reproduced locally on the old definitions: an expired share, then the sharer sends 19.99, and the recipient sees `status=ENDED lat=19.99`.
+
+**Status:** Fixed in the working tree with #45 (`20261016_expiry_sweeps.sql` §3–4): no position unless the share is live, no updates after expiry, and positions of ended shares cleared by the sweep. **Migration applied 2026-11-13.**
+
+---
+
+## #48 — An approved "see my exact location for 24 hours" request never expired
+
+**Severity:** P1 (safety / privacy).
+
+**Root cause:** live `respond_location_share` set `status = 'APPROVED'` without setting `expires_at`. The column has no default and no trigger sets it; only `renew_location_share` ever writes it. `get_shared_location` treats a NULL `expires_at` as "never expires". The requester was told "approved … for 24 hours" (notification body and the "Approved (24h)" pill), but could see the owner's exact location until the owner revoked it. Production has no grants yet, so nobody was exposed.
+
+**Status:** Fixed in the working tree with #45 (`20261016_expiry_sweeps.sql` §2): approval sets `expires_at = now() + 24 h`, existing approvals without one get `updated_at + 24 h`, and the sweep marks them `EXPIRED`. **Migration applied 2026-11-13.**
+
+---
+
+## #38 — A business or provider owner can approve their own listing, or lift a suspension, by writing `status = 'ACTIVE'`
+
+**Severity:** P0 (moderation/trust bypass, launch blocker).
+
+**Reported:** "Find all of the implicit state machines in my app" (found during that audit, not reported by a user).
+
+**Root cause:** `businesses.status` / `providers.status` (`entity_status`: DRAFT → PENDING → ACTIVE | REJECTED, ACTIVE → SUSPENDED → …, DELETED).
+* RLS `admin_upd_businesses` / `admin_upd_providers` allow UPDATE when `owner_user_id = auth.uid()` (resp. `user_id`), with the same check on the new row.
+* `authenticated` holds column UPDATE on `status` for both tables.
+* No trigger guards `status`: `enforce_manual_verification_decision` guards only `verification_status` / `is_verified`; `protect_business_owner` guards only `owner_user_id`.
+* Discovery shows exactly the rows with `status = 'ACTIVE'` (`discoveryService.ts:92,136,252-253`, `catalogService.ts:92-93`).
+* So `update businesses set status='ACTIVE' where id = <mine>` from the browser console publishes a PENDING, REJECTED or SUSPENDED listing with no admin review. The comment in `businessService.submitForReview` (`src/services/marketplace/businessService.ts:715-719`) says "Only an admin … may move it to ACTIVE". The database does not enforce it.
+* The same path lets an owner move SUSPENDED → PENDING (back into the review queue) and DELETED → anything.
+
+**Fix plan:** add a BEFORE UPDATE OF status trigger on `businesses` and `providers`. Unless the caller is `service_role` or `is_admin()`, allow only: DRAFT → PENDING and REJECTED → PENDING (resubmit). Owner deletion already has its own function and is unaffected. Then route `adminService.approve/reject` and the appeal reactivation (`appealService.ts:92`) through admin RPCs, so status writes have one door. Add a pgTAP / vitest SQL test: owner → ACTIVE raises; admin → ACTIVE works; owner REJECTED → PENDING works.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261011_listing_status_guard.sql` (trigger `guard_listing_status` on businesses / providers / categories; also closes inserting a business or a category already ACTIVE), rollback `supabase/rollbacks/20261011_listing_status_guard.rollback.sql`, test `supabase/tests/listing_status_guard.test.sql`. Providers still go live at once (current product rule, `providerService.create`); only an admin moves a listing to ACTIVE / SUSPENDED / REJECTED. No app change needed. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #39 — A shop manager can write any appointment status directly, bypassing `appointment_transition`
+
+**Severity:** P1.
+
+**Root cause:** `appointment_transition` (live; last defined in `20261005_delivery_order_lifecycle.sql:815`) is a proper transition table. But RLS `appt_update` still lets the target owner or any `appointments`-scoped team member UPDATE the row directly, with every status and payment column grantable, and no BEFORE UPDATE trigger checks the transition. The app always uses the RPC (`appointmentService.updateStatus`), so this only matters for a hostile or buggy client. What it allows:
+* Reopen an order the **customer** cancelled (CANCELLED → ACCEPTED), and the customer is notified by `notify_on_appointment_status`.
+* Mark a delivery order COMPLETED with no rider and no handoff code, skipping the whole delivery machine.
+* Set `payment_status = 'PAID'` / `'UNPAID'` at will, so the khata/tab history can be rewritten.
+* Each CANCELLED → ACCEPTED → CANCELLED cycle runs `trg_restock_on_order_end` again (its WHEN only checks old ∈ {PENDING, ACCEPTED}, new ∈ {CANCELLED, REJECTED}). Reopening never re-reserves stock, so `catalog_items.quantity` drifts upward.
+
+**Fix plan:** BEFORE UPDATE trigger on `appointments`: when `status` or `payment_status` changes and `current_user = 'authenticated'` (i.e. not inside a SECURITY DEFINER RPC), raise `USE_APPOINTMENT_TRANSITION`. Every legitimate path is already an RPC. Same pattern as `guard_moderation_columns`.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261012_appointment_writes_via_functions.sql` §1 (trigger `guard_appointment_state_columns`: status, payment and money columns refuse direct client writes; checked that every function updating appointments is SECURITY DEFINER), rollback + test `appointment_writes_via_functions`. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #40 — "Set unpaid amount" wipes a confirmed payment on any order, and its fallback skips the server checks
+
+**Severity:** P1 (money record integrity).
+
+**Root cause:**
+* Live `appointment_set_unpaid_amount(p_id, p_amount)` checks only that the caller manages the appointment, then sets `package_price = payment_amount = p_amount, payment_status = 'UNPAID'` regardless of current `status` or `payment_status`. A PAID, COMPLETED or CANCELLED order can be flipped back to UNPAID with a new amount.
+* `appointmentService.setUnpaidAmount` (`src/services/engagement/appointmentService.ts:719-735`) catches **any** RPC error ("RPC not yet present") and retries as a direct table UPDATE. A refusal the server meant (e.g. a future status check) is silently retried through the #39 hole.
+
+**Fix plan:** in the RPC, require `payment_status in ('UNPAID','REJECTED')` and `status in ('ACCEPTED','COMPLETED')`, else `INVALID_TRANSITION`. Delete the direct-table fallback. The RPC is live, so the fallback is dead code that can only do harm.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `20261012_appointment_writes_via_functions.sql` §2 (`appointment_set_unpaid_amount` requires payment UNPAID/REJECTED and order PENDING/ACCEPTED/COMPLETED, as the Record-payment sheet offers it); the direct-table fallback is removed from `appointmentService.setUnpaidAmount`, with a plain message for INVALID_TRANSITION. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #41 — Customer can't undo their own queue payment claim ("I paid" → undo always fails)
+
+**Severity:** P1 (user-facing flow broken).
+
+**Root cause:** `businessService.cancelQueuePaymentClaim` (`src/services/marketplace/businessService.ts:390-402`, called from `src/screens/MyQueues.tsx:158`) does a direct `update queue_tokens set payment_status='UNPAID' where payment_status='PENDING_CONFIRM'`. RLS `queue_tokens_owner_update` lets the customer reach the row. Then live trigger `enforce_queue_token_customer_update` (from `20260938_queue_token_customer_update_guard.sql`, enabled in prod) only lets a customer set `PENDING_CONFIRM`. Any other payment value raises `PAYMENT_STATUS_NOT_YOURS_TO_SET`. The app and the database disagree on this machine's transitions. Verified by reading the live trigger, policy and grants; not reproduced end to end.
+
+**Fix plan:** allow the one customer transition `PENDING_CONFIRM → UNPAID` in the trigger (it's the customer's own unconfirmed claim), **or** move it to a `queue_token_cancel_payment_claim` RPC (preferred, matches the agreement payment RPCs). Add a test.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261013_queue_token_transitions.sql` (PENDING_CONFIRM -> UNPAID allowed for the claimant), rollback + test `queue_token_transitions`; `businessService.updateQueueToken` maps the trigger codes to a plain message. The test reproduces the bug without the migration (fails with PAYMENT_STATUS_NOT_YOURS_TO_SET at the undo). Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #42 — Queue tokens: staff can move any token to any state; a customer can rewrite a served visit as "left"
+
+**Severity:** P2.
+
+**Root cause:** queue_tokens states are WAITING → CALLED → SERVED, plus LEFT and EXPIRED. Transitions are written straight from the app (`businessService.ts:439-512`) with no server transition table.
+* `enforce_queue_token_customer_update` returns early for anyone with `has_business_scope(…, 'queue')`, and RLS `delegated_access_queue_tokens` is `ALL`. So staff can do SERVED → WAITING, EXPIRED → CALLED, LEFT → SERVED, and change `payment_status` freely. Line-position math, "served today" counts and `trg_analytics_queue_tokens` events all trust this column.
+* For the customer, the trigger allows `new.status = 'LEFT'` from **any** old status. `enforce_queue_cancel_rules` only blocks it while a payment is pending or paid, so an unpaid SERVED or EXPIRED visit can be turned into LEFT afterwards (affects no-show stats and analytics).
+
+**Fix plan:** a `queue_token_transition(p_id, p_status)` RPC with the table (WAITING→CALLED|LEFT|EXPIRED, CALLED→SERVED|LEFT|WAITING (recall), terminal SERVED/LEFT/EXPIRED). The customer may only do WAITING|CALLED → LEFT. Then trigger-block direct status writes as in #39.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. Same migration as #41: the whole queue-token table (status and payment, staff and customer) now lives in `enforce_queue_token_customer_update`; also closes a customer editing the amount of a payment the shop already confirmed. The app keeps its compare-and-set writes; every move it makes is allowed (call, serve from waiting or called, arrived, no-show, leave, claim / confirm / reject / undo). Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #43 — Requests and proposals can be pushed between states directly, around `accept_proposal`
+
+**Severity:** P2.
+
+**Root cause:** the deal flow is three linked machines: `requests` (OPEN → IN_PROGRESS → AGREED/COMPLETED, CANCELLED, EXPIRED), `proposals` (SUBMITTED → ACCEPTED/REJECTED/WITHDRAWN) and `agreements` (PENDING → ACTIVE → DEPOSIT_PAID → IN_PROGRESS → REVIEW → COMPLETED, plus CANCELLED, and DISPUTED → admin resolve). `agreements` is clean: no UPDATE policy, every move is an RPC with a compare-and-set. But:
+* RLS `upd_requests` lets the requester UPDATE their request, including `status`, with no guard. They can set COMPLETED or CANCELLED while an agreement is ACTIVE, or reopen IN_PROGRESS → OPEN. The agreement and request then disagree.
+* RLS `accept_proposals` lets the **responder** update their own proposal (the new-row check is `responder_user_id = auth.uid()`), including `status` and `request_id`. A responder can mark their own quote ACCEPTED. `accept_proposal` then fails for the real requester with `REQUEST_NOT_OPEN`, since the proposal is no longer SUBMITTED, and no agreement exists. They can also flip WITHDRAWN/REJECTED back to SUBMITTED.
+
+**Fix plan:** block direct `status` (and `request_id`) writes on both tables for `authenticated`. `accept_proposal`, `accept_proposal_counter`, `withdraw_proposal`, `agreement_cancel` and `cancel_expired_agreements` are already SECURITY DEFINER and keep working. If the requester needs a "close my request" action, add an RPC that refuses when an agreement is live.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261014_request_proposal_status_guard.sql` (trigger `guard_deal_status`), rollback + test `request_proposal_status_guard`; `status` removed from `requestService` REQUEST_COLUMNS. The local run caught a defect in the first draft (PL/pgSQL does not short-circuit AND: a proposals-only column check errored on every request edit); fixed before logging. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #44 — In-store bookings become "COMPLETED" by the clock, only when someone opens a list; "no-show" is only possible after "completed"
+
+**Severity:** P2 (wrong state semantics; feeds analytics and ratings).
+
+**Root cause:**
+* No action means "the service happened" for in-store or appointment bookings. `appointment_transition` has no ACCEPTED → COMPLETED edge. The only writer is live `sweep_my_appointments()`, which sets ACCEPTED → COMPLETED when `scheduled_for <= now()` (the slot's **start** time). It runs only when the customer's or the owner's app calls it (`appointmentService.ts:141-150`). There is **no cron job** for it (checked `cron.job`).
+* So a booking shows COMPLETED the minute it starts, a no-show customer is "completed", and a booking nobody re-opens stays ACCEPTED forever. The analytics completion event fires at sweep time, not service time.
+* Because NO_SHOW is allowed only from COMPLETED (`appointment_transition`: manager, COMPLETED → NO_SHOW), the shop must wait for the clock to "complete" a visit before marking it a no-show.
+* The guest path re-does this rule client-side in `localHousekeeping` (`appointmentService.ts:178-197`).
+
+**Fix plan (decision needed):** either (a) add an explicit manager `ACCEPTED → COMPLETED` ("Done") and `ACCEPTED → NO_SHOW` edge and make the sweep a nightly cron that completes only past `scheduled_for + duration`, or (b) keep auto-complete but move it to cron, at end time. (a) gives honest data; recommended.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. Option (a): `supabase/migrations/20261015_visit_outcome.sql` (shop ACCEPTED -> COMPLETED from 60 min before the slot, ACCEPTED -> NO_SHOW once it starts; auto-complete only 6 h after the start; `sweep_stale_appointments` + pg_cron `sweep-stale-appointments` every 15 min), rollback + test `visit_outcome`. App: `src/lib/machines/appointment.ts` (`visitOutcomeActions`, mirrored to the SQL by `appointmentMachine.test.ts`); "Done" and "No-show" buttons in `BusinessAppointments` and `ProviderJobs`; guest `localHousekeeping` uses the same 6 h grace; 4 new i18n keys in en/hi/mr. The 6 h grace is my choice — change both the SQL and `AUTO_COMPLETE_AFTER_MS` together if you want another. Not yet seen on a phone. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #45 — Status says "active" while the expiry date has passed (status and expiry disagree)
+
+**Severity:** P2.
+
+**Root cause:** several machines store both a `status` and an `expires_at` / `valid_until`, and the move to EXPIRED/ENDED is lazy or missing. Live `cron.job` covers business access sessions, stories, queues, bulk deals and ASAP orders, but not:
+* `requests`: `close_expired_requests()` (OPEN → EXPIRED) runs only when some client calls it. EXECUTE is granted to every signed-in user and it is SECURITY DEFINER (`20260717_delete_fix_indexes_expiry.sql`).
+* `live_shares`, `location_share_grants`, `group_buy_tokens`, `bulk_deal_tokens`, `gate_passes`: no sweep found. Every reader must also compare the date itself, or it treats an expired share, grant or token as live.
+
+**Fix plan:** one `expire_stale_rows()` cron (every 5 min) covering all of these, plus a grep of readers for `status = 'ACTIVE'` without the date check (location sharing first; it is safety-relevant). Revoke `close_expired_requests` from `authenticated` once the cron covers it.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261016_expiry_sweeps.sql`: `expire_stale_rows()` + pg_cron `expire-stale-rows` (5 min) for requests, live shares, location grants, group-buy / bulk-deal tokens and gate passes; CHECKs on `live_shares.status` and `location_share_grants.status`; **`close-stale-queues` re-scheduled — it is missing from production cron although 20260803 scheduled it**; also fixes #48 and #49. App: `EXPIRED` grant status in `locationService` (history, and the viewer is back to NONE once a grant runs out) and in Location settings history. Rollback + test `expiry_sweeps`. Verified locally against a real Postgres (PGlite 0.2.17, stub schema mirroring the live columns, policies and grants read 2026-11-13): the test passes with the migration, and fails without it and after the rollback. Behaviour test run against production: not confirmed. `npm run verify` green.
+
+---
+
+## #46 — State rules are re-written by hand across screens (drift risk)
+
+**Severity:** P3 (tech debt; causes the next #41).
+
+**Root cause:** the server knows each machine, but the app re-derives "which actions are allowed / which states are terminal" inline:
+* `BusinessAppointments.tsx` has 28 hand-written appointment-status checks and `ProviderJobs.tsx` 18, for the same rules.
+* The terminal-agreement list `["COMPLETED","CANCELLED","DISPUTED"]` is copied in `Home.tsx:158`, `Profile.tsx:28`, `Agreements.tsx:26` and `profileControlService.ts:72`. `TERMINAL_APPOINTMENT` is in `appointmentService.ts:18`.
+* The delivery `live_status → status` mapping exists in both SQL (`appointment_update_delivery_status`) and `src/lib/deliveryStatus.ts`. Delivery also carries a hidden sub-state (ASSIGNED + `picked_up_at` = "picked up").
+* The account gate (signed in → deletion pending → terms out of date → not onboarded → home) is coded three times in `App.tsx` (`GuestOrAuthLayout` 272, `ProtectedLayout` 316, `PublicOnlyLayout` 410).
+* `PublicProfile.tsx:68` mixes the server's grant state with screen-only states (LOADING, SELF) in one value.
+
+**Fix plan:** one `src/lib/machines/` module per domain: states, terminal set, `allowedActions(row, role)`. It is a mirror of the SQL transition table with a test that fails if the SQL and TS tables differ. Screens ask the module and stop testing literals. Extract the account gate into one `resolveAccountGate(user)` used by all three layouts. Do it per domain as each is next touched, not as a big-bang refactor.
+
+**Status:** Partly fixed in the working tree (2026-11-13), uncommitted. Done: `src/lib/machines/appointment.ts` (terminal set + outcome actions, used by both consoles and `appointmentService`), `src/lib/machines/agreement.ts` (replaces the 4 copies of the closed-agreement list), `src/lib/machines/accountGate.ts` (`accountGate` + `isAuthCallbackUrl`, used by all three layouts in `App.tsx`, behaviour unchanged), `src/lib/deliveryStatus.test.ts` (pins the TS delivery mapping to the SQL one). Tests: `appointmentMachine.test.ts`, `accountGate.test.ts`, `deliveryStatus.test.ts`. Left as planned (per domain, as touched): the remaining hand-written status checks in `BusinessAppointments` / `ProviderJobs`, and the mixed state in `PublicProfile`.
+
+---
+
+## #47 — Dormant tables are still writable with no state rules (`subscriptions`, `pro_payments`)
+
+**Severity:** P3.
+
+**Root cause:** the subscription screens were deleted (D3), and `subscriptionService` has no callers outside `services/index.ts`. But RLS `sub_own` (ALL) still lets either party set any `subscriptions.status`, including reopening a CANCELLED one. `pro_payments` (RLS `pro_own`, ALL, no new-row check) lets a user insert or update their own rows with `status = 'PAID'`. Nothing reads `pro_payments` today (no function or app reference; 0 rows), so this is a trap for whoever revives "Pro". Both tables have 0 rows.
+
+**Fix plan:** revoke INSERT/UPDATE from `authenticated` on both tables (keep SELECT) until the features return through RPCs. Delete `subscriptionService`.
+
+**Status:** Fixed in the working tree (2026-11-13), **migration applied by the owner 2026-11-13** (checked in the live catalog: triggers, functions, cron jobs, constraints, grants); app half uncommitted, not shipped. `supabase/migrations/20261017_dormant_tables_read_only.sql` (revokes insert / update / delete / truncate on the three tables from anon and authenticated; SELECT kept), rollback `20261017_dormant_tables_read_only.rollback.sql`; `src/services/engagement/subscriptionService.ts` deleted with its export. Ran in the combined local run; no dedicated test (grant-only change).
+
+---
+
 ## #37 — Delivery is hard to follow for the customer, the rider and the shop, and has no moments worth enjoying
 
 **Reported:** "the customer is not able to track the delivery properly and the delivery agent is not able to see and manage the delivery properly and also the business owner and customer see the ui ux gaps which will make this easy and understandable and good to see — the humans should get dopamine out of everything."

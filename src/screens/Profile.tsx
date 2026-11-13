@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isAgreementClosed } from "@/lib/machines/agreement";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, FileText,
@@ -18,14 +19,12 @@ import PhotoViewer from "@/components/PhotoViewer";
 import { requestService, socialService, businessService, notificationService, appointmentService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import type { AgreementStatus } from "@/types";
 import ShareCard from "@/components/ShareCard";
 import type { ShareSubject } from "@/lib/share";
 import { StoryViewer } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 
-const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
 /** Hand a tile/row its two theme tokens as custom properties (never raw hex). */
 function themed(tint: string, accent: string): React.CSSProperties {
@@ -108,7 +107,7 @@ export default function Profile() {
   const { data: agreementsData } = useQuery(() => requestService.agreements(), [], `home:agreements:${user.id}`);
   const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id], `profile:followers:${user.id}`);
   const followersCount = followersData?.length ?? 0;
-  const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
+  const activeAgreements = (agreementsData ?? []).filter((a) => !isAgreementClosed(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
 
   const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);

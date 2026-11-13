@@ -4,12 +4,13 @@
 
 meta:
   product: "STRYT"
-  version: "1.1.0"   # 1.1.0: Release 1 implemented (20261009_analytics_v1.sql + src/lib/analytics.ts). See changelog.md.
+  version: "1.2.0"   # 1.2.0: Release 2 implemented (20261010_analytics_r2.sql + client wiring). See changelog.md.
   created: 2026-10-27
   updated: 2026-10-27
   implementation_status:
-    release_1: "built, not yet applied — client events + request/proposal/agreement/booking/deal/dispute/review/delivery db events"
-    release_2: "planned — agreement_cancelled, booking_cancelled, seller_created, seller_verified, team_member_added, conversation_started, community_post_created, search_performed, seller_viewed, seller_contacted, notification_opened"
+    release_1: "live — 20261009 applied in production, app shipped in 1.0.75"
+    release_2: "20261010 applied by the owner, app half not yet shipped — agreement_cancelled, booking_cancelled, seller_created, seller_verified, team_member_added, conversation_started, community_post_created (20261010); search_performed, seller_viewed, seller_contacted, notification_opened (app)"
+    release_3: "drafted, not before ~2 weeks after Release 2 ships — .telemetry/release-3.sql"
   owner: "STRYT product + engineering"
   implementation: custom          # first-party Supabase sink, no vendor
   destinations: [supabase_events]
@@ -265,7 +266,7 @@ events:
     category: lifecycle
     source: db
     group_level: seller
-    description: Seller verification_status moved to VERIFIED
+    description: "Seller verification_status moved to APPROVED. Kept, anonymised (actor_role system), when an admin approves."
     properties:
       - { name: days_since_created, type: integer, required: true }
     expected_frequency: low
@@ -352,7 +353,9 @@ events:
     properties:
       - { name: booking_id, type: string, required: true }
       - { name: booking_type, type: string, enum: [appointment, queue], required: true }
-      - { name: outcome, type: string, enum: [rejected, cancelled, no_show, left], required: true }
+      - { name: outcome, type: string, enum: [rejected, cancelled, no_show, left, expired], required: true }
+      - { name: cancelled_by, type: string, enum: [customer, owner, system], required: false, description: "Appointments only, when recorded. Added in 1.2.0." }
+      - { name: fulfillment_type, type: string, required: false, description: "Appointments only. Added in 1.2.0." }
     expected_frequency: low
 
   # ── North star ────────────────────────────────────────────────────────────
@@ -498,10 +501,11 @@ events:
     category: collaboration
     source: db
     group_level: seller
-    description: A business added a named team member (insert on business_team_members)
+    description: "A person got access to a business for the first time (first ACTIVE business_access_sessions grant per person and business; later sign-ins don't count). Changed in 1.2.0 — business_team_members is unused."
     properties:
-      - { name: role, type: string, enum: [OWNER, MANAGER, STAFF], required: true }
-      - { name: team_member_count, type: integer, required: true }
+      - { name: access_level, type: string, enum: [full, scoped], required: true }
+      - { name: scope_count, type: integer, required: true }
+      - { name: team_member_count, type: integer, required: true, description: "Distinct people with an active grant, this one included" }
     expected_frequency: low
 
   - name: conversation_started
@@ -517,12 +521,13 @@ events:
   - name: community_post_created
     category: collaboration
     source: db
-    group_level: none
-    description: A community post was published (insert on community_posts)
+    group_level: seller
+    description: "A community post was published (insert on community_posts). Seller context when a business or provider posts (1.2.0)."
     properties:
       - { name: post_id, type: string, format: "cm_*", required: true }
       - { name: post_type, type: string, required: true, description: "community_posts.type" }
       - { name: author_type, type: string, enum: [user, business, provider], required: true }
+      - { name: has_media, type: boolean, required: true, description: "Added in 1.2.0" }
     expected_frequency: medium
 
 # -----------------------------------------
@@ -535,7 +540,7 @@ snapshot_sync:
     - { entity: user, trait: last_active_at, type: datetime, source: "MAX(events.created_at) per user_id" }
     - { entity: user, trait: deals_completed_count, type: integer, source: "COUNT of completed agreements + appointments + served queue tokens as customer" }
     - { entity: user, trait: requests_created_count, type: integer, source: "COUNT(requests) per requester_user_id" }
-    - { entity: seller, trait: team_member_count, type: integer, source: "COUNT(business_team_members) per business_id" }
+    - { entity: seller, trait: team_member_count, type: integer, source: "COUNT(DISTINCT grantee_user_id) of ACTIVE business_access_sessions per business_id (1.2.0)" }
     - { entity: seller, trait: catalog_item_count, type: integer, source: "COUNT(catalog_items) per seller" }
     - { entity: seller, trait: views_30d, type: integer, source: "business_view_logs / provider_view_logs, last 30 days" }
     - { entity: seller, trait: proposals_sent_30d, type: integer, source: "COUNT(proposals) by responder_entity_id, last 30 days" }

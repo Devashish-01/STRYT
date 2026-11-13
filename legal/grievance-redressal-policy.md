@@ -1,8 +1,8 @@
 ﻿# STRYT — Grievance Redressal Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 STRYT is committed to addressing your concerns fairly and promptly. This Grievance Redressal Policy explains how to raise a grievance and how we handle it. It is published in accordance with the **Information Technology Act, 2000** and the **Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021** ("Intermediary Guidelines"), the **Digital Personal Data Protection Act, 2023** ("DPDP Act"), and the **Consumer Protection Act, 2019** and its e-commerce rules, as applicable. It forms part of the [Terms & Conditions](terms-and-conditions.md).
 
@@ -25,13 +25,12 @@ For general how-to help, use **Account → Help & Support** in the app.
 
 In accordance with the Intermediary Guidelines and applicable law, STRYT designates a Grievance Officer:
 
-- **Name:** `[GRIEVANCE OFFICER NAME]`
-- **Designation:** Grievance Officer, `[STRYT OPERATOR LEGAL NAME]`
-- **Email:** `[grievance@stryt.in — provision this dedicated address]` *(contact@stryt.in)*
-- **Postal address:** `[REGISTERED OFFICE ADDRESS]`
+- **Name:** Devashish Patel
+- **Designation:** Grievance Officer, Devashish Patel
+- **Email:** grievance@stryt.in *(contact@stryt.in)*
+- **Postal address:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
 - **In-app:** Account → Help & Support
 
-> **Flagged for STRYT (mandatory before publication):** you must appoint a named, India-based Grievance Officer and publish their name and contact details. If STRYT qualifies as a "Significant Data Fiduciary" under the DPDP Act or as a significant social-media intermediary under the Intermediary Guidelines, additional roles (e.g. a Data Protection Officer, Chief Compliance Officer, Nodal Contact Person, Resident Grievance Officer) and stricter timelines may apply — confirm applicability with counsel.
 
 ---
 
@@ -87,17 +86,13 @@ If a matter needs more time or third-party input (e.g. the other party's respons
 
 ## 7. Contact summary
 
-- **Grievance Officer:** `[NAME]` — `[grievance@stryt.in]`
+- **Grievance Officer:** Devashish Patel — grievance@stryt.in
 - **Support:** support@stryt.in / **Account → Help & Support**
 - **General:** contact@stryt.in
-- **Post:** `[REGISTERED OFFICE ADDRESS]`
+- **Post:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
 
 ---
 
 ## 8. Changes
 
 We may update this Policy. We will update the "Last Updated" date and give notice of material changes through the Platform.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force. The Grievance Officer details and any additional statutory roles must be completed and verified before publication.*

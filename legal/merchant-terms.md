@@ -1,8 +1,8 @@
 ﻿# STRYT — Merchant & Provider Terms
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 These Merchant & Provider Terms ("Merchant Terms") apply to every User who lists or operates a **Business** or a **Provider** profile on STRYT, and to any **Delegated User** granted access to a Business. They are additional to, and form part of, the [Terms & Conditions](terms-and-conditions.md). Where these Merchant Terms conflict with the general Terms on a Seller-specific matter, these Merchant Terms prevail for that matter.
 
@@ -157,7 +157,3 @@ conduct lawfully under the Drugs and Cosmetics Act and your licence.
 ## 13. Relationship to the general Terms
 
 These Merchant Terms incorporate the general [Terms & Conditions](terms-and-conditions.md), [Privacy Policy](privacy-policy.md), [Acceptable Use Policy](acceptable-use-policy.md), [Refund & Cancellation Policy](refund-cancellation-policy.md), [Data Retention Policy](data-retention-policy.md), [Community Guidelines](community-guidelines.md), [Grievance Redressal Policy](grievance-redressal-policy.md), and [Disclaimer](disclaimer.md). Governing law, jurisdiction, and arbitration are as stated in the general Terms.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

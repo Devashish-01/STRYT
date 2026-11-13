@@ -1,8 +1,8 @@
 # STRYT — Refund & Cancellation Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 This Refund & Cancellation Policy forms part of the [Terms & Conditions](terms-and-conditions.md) and must be read with them, the [Merchant & Provider Terms](merchant-terms.md), and the [Grievance Redressal Policy](grievance-redressal-policy.md).
 
@@ -81,7 +81,7 @@ This Refund & Cancellation Policy forms part of the [Terms & Conditions](terms-a
 
 5.1 STRYT does not currently charge Users for any feature. Paid features referenced in the app — **business "Pro" plans, provider lead packs, and listing "boosts"** — are **not available for purchase in-app** (no payment gateway is integrated); any such arrangement today is handled offline.
 
-5.2 **When STRYT begins charging** (e.g. via a future payment gateway), a specific refund policy for those STRYT-charged fees will be presented at the point of purchase and added here. As a general position for such future fees: subscription/boost fees for digital promotional services are typically **non-refundable once the service/visibility period has begun**, except where required by law; partial or pro-rated refunds, if any, will be stated at checkout. **(Flagged for STRYT: finalise the paid-feature refund terms with counsel before enabling any charging.)**
+5.2 **When STRYT begins charging** (e.g. via a future payment gateway), a specific refund policy for those STRYT-charged fees will be presented at the point of purchase and added here. As a general position for such future fees: subscription/boost fees for digital promotional services are typically **non-refundable once the service/visibility period has begun**, except where required by law; partial or pro-rated refunds, if any, will be stated at checkout.
 
 ---
 
@@ -106,7 +106,3 @@ Please include the Seller, the transaction (booking/deal/queue/walk-in), date, a
 ## 8. Changes
 
 We may update this Policy. We will update the "Last Updated" date and give notice of material changes through the Platform.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

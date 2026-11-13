@@ -22,11 +22,16 @@ export type AccessLevel = "FULL" | "SCOPED";
  * management scopes, so a delivery grant succeeded while granting nothing, and
  * the hat could only ever appear from an active assignment (TMA-005/DLV-002).
  *
- * If you add a scope here, widen BOTH `grant_team_member_access` and
- * `update_team_member_scopes` — otherwise the grant works and the first scope
- * edit silently strips it.
+ * If you add a scope here, widen the whitelist in ALL FOUR scope writers —
+ * `grant_team_access`, `grant_team_member_access`, `update_team_member_scopes`,
+ * `set_business_login` — otherwise the grant works and the first scope edit
+ * silently strips it.
+ *
+ * `money` (`20261018_money_scope.sql`, GAPS #51): delivery totals, unpaid
+ * delivered orders, and settling the cash riders hand in. Per-order payments
+ * (confirm a UPI claim, take cash at the counter) stay on `appointments`.
  */
-export type Scope = "appointments" | "queue" | "catalog" | "leads" | "delivery";
+export type Scope = "appointments" | "queue" | "catalog" | "leads" | "delivery" | "money";
 /** Translation key per scope — shared by the switcher and the Team screen so they never drift, and so a Hindi or
  *  Marathi user reads the scope in their own language. Resolve with t() at the point of display. */
 export const SCOPE_LABEL_KEYS: Record<Scope, string> = {
@@ -35,7 +40,19 @@ export const SCOPE_LABEL_KEYS: Record<Scope, string> = {
   catalog: "scope_label_catalog",
   leads: "scope_label_leads",
   delivery: "scope_label_delivery",
+  money: "scope_label_money",
 };
+
+/** Tick or untick one scope. `money` only shows on the Orders page, so ticking it also ticks Orders, and unticking
+ *  Orders unticks it: a money grant on its own would show nothing. */
+export function toggleScope(prev: Scope[], s: Scope): Scope[] {
+  if (prev.includes(s)) {
+    const next = prev.filter((x) => x !== s);
+    return s === "appointments" ? next.filter((x) => x !== "money") : next;
+  }
+  if (s === "money" && !prev.includes("appointments")) return [...prev, "appointments", "money"];
+  return [...prev, s];
+}
 
 export interface AccessSession {
   id: string;

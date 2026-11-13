@@ -1978,6 +1978,7 @@ const strings: Record<string, string> = {
     bacc_catalog_text: "Products, inventory, portfolio and hours",
     bacc_leads_text: "Respond to leads, send quotes, answer questions",
     bacc_delivery_text: "Pick up and deliver orders assigned to them",
+    bacc_money_text: "Delivery totals, unpaid deliveries, and settling cash riders hand in",
     bacc_preset_front_desk: "Front desk",
     bacc_preset_store_manager: "Store manager",
     bacc_preset_delivery_rider: "Delivery rider",
@@ -1992,6 +1993,7 @@ const strings: Record<string, string> = {
     scope_label_catalog: "Catalogue",
     scope_label_leads: "Leads & quotes",
     scope_label_delivery: "Delivery",
+    scope_label_money: "Money & rider cash",
 
     // Account switcher — delegated access
     acc_team_member: "Team member",
@@ -2234,6 +2236,10 @@ const strings: Record<string, string> = {
     bapt_nudge_sent: "Payment request nudge sent 🔔",
     bapt_nudge_failed: "Couldn't send payment nudge.",
     bapt_no_show: "Marked as no-show",
+    bapt_mark_done: "Done — mark visit complete",
+    bapt_marked_done: "Marked as done",
+    bapt_mark_no_show: "Customer didn't show up? Mark no-show",
+    bapt_updating: "Updating…",
     bapt_update_failed: "Couldn't update. Try again.",
     bapt_deliveries_assigned_one: "{n} delivery assigned",
     bapt_deliveries_assigned_many: "{n} deliveries assigned",

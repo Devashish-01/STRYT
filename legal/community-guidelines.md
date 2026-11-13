@@ -1,8 +1,8 @@
 ﻿# STRYT — Community Guidelines
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 STRYT is your street, and your people. It works because real neighbours — customers, shopkeepers, and independent providers — treat each other with honesty and respect. These Community Guidelines explain how to behave across the **community feed, stories, reviews, Q&A, messages, requests, and listings**. They sit alongside the stricter, enforceable [Acceptable Use Policy](acceptable-use-policy.md) and form part of the [Terms & Conditions](terms-and-conditions.md). Where these Guidelines and the AUP overlap, the AUP governs enforcement.
 
@@ -79,7 +79,3 @@ We don't remove lawful content just because it's critical or unflattering — ho
 See something that breaks the rules? Use the **Report** option on the profile, listing, request, post, or review, or **Account → Help & Support**. For formal grievances, see the [Grievance Redressal Policy](grievance-redressal-policy.md).
 
 Thanks for helping keep STRYT a place neighbours can trust.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

@@ -35,6 +35,7 @@ import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { isLiveOrder } from "@/lib/orderLists";
+import { visitOutcomeActions } from "@/lib/machines/appointment";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import DeliveryOwnerPanels from "@/components/delivery/DeliveryOwnerPanels";
 import { deliveryService } from "@/services";
@@ -300,11 +301,12 @@ export default function BusinessAppointments() {
     }
   }
 
-  async function markNoShow(apt: AppointmentRecord) {
+  /** The shop records how a slot booking went: "Done" or "Didn't show up" (appointment_transition, 20261015). */
+  async function markOutcome(apt: AppointmentRecord, outcome: "COMPLETED" | "NO_SHOW") {
     setNoShowBusy(apt.id);
     try {
-      await appointmentService.updateStatus(apt.id, "NO_SHOW");
-      showToast(t("bapt_no_show"));
+      await appointmentService.updateStatus(apt.id, outcome);
+      showToast(t(outcome === "NO_SHOW" ? "bapt_no_show" : "bapt_marked_done"));
       refetch();
     } catch {
       showToast(t("bapt_update_failed"));
@@ -426,6 +428,7 @@ export default function BusinessAppointments() {
     // A home-delivery order the customer will pay the rider for: payment is the rider's job, so the shop is not shown a "Payment outstanding"
     // box with Nudge. The shop still has a quiet "Record payment" for the day money changes hands another way.
     const isDeliveryOrder = DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY";
+    const outcome = visitOutcomeActions(apt);
     const cod = isDeliveryOrder && apt.paymentStatus === "UNPAID" && !requiresPaymentFirst && (apt.status === "PENDING" || apt.status === "ACCEPTED");
     const orderDelivery = deliveryMap ? ((deliveryMap as Record<string, import("@/services/engagement/deliveryService").AppointmentDelivery>)[apt.id] ?? null) : undefined;
     const dueNow = isDeliveryOrder ? amountDue(apt) : (apt.packagePrice ?? apt.paymentAmount ?? 0);
@@ -641,16 +644,28 @@ export default function BusinessAppointments() {
           </div>
         )}
 
-        {/* A no-show is a customer who didn't come to the shop. A delivery that didn't land is a rider's "can't deliver" (with a reason). */}
-        {apt.status === "COMPLETED" && apt.fulfillmentType !== "DELIVERY" && (
+        {/* How the visit went. A no-show is a customer who didn't come to the shop; a delivery that didn't land is a
+            rider's "can't deliver" (with a reason), so delivery orders get neither button (lib/machines/appointment). */}
+        {outcome.done && (
+          <button
+            type="button"
+            className="btn btn-sm btn-green row gap-6 center"
+            style={{ alignSelf: "flex-start", marginTop: 2 }}
+            disabled={noShowBusy === apt.id}
+            onClick={() => markOutcome(apt, "COMPLETED")}
+          >
+            <CheckCircle2 size={14} /> {noShowBusy === apt.id ? t("bapt_updating") : t("bapt_mark_done")}
+          </button>
+        )}
+        {outcome.noShow && (
           <button
             type="button"
             className="row gap-4 center-v tiny semi"
             style={{ color: "var(--red-600)", alignSelf: "flex-start", marginTop: 2 }}
             disabled={noShowBusy === apt.id}
-            onClick={() => markNoShow(apt)}
+            onClick={() => markOutcome(apt, "NO_SHOW")}
           >
-            <Ban size={12} /> {noShowBusy === apt.id ? "Updating…" : "Customer didn't show up? Mark no-show"}
+            <Ban size={12} /> {noShowBusy === apt.id ? t("bapt_updating") : t("bapt_mark_no_show")}
           </button>
         )}
 

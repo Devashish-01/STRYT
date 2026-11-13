@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Search, Map, ArrowLeft } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
@@ -12,6 +12,7 @@ import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
 import type { Category, Business, Provider } from "@/types";
+import { track, EVENTS } from "@/lib/analytics";
 import { findCategoryNode } from "@/lib/categoryTree";
 
 // catalogService.get(id) is a flat single-row fetch — it never populates
@@ -22,7 +23,7 @@ import { findCategoryNode } from "@/lib/categoryTree";
 export default function CategoryListing() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { user, showToast } = useApp();
+  const { user, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
   const { data: tree, loading: catLoading, error: catError, refetch: refetchCat } = useQuery(
     () => catalogService.getCategories(),
@@ -75,6 +76,23 @@ export default function CategoryListing() {
   const [provCursor, setProvCursor] = useState<string | null>(null);
   const [provHasMore, setProvHasMore] = useState(false);
   const [loadingMoreProv, setLoadingMoreProv] = useState(false);
+
+  // One search_performed per category listing (category + sub-filter + radius + sort), once both feeds have loaded.
+  // Keyed, because a cached page and its revalidation arrive as two result sets for the same listing.
+  const listingKey = `${matchIds.join(",")}:${radius}:${sort}`;
+  const trackedListingRef = useRef("");
+  useEffect(() => {
+    if (!bizPage || !provPage || bizLoading || provLoading || trackedListingRef.current === listingKey) return;
+    trackedListingRef.current = listingKey;
+    track(EVENTS.SEARCH_PERFORMED, {
+      surface: "category",
+      has_query: false,
+      category_id: sub ?? id,
+      result_count: bizPage.data.length + provPage.data.length,
+      is_guest: isGuest,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizPage, provPage, bizLoading, provLoading]);
 
   useEffect(() => {
     setExtraBiz([]);

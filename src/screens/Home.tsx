@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { isAgreementClosed } from "@/lib/machines/agreement";
 import { StoriesBar } from "@/components/Stories";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Package } from "@/components/Icons";
@@ -155,7 +156,7 @@ export default function Home() {
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(handleRefresh);
 
   const agreements = agreementsList ?? [];
-  const activeAgreements = agreements.filter((a) => !["COMPLETED", "CANCELLED", "DISPUTED"].includes(a.status));
+  const activeAgreements = agreements.filter((a) => !isAgreementClosed(a.status));
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
   // Lead with the categories picked during onboarding, then everything else.
   // Ranked BEFORE the slice so an interest match that sits 9th by distance can

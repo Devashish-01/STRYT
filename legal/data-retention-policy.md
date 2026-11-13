@@ -1,8 +1,8 @@
 ﻿# STRYT — Data Retention Policy
 
-**Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
-**Version:** 1.0 (draft for legal review)
+**Effective Date:** 12 November 2026
+**Last Updated:** 12 November 2026
+**Version:** 1.0
 
 This Data Retention Policy explains how long STRYT keeps personal data and content, and what happens when you delete your account or a listing. It forms part of the [Terms & Conditions](terms-and-conditions.md) and [Privacy Policy](privacy-policy.md).
 
@@ -87,13 +87,12 @@ The following are STRYT's retention targets. Except where a mechanism is hard-co
 | Analytics (Vercel) | Per provider defaults; anonymous/aggregate |
 | Backups | Short rolling window (Section 6) |
 
-**Flagged for STRYT:** confirm each period, ensure the product/operations enforce them (e.g. scheduled pruning of logs/notifications, and prompt deletion of KYC documents after a verification decision), and align with any statutory retention (e.g. tax records that a **Seller** must keep are the Seller's responsibility, not STRYT's).
 
 ---
 
 ## 6. Backups
 
-Encrypted or access-controlled backups maintained by our infrastructure providers may retain copies of data for a limited period after deletion from the live system, purely for disaster recovery. Such copies are not used for normal operations and are overwritten on the backup cycle. **(Flagged for STRYT: confirm your provider's backup retention window and state it here.)**
+Encrypted or access-controlled backups maintained by our infrastructure providers may retain copies of data for a limited period after deletion from the live system, purely for disaster recovery. Such copies are not used for normal operations and are overwritten on the backup cycle.
 
 ---
 
@@ -112,7 +111,3 @@ You can access, correct, and request erasure of your personal data, and withdraw
 ## 9. Changes
 
 We may update this Policy. We will update the "Last Updated" date and give notice of material changes through the Platform.
-
----
-
-*This document is a draft prepared for legal review and is not yet in force.*

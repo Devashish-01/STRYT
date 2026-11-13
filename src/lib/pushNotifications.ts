@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabaseClient";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { isIgnoringBatteryOptimizations } from "@/lib/batteryOptimization";
+import { track, EVENTS } from "@/lib/analytics";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -76,6 +77,8 @@ export async function registerPush(userId: string, options: { requestPermission?
         // clear the rest rather than leave a stale pile behind them.
         void PushNotifications.removeAllDeliveredNotifications().catch(() => { /* best-effort */ });
         const data = action.notification.data;
+        // send-push puts the notifications.type key in data.type; never the title or body.
+        track(EVENTS.NOTIFICATION_OPENED, { notification_type: String(data?.type ?? "unknown"), is_push: true });
         if (data && data.url) {
           // SPA navigation via App.tsx listener — window.location.href here
           // forced a full reload (splash, lost state) on every notification tap.

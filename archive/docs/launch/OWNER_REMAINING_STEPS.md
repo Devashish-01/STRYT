@@ -14,12 +14,16 @@ by CI as the `stryt-playstore-aab` artifact.
 
 ## 1. Vercel — `stryt.in`
 
-- [ ] **Remove the bot challenge.** Today every URL on `stryt.in`, including `/legal/privacy-policy`, answers
+- [x] **Remove the bot challenge — done 2026-11-08.** Firewall rule *Allow public privacy policy* now bypasses Bot
+  Protection for every `/legal/…` path (Bot Protection stays on elsewhere). Verified by curl: privacy-policy,
+  account-deletion and terms → 200 on `stryt.in` and `www.stryt.in`, also with a Googlebot user agent; `/` is still
+  challenged (fine for Play). Original note: every URL on `stryt.in`, including `/legal/privacy-policy`, answers
   **HTTP 429** with `X-Vercel-Mitigated: challenge` — Vercel's firewall is serving a JavaScript challenge, which
-  Google's privacy-policy check cannot pass. Vercel → the project → **Firewall** → switch off **Attack Challenge
-  Mode**, and delete or loosen any rule whose action is *Challenge*. Then confirm
-  `https://stryt.in/legal/privacy-policy` and `/legal/account-deletion` open in an incognito window (from a phone
-  on mobile data too).
+  Google's privacy-policy check cannot pass. *Checked 2026-11-08:* Attack Challenge Mode is already off; the cause is
+  **Bot Protection = Challenge** (Firewall → Rules → Bot Management). Set it to **Log**, or publish a *Bypass* rule for
+  path prefix `/legal/` — then **Review Changes → Publish** (unpublished changes do nothing). An incognito browser is
+  **not** a valid test (browsers solve the challenge silently); the test is
+  `curl -I https://stryt.in/legal/privacy-policy` and `/legal/account-deletion` → `200`, no `X-Vercel-Mitigated`.
 - [ ] After step 2 below is pushed, confirm the web deploy succeeded (Vercel has needed your approval before).
 
 ## 2. Legal text — needs your postal address
@@ -41,13 +45,45 @@ by CI as the `stryt-playstore-aab` artifact.
 
 - [x] **`20261008_stories_complete.sql` — applied 2026-10-27** and checked from the app (reaction saves, mute works, a deleted
   story's photo is really gone, a signed-out visitor loads stories). `APPLY_LOG.md` row 71 records it.
-- [ ] **Deploy the photo sweep.** One command, from the repo root, after `npx supabase login`:
+- [x] **Deploy the photo sweep — done** (checked 2026-11-06: `purge-expired-stories` ACTIVE v1 in production, the daily
+  *Purge expired stories* workflow ran green on 2026-11-05). Original instructions, kept for reference: one command, from the repo root, after `npx supabase login`:
   `npx supabase functions deploy purge-expired-stories --project-ref gnswxlfmcwyhmzlfipql`
   (`supabase/config.toml` already sets `verify_jwt = false` for it). Then push the repo so the daily workflow
   `.github/workflows/purge-expired-stories.yml` exists on GitHub, and run it once by hand (Actions → *Purge expired stories* →
   *Run workflow*) — it prints `rowsDeleted` / `photosRemoved`. It also clears the ~30 old orphan story photos in storage.
   Until it is deployed nothing breaks: expired stories are already hidden and their rows are purged by the database job;
   only their photo files linger.
+
+## 3c. State-machine fixes (added 2026-11-13 — see `archive/docs/gaps/GAPS_LOG.md` #38–#49)
+
+Seven migrations — **all applied 2026-11-13**, checked in the live catalog. Still open: the app half (last box) and, optionally, running the test files. #38 (an owner can approve their own listing) is a launch blocker;
+#48 / #49 (location shares that never expire) are privacy bugs. Apply **in this order** in the Supabase SQL editor, and after
+each one run its test file from `supabase/tests/` in the same editor. A pass ends in an error that says `ALL_…_PASSED`, and
+nothing is saved. Then record each in `supabase/APPLY_LOG.md`.
+
+- [x] `20261011_listing_status_guard.sql` → `listing_status_guard.test.sql` (#38)
+- [x] `20261012_appointment_writes_via_functions.sql` → `appointment_writes_via_functions.test.sql` (#39, #40)
+- [x] `20261013_queue_token_transitions.sql` → `queue_token_transitions.test.sql` (#41, #42)
+- [x] `20261014_request_proposal_status_guard.sql` → `request_proposal_status_guard.test.sql` (#43)
+- [x] `20261015_visit_outcome.sql` → `visit_outcome.test.sql` (#44; adds cron `sweep-stale-appointments`)
+- [x] `20261016_expiry_sweeps.sql` → `expiry_sweeps.test.sql` (#45, #48, #49; adds cron `expire-stale-rows`, restores `close-stale-queues`)
+- [x] `20261017_dormant_tables_read_only.sql` (#47; no test file)
+- [ ] Ship the app half (OTA + web) **after** the migrations: the new "Done" / "No-show" buttons need 20261015. Old app builds keep
+  working against the new database. Every move they make is still allowed, and undoing a queue payment claim starts working
+  for them too, because that fix is in the database.
+
+Each migration has a rollback in `supabase/rollbacks/` with the same name.
+
+**Added 2026-11-13 (GAPS #51, #52) — applied 2026-11-13, test passed, checked in the live catalog:**
+
+- [x] `20261018_money_scope.sql` → `money_scope.test.sql`. Adds the team permission "Money & rider cash": seeing rider cash,
+  unpaid deliveries and delivery totals, and settling riders' cash, now needs it instead of just "Orders". Anyone who has
+  "Orders" today gets it in the same step, so nobody loses anything. It also fixes saving the shop login password, which has been
+  failing since 20261006 (#52). Safe before the app update: old builds still work, because every current Orders holder keeps the
+  money panels. Ship the app half (the new tick box in Team access) with the other app changes above.
+- [x] `20261019_shop_login_sessions.sql` (applied 2026-11-13, checked) → `shop_login_sessions.test.sql` (#53). Turning the shop login off now really signs out
+  everyone who used it (named team members are not affected), and the login ID is checked. Database only; no app update needed.
+  Production has no saved shop login yet, so nothing changes for anyone today.
 
 ## 4. Android signing and Firebase
 

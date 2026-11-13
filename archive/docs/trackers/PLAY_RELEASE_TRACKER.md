@@ -26,6 +26,35 @@ start before the remaining engineering work, not after.
 
 ---
 
+## Status check — 2026-11-13 (repo, production database, public internet; Console state unknown)
+
+| Item | State |
+|---|---|
+| Database | All migrations through `20261019` live and checked (state-machine fixes #38–#49, money scope #51/#52, shop-login sessions #53). |
+| Working tree | `telemetry/release-2` = `main` 1.0.75 + about 100 uncommitted / untracked files (analytics R2 app half, state-machine app half, money scope UI, legal address + static legal pages, the 20261010–19 migration/rollback/test files). `npm run verify` green on 2026-11-13: lint, eslint, 108 test files / 1338 tests, production build. Note that `vite build` fails if run from a shell whose cwd has a lowercase drive letter (`/d/…` in Git Bash), with a false "Could not resolve legal/*.md?raw" error; CI and PowerShell are fine. |
+| `stryt.in/legal/*` | 308 → `www.stryt.in/legal/*` → **200** for Googlebot (bot-challenge bypass works). `/` still 429 (fine for Play). |
+| Published legal text | **Still shows `[REGISTERED ADDRESS]` / `[To be set by STRYT]`.** The address and effective date (12 November 2026) are filled in the working tree, and the built page carries them. Goes live with the next push to `main`. |
+| Real usage | 18 users (2 new in 7 days), 4 active + 1 pending business, 0 bookings in 7 days, last event 2026-11-10. |
+| Closed test | Not started as far as the repo knows. **Still the critical path.** |
+
+---
+
+## Status check — 2026-11-06 (verified from the repo, production database, CI and the public internet; Console state unknown)
+
+| Item | State |
+|---|---|
+| App in production | `main` = 1.0.75 (stories rebuild, UI polish, analytics Release 1). OTA, Android build and Vercel all green on 2026-10-27. |
+| Analytics Release 2 | Migration `20261010` live (12 triggers). App half **uncommitted** on `telemetry/release-2` — needs "commit and push". |
+| `stryt.in` | **Still 429** on `/`, `/legal/privacy-policy`, `/legal/account-deletion` (`X-Vercel-Mitigated: challenge`). Blocks Play's privacy-policy check. |
+| Legal address | `legal/operator.yaml` `registered_address` still empty; 10 legal files still carry placeholders. |
+| Migration ledger | Still stops at `20260998`; `supabase/repairs/2026-10-27_ledger_repair.sql` not yet run. |
+| Edge functions / cron | 10 functions ACTIVE incl. `purge-expired-stories`; purge workflows green 2026-11-05; 8 cron jobs active. |
+| Security advisor | Unchanged known set (`spatial_ref_sys`, PostGIS in `public`, public RPCs) + Leaked Password Protection still off. |
+| Real usage | 16 users; no request, booking, queue, chat or post since 2026-10-25 — the new database events are untested in production. |
+| Closed test | Not started as far as the repo knows: 0 of 12 testers, 0 of 14 days. **This is still the critical path.** |
+
+---
+
 ## Status — 2026-10-24 (delivery ships in this release; everything the repo, database and CI can do is done)
 
 The owner-only list is in [`../launch/OWNER_REMAINING_STEPS.md`](../launch/OWNER_REMAINING_STEPS.md). Done since the last check:

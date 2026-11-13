@@ -37,7 +37,8 @@ function renderInline(text: string, kp: string, basePath: string): ReactNode[] {
     const tok = m[0];
     const key = kp + "-" + i;
     if (tok.startsWith("**")) {
-      nodes.push(<strong key={key}>{tok.slice(2, -2)}</strong>);
+      // Recurse so links and code inside bold render (e.g. the deletion URL in account-deletion.md).
+      nodes.push(<strong key={key}>{renderInline(tok.slice(2, -2), key, basePath)}</strong>);
     } else if (tok.startsWith("`")) {
       nodes.push(<code key={key} style={codeStyle}>{tok.slice(1, -1)}</code>);
     } else if (tok.startsWith("[")) {

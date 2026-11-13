@@ -14,7 +14,8 @@ import { notificationService } from "@/services/engagement/notificationService";
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
   "requesterUserId","title","description","categoryId","categoryName","subCategory","budgetMin",
-  "budgetMax","area","lat","lng","radiusKm","deadline","status","isBoosted","viewCount",
+  // No "status": a request's state only moves through the deal functions (20261014 refuses direct writes; GAPS #43).
+  "budgetMax","area","lat","lng","radiusKm","deadline","isBoosted","viewCount",
   "photos","meTooCount","isGroupBuy","groupBuyTarget","isUrgent","isRecurring",
   "isAnonymous","expiresInHrs","expiresAt",
   "bulkPricePerUnit","fulfillmentType",

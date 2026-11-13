@@ -6,7 +6,7 @@ import { Store, Key, ChevronRight, UserPlus, Pencil, Clock, Check, X, Copy } fro
 import { businessService, businessAccessService } from "@/services";
 import type { Business } from "@/types";
 import type { AccessSession, Scope, BusinessLoginConfig } from "@/services/marketplace/businessAccessService";
-import { SCOPE_LABEL_KEYS } from "@/services/marketplace/businessAccessService";
+import { SCOPE_LABEL_KEYS, toggleScope as toggleScopeIn } from "@/services/marketplace/businessAccessService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
@@ -22,11 +22,17 @@ const SCOPE_META: Record<Scope, { labelKey: string; textKey: string }> = {
   catalog: { labelKey: SCOPE_LABEL_KEYS.catalog, textKey: "bacc_catalog_text" },
   leads: { labelKey: SCOPE_LABEL_KEYS.leads, textKey: "bacc_leads_text" },
   delivery: { labelKey: SCOPE_LABEL_KEYS.delivery, textKey: "bacc_delivery_text" },
+  money: { labelKey: SCOPE_LABEL_KEYS.money, textKey: "bacc_money_text" },
 };
 // Management scopes drive the "Full access" preset. Delivery is a distinct
 // role (its own hat/console), so it's a separate opt-in toggle rather than part
 // of "full". It only appears while the delivery feature is enabled.
-const MANAGEMENT_SCOPES: Scope[] = ["appointments", "queue", "catalog", "leads"];
+// `money` (GAPS #51) guards only delivery money — rider cash, unpaid deliveries, delivery totals — so it is offered only
+// with the delivery feature too. It sits right after Orders because it only works with it (toggleScopeIn keeps the two
+// together). Front desk leaves it off: counter staff take payments order by order, but don't settle riders' cash.
+const MANAGEMENT_SCOPES: Scope[] = DELIVERY_AGENT_ENABLED
+  ? ["appointments", "money", "queue", "catalog", "leads"]
+  : ["appointments", "queue", "catalog", "leads"];
 const ALL_SCOPES: Scope[] = DELIVERY_AGENT_ENABLED ? [...MANAGEMENT_SCOPES, "delivery"] : MANAGEMENT_SCOPES;
 
 type Preset = "front_desk" | "store_manager" | "delivery_rider" | "full" | "custom";
@@ -291,7 +297,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
   function toggleScope(s: Scope) {
     haptics.selection();
     setScopes((prev) => {
-      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      const next = toggleScopeIn(prev, s);
       setPreset(presetForScopes(next));
       return next;
     });
@@ -527,7 +533,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
   function toggleScope(s: Scope) {
     haptics.selection();
     setScopes((prev) => {
-      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      const next = toggleScopeIn(prev, s);
       setPreset(presetForScopes(next));
       return next;
     });
@@ -710,7 +716,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
                     )}
                     <ScopeToggleList
                       scopes={editScopes}
-                      onToggle={(sc) => setEditScopes((prev) => (prev.includes(sc) ? prev.filter((x) => x !== sc) : [...prev, sc]))}
+                      onToggle={(sc) => setEditScopes((prev) => toggleScopeIn(prev, sc))}
                     />
                     <div className="row gap-8" style={{ marginTop: 10 }}>
                       <button className="btn btn-ghost btn-sm grow" onClick={() => setEditingId(null)}>{t("cancel")}</button>

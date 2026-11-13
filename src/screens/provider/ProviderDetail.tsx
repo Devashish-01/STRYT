@@ -34,6 +34,7 @@ import { BizCatalogGrid } from "@/screens/business/BizCatalogGrid";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
+import { track, EVENTS } from "@/lib/analytics";
 
 const Handshake = HandshakeIcon as any;
 
@@ -75,6 +76,10 @@ export default function ProviderDetail() {
   useEffect(() => {
     if (!p) return;
     pushRecentlyViewed({ type: "provider", id: p.id, name: p.displayName, image: p.avatar });
+    // A provider looking at their own profile is not reach.
+    if (p.userId !== user.id && ownedProviderId !== p.id) {
+      track(EVENTS.SELLER_VIEWED, { is_guest: isGuest }, { type: "provider", id: p.id });
+    }
     // `p` is excluded deliberately — same reason as BusinessDetail's
     // equivalent effect: a fresh object reference every refetch, so `p?.id`
     // is the correct identity check to avoid re-pushing on every render.
@@ -200,7 +205,11 @@ export default function ProviderDetail() {
                   style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
                   href={`tel:${p.phone}`}
                   aria-label="Call"
-                  onClick={(e) => { e.stopPropagation(); providerService.recordInteraction(p.id, "CALL").catch(() => {}); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    providerService.recordInteraction(p.id, "CALL").catch(() => {});
+                    track(EVENTS.SELLER_CONTACTED, { contact_method: "call" }, { type: "provider", id: p.id });
+                  }}
                 >
                   <Phone size={18} />
                 </a>
@@ -493,7 +502,10 @@ export default function ProviderDetail() {
               <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>{tf("serves_within_km", { km: p.serviceRadiusKm })}{p.distanceKm > 0 ? tf("km_from_you", { km: p.distanceKm }) : ""}</span></div>
               {/* Where they're based — one tap opens directions */}
               <div style={{ marginTop: 10 }}>
-                <MiniMap lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150} />
+                <MiniMap
+                  lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150}
+                  onDirections={isOwner ? undefined : () => track(EVENTS.SELLER_CONTACTED, { contact_method: "directions" }, { type: "provider", id: p.id })}
+                />
               </div>
             </div>
           </div>
@@ -605,7 +617,10 @@ export default function ProviderDetail() {
               href={`tel:${p.phone}`}
               className="btn btn-outline"
               style={{ flex: 0 }}
-              onClick={() => providerService.recordInteraction(p.id, "CALL").catch(() => {})}
+              onClick={() => {
+                providerService.recordInteraction(p.id, "CALL").catch(() => {});
+                track(EVENTS.SELLER_CONTACTED, { contact_method: "call" }, { type: "provider", id: p.id });
+              }}
             >
               <Phone size={17} />
             </a>

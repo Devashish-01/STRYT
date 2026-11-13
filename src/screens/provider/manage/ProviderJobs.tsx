@@ -11,6 +11,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { AppointmentRecord, BlockedSlot, CancelledBy, PaymentMethod } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
 import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2, CheckCircle2, AlertTriangle, IndianRupee, Package, MessageCircle, MapPin } from "@/components/Icons";
+import { visitOutcomeActions } from "@/lib/machines/appointment";
 import { useApp } from "@/store";
 import { dateKey, DEFAULT_WORKING_HOURS, parseTimeToMinutes } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -203,11 +204,12 @@ export default function ProviderJobs() {
     }
   }
 
-  async function markNoShow(apt: AppointmentRecord) {
+  /** The provider records how a job went: "Done" or "Didn't show up" (appointment_transition, 20261015). */
+  async function markOutcome(apt: AppointmentRecord, outcome: "COMPLETED" | "NO_SHOW") {
     setNoShowBusy(apt.id);
     try {
-      await appointmentService.updateStatus(apt.id, "NO_SHOW");
-      showToast(t("bapt_no_show"));
+      await appointmentService.updateStatus(apt.id, outcome);
+      showToast(t(outcome === "NO_SHOW" ? "bapt_no_show" : "bapt_marked_done"));
       refetchApts();
     } catch {
       showToast(t("bapt_update_failed"));
@@ -295,6 +297,7 @@ export default function ProviderJobs() {
     // When this provider collects payment at booking, Accept is gated on the
     // payment actually clearing.
     const requiresPaymentFirst = p?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
+    const outcome = visitOutcomeActions(apt);
     return (
       <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
         <div className="row between center-v">
@@ -460,15 +463,27 @@ export default function ProviderJobs() {
           </div>
         )}
 
-        {apt.status === "COMPLETED" && (
+        {/* How the job went (lib/machines/appointment mirrors the server's rule). */}
+        {outcome.done && (
+          <button
+            type="button"
+            className="btn btn-sm btn-green row gap-6 center"
+            style={{ alignSelf: "flex-start", marginTop: 2 }}
+            disabled={noShowBusy === apt.id}
+            onClick={() => markOutcome(apt, "COMPLETED")}
+          >
+            <CheckCircle2 size={14} /> {noShowBusy === apt.id ? t("bapt_updating") : t("bapt_mark_done")}
+          </button>
+        )}
+        {outcome.noShow && (
           <button
             type="button"
             className="row gap-4 center-v tiny semi"
             style={{ color: "var(--red-600)", alignSelf: "flex-start", marginTop: 2 }}
             disabled={noShowBusy === apt.id}
-            onClick={() => markNoShow(apt)}
+            onClick={() => markOutcome(apt, "NO_SHOW")}
           >
-            <Ban size={12} /> {noShowBusy === apt.id ? "Updating…" : "Customer didn't show up? Mark no-show"}
+            <Ban size={12} /> {noShowBusy === apt.id ? t("bapt_updating") : t("bapt_mark_no_show")}
           </button>
         )}
       </div>

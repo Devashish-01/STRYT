@@ -14,6 +14,8 @@ interface Props {
   height?: number;
   /** Caption under the pin button, e.g. the area/address line. */
   label?: string;
+  /** Called when the card is tapped, before Google Maps opens (analytics, lead counters). */
+  onDirections?: () => void;
 }
 
 /**
@@ -21,9 +23,10 @@ interface Props {
  * and a one-tap Directions overlay. Interaction is intentionally disabled so
  * the page keeps scrolling naturally — tapping anywhere opens Google Maps.
  */
-export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", height = 160, label }: Props) {
+export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", height = 160, label, onDirections }: Props) {
   if (!lat || !lng) return null;
   const openDirections = () => {
+    onDirections?.();
     openExternal(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
   };
   return (

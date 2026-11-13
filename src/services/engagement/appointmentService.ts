@@ -4,6 +4,7 @@ import { notificationService } from "@/services/engagement/notificationService";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 import { errorCode, errorMessage } from "@/lib/errorMessage";
 import { linesFromRows } from "@/lib/orderLines";
+import { autoCompletesNow, isTerminalAppointment } from "@/lib/machines/appointment";
 
 const STORAGE_KEY = "stryt_appointments";
 
@@ -15,7 +16,6 @@ export interface BookedSlotUsage {
   usedSpots: number;
 }
 
-const TERMINAL_APPOINTMENT: AppointmentStatus[] = ["COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"];
 
 /**
  * The customer name an OWNER (business/provider) should see for a booking:
@@ -23,7 +23,7 @@ const TERMINAL_APPOINTMENT: AppointmentStatus[] = ["COMPLETED", "CANCELLED", "RE
  * public alias once the visit is finished — per the privacy model.
  */
 export function ownerVisibleCustomerName(apt: AppointmentRecord): string {
-  if (TERMINAL_APPOINTMENT.includes(apt.status)) {
+  if (isTerminalAppointment(apt.status)) {
     return aliasName({ alias: apt.customerAlias, name: apt.customerName }, "Customer");
   }
   return apt.customerName;
@@ -187,7 +187,8 @@ function localHousekeeping(list: AppointmentRecord[]): AppointmentRecord[] {
       upsertLocal(patched);
       return patched;
     }
-    if (apt.status === "ACCEPTED") {
+    // Same grace as the server (20261015): the shop has 6 hours to mark it done or a no-show first.
+    if (autoCompletesNow(apt, now)) {
       const patched = { ...apt, status: "COMPLETED" as const };
       upsertLocal(patched);
       return patched;
@@ -722,19 +723,14 @@ export const appointmentService = {
       p_id: id,
       p_amount: amount,
     });
+    // No direct-table fallback: the RPC is the only door (GAPS #40). A fallback used to retry any refusal as a raw
+    // UPDATE, which skipped the server's checks; the database now refuses such writes anyway (20261012).
     if (error) {
-      // Direct table fallback if RPC not yet present in runtime DB
-      const { data: updateData, error: updateError } = await sb
-        .from("appointments")
-        .update({ package_price: amount, payment_amount: amount, payment_status: "UNPAID" })
-        .eq("id", id)
-        .select()
-        .single();
-      if (updateError) throw new Error(updateError.message || "Couldn't update amount.");
-      if (!updateData) return undefined;
-      const record = rowToRecord(updateData);
-      upsertLocal(record);
-      return record;
+      const msg = errorMessage(error, "");
+      if (/INVALID_TRANSITION/i.test(msg)) {
+        throw new Error("This order is already paid or closed, so it can't go on the tab. Refresh to see its current status.");
+      }
+      throw new Error(errorMessage(error, "Couldn't update amount."));
     }
     if (!data) return undefined;
     const record = rowToRecord(data);
@@ -784,6 +780,9 @@ export const appointmentService = {
         // showing the raw code (E2E-007).
         if (/DELIVERY_IN_PROGRESS/i.test(errorMessage(e, ""))) {
           throw new Error("Your order is already on its way, so it can't be cancelled here. Please contact the shop or your rider.");
+        }
+        if (/VISIT_NOT_STARTED/i.test(errorMessage(e, ""))) {
+          throw new Error("This visit hasn't started yet. You can mark it once it's due.");
         }
         if (/INVALID_TRANSITION/i.test(errorMessage(e, ""))) {
           throw new Error("This booking was already updated. Refresh to see its current status.");

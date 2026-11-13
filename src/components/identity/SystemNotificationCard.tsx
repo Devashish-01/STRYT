@@ -89,6 +89,8 @@ export default function SystemNotificationCard({
         return t("scope_leads", "Leads & Inquiries");
       case "delivery":
         return t("scope_delivery", "Delivery & Logistics");
+      case "money":
+        return t("scope_label_money", "Money & rider cash");
       default:
         return scope.charAt(0).toUpperCase() + scope.slice(1);
     }

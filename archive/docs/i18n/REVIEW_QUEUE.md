@@ -616,3 +616,5 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `pphub_settings_hint` | Contact visibility, notifications, visibility | संपर्क दिखना, सूचनाएं, दिखना | संपर्क दिसणे, सूचना, दिसणे |  |
 | `pphub_recent_reviews` | Recent reviews | हाल की समीक्षाएं | अलीकडची परीक्षणे |  |
 | `pphub_no_reviews` | Reviews from completed jobs appear here. | पूरे हुए कामों की समीक्षाएं यहाँ दिखेंगी। | पूर्ण झालेल्या कामांची परीक्षणे इथे दिसतील. |  |
+| `scope_label_money` | Money & rider cash | पैसा और राइडर कैश | पैसे आणि रायडर कॅश |  |
+| `bacc_money_text` | Delivery totals, unpaid deliveries, and settling cash riders hand in | डिलीवरी का हिसाब, बिना भुगतान वाली डिलीवरी, और राइडर से मिला कैश दर्ज करना | डिलिव्हरीचा हिशोब, पैसे न मिळालेल्या डिलिव्हरी, आणि रायडरकडून मिळालेली रोख नोंदवणे |  |
