@@ -28,6 +28,35 @@ re-reporting something that sounds familiar; check it's not already fixed.
 > exists, the client can write *any* status, *from any* status. Transition rules live in RPCs, but on these tables the RPC is optional.
 > **#48–#50 were found while fixing #38–#47** ("fix all one by one", 2026-11-13).
 
+## #54 — Legal review: retention periods the product doesn't enforce yet; 180-day registration-data rule
+
+**Severity:** P2 (compliance; nothing is wrong for users today). **Deadline for part 1: before 2027-10-18**, when the oldest analytics
+event turns 12 months old.
+
+**Reported:** "use professional lawyer skill and do the needful you are the lawyer of the app" (2026-11-13), after the privacy-policy check.
+
+**What was fixed in the text (2026-11-13, legal version 2026-11-13):** the privacy policy said analytics were only anonymous (Vercel), but
+the app's own `events` table links usage events to the account (`user_id` stamped server-side; 87 of 138 rows). §3.11, §8.2, §10 and the
+cookie policy now say so. Also: the "[Counsel to confirm …]" note removed from the public §7 (legal basis for the content-safety checks is
+now stated: consent at sign-up, §2.2); Grievance Officer email + phone in §13 and the Grievance policy; voice typing (browser speech
+service), Google Fonts / Unsplash, Gmail / Hostinger named as processors; §12.2 covers phone sign-in; drafting notes removed from the
+retention and cookie policies, and the retention table now states fixed maximum periods. `LEGAL_VERSION` bumped, so signed-in users
+re-accept (the analytics disclosure is a material change).
+
+**Still open:**
+1. **The new retention periods are promises the database doesn't keep yet.** No cron deletes from `events`, `client_errors`,
+   `business_view_logs`, `provider_view_logs` or `notifications` (all now "up to 12 months"), support tickets (24 months), or deals /
+   appointments / queue tokens / payment records / `admin_actions` (3 years after completion). Everything is younger than those limits
+   today. Fix: one `purge-old-rows` cron migration in the house style (migration + rollback + test).
+2. **IT Rules 2021, rule 3(1)(h):** an intermediary must keep a user's registration information for 180 days after the account is
+   cancelled. `purge-deleted-accounts` zeroes the phone and deletes the auth identity 30 days after the request. Options: keep a
+   restricted copy (phone, email, sign-up and deletion dates) readable only by the service role, then delete it at day 180; or take legal
+   advice that the rule doesn't apply. Owner decision; the policy text was deliberately **not** changed to claim 180-day retention.
+3. **Owner checks:** the `grievance@stryt.in` mailbox exists on Hostinger and is read; where TypeSafe processes data (for §9);
+   CERT-In's April 2022 directions (logs kept 180 days, inside India) against the Supabase region.
+
+---
+
 ## #53 — Turning the shop login off doesn't sign out the staff who used it; login IDs aren't validated
 
 **Severity:** P2 (access that the owner believes ended keeps working for up to 30 days). It only became reachable on 2026-11-13: until #52

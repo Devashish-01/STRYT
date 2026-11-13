@@ -1,12 +1,11 @@
 # STRYT — Cookie & Local Storage Policy
 
 **Effective Date:** 12 November 2026
-**Last Updated:** 12 November 2026
-**Version:** 1.0
+**Last Updated:** 13 November 2026
+**Version:** 1.1
 
 This Cookie & Local Storage Policy explains how the STRYT website (**https://stryt.in**) and app use cookies, browser **local storage**, and similar technologies. It forms part of, and should be read with, our [Privacy Policy](privacy-policy.md) and [Terms & Conditions](terms-and-conditions.md).
 
-> Grounding note: STRYT is a single-page application that relies primarily on **browser local storage** (not classic tracking cookies) for sign-in and preferences. This Policy describes both, and is written from a reading of the actual client code (35+ modules use local storage for the session, language, guest location, recently-viewed items, dismissed prompts, and similar). Confirm the exact analytics cookie behaviour of Vercel Analytics with your provider settings before publication.
 
 ---
 
@@ -41,6 +40,7 @@ These remember your choices to improve your experience.
 
 ### 2.3 Analytics / performance
 - **Vercel Analytics and Speed Insights** collect **anonymous, aggregate** usage and performance data on the website to help us understand traffic and improve speed and reliability. These are designed to be privacy-friendly and are not used to identify you personally.
+- **In-app usage events** — the app keeps a random **session identifier** in browser *session* storage (`stryt_analytics_session`) so that the steps of one visit can be grouped together. It is deleted when you close the tab or app, and replaced when you sign out. When you are signed in, events are linked to your Account instead (see the [Privacy Policy](privacy-policy.md) §3.11).
 
 ### 2.4 What we do **not** use
 - We do **not** use advertising or cross-site tracking cookies.

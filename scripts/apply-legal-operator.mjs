@@ -100,7 +100,11 @@ replacements.sort((a, b) => b[0].length - a[0].length);
 
 const headerEffective = [
   [/^\*\*Effective Date:\*\*.*$/m, `**Effective Date:** ${op.effective_date}`],
-  [/^\*\*Last Updated:\*\*.*$/m, `**Last Updated:** ${op.effective_date}`],
+  // Never move a later "Last Updated" back to the effective date (documents revised after publication).
+  [/^\*\*Last Updated:\*\*(.*)$/m, (line, current) => {
+    const cur = Date.parse(current.trim());
+    return !Number.isNaN(cur) && cur > Date.parse(op.effective_date) ? line : `**Last Updated:** ${op.effective_date}`;
+  }],
   // Keep each document's own version number (privacy policy is 1.1); drop only the draft note.
   [/^\*\*Version:\*\*\s*([\d.]+).*$/m, "**Version:** $1"],
 ];

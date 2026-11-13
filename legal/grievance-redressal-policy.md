@@ -1,8 +1,8 @@
 ﻿# STRYT — Grievance Redressal Policy
 
 **Effective Date:** 12 November 2026
-**Last Updated:** 12 November 2026
-**Version:** 1.0
+**Last Updated:** 13 November 2026
+**Version:** 1.1
 
 STRYT is committed to addressing your concerns fairly and promptly. This Grievance Redressal Policy explains how to raise a grievance and how we handle it. It is published in accordance with the **Information Technology Act, 2000** and the **Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021** ("Intermediary Guidelines"), the **Digital Personal Data Protection Act, 2023** ("DPDP Act"), and the **Consumer Protection Act, 2019** and its e-commerce rules, as applicable. It forms part of the [Terms & Conditions](terms-and-conditions.md).
 
@@ -26,8 +26,9 @@ For general how-to help, use **Account → Help & Support** in the app.
 In accordance with the Intermediary Guidelines and applicable law, STRYT designates a Grievance Officer:
 
 - **Name:** Devashish Patel
-- **Designation:** Grievance Officer, Devashish Patel
-- **Email:** grievance@stryt.in *(contact@stryt.in)*
+- **Designation:** Grievance Officer
+- **Email:** grievance@stryt.in
+- **Phone:** +91 95897 81311
 - **Postal address:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005
 - **In-app:** Account → Help & Support
 
@@ -86,7 +87,7 @@ If a matter needs more time or third-party input (e.g. the other party's respons
 
 ## 7. Contact summary
 
-- **Grievance Officer:** Devashish Patel — grievance@stryt.in
+- **Grievance Officer:** Devashish Patel — grievance@stryt.in, +91 95897 81311
 - **Support:** support@stryt.in / **Account → Help & Support**
 - **General:** contact@stryt.in
 - **Post:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005

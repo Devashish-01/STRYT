@@ -1,8 +1,8 @@
 # STRYT — Privacy Policy
 
 **Effective Date:** 12 November 2026
-**Last Updated:** 12 November 2026
-**Version:** 1.1
+**Last Updated:** 13 November 2026
+**Version:** 1.2
 
 ---
 
@@ -78,7 +78,8 @@ We collect only what the features you use require. Grouped by purpose:
 - Automated content-safety results about public content you post (for example a category such as "spam" or "abusive language", and how confident the check was), and whether a post, comment, review, request, story or deal is hidden while it is reviewed (Section 7.3).
 
 ### 3.11 Analytics
-- Anonymous, aggregate usage and performance data via **Vercel Analytics and Speed Insights** (website).
+- **In-app usage events.** We record what happens in the app: for example that a screen was opened, a request was sent, a booking was made or answered, or a sign-in step failed. Each event carries the time, the app version, the platform (website or Android) and, for actions taken inside a Business or Provider console, the Business or Provider and the role you acted in. If you are signed in, the event is **linked to your Account**. If you are not, it is linked only to a random identifier that lasts for one browser session and is not kept on your device after it. Events do not contain your messages, phone number, email address or exact location. We use them to understand how the Platform is used, find where people get stuck, see whether Sellers are getting customers, and fix problems. They are stored in our own database (Supabase), and they are not sold or shared with advertisers or analytics companies.
+- **Website analytics.** Anonymous, aggregate page-view and performance data via **Vercel Analytics and Speed Insights**, on the website only (they do not run in the Android app).
 
 ### 3.12 Home delivery
 Some Businesses offer home delivery. It involves three kinds of people, and each sees different data.
@@ -142,13 +143,11 @@ This is about other Users, not about our processors. To turn coordinates into an
 
 7.2 We use automated logic for discovery, ranking, "nearby" results, wait-time estimates, and matching (e.g. saved-search alerts, request-to-seller matches). These are convenience features, are not "decisions" that produce legal or similarly significant effects on you, and may be inaccurate.
 
-7.3 **Automated content-safety checks.** To keep public spaces safe, the text of public content you post or edit — community posts and comments, reviews, service requests, story captions, bulk deals, and business listings and provider profiles — may be checked automatically, and reports about such content may be triaged the same way. The check is done by **TypeSafe**, an AI service acting as our processor (Section 8.2). It returns judgments, not text: for example whether the content contains abusive language, a threat, a request for money or an OTP, someone else's personal details, or signs that someone may harm themselves. Before the text is sent, phone numbers, email addresses, ID numbers and UPI IDs in it are masked, and no account identifiers are sent. **Private chat messages and offer (proposal) messages are not checked.** Photos are not checked automatically.
+7.3 **Automated content-safety checks.** To keep public spaces safe, the text of public content you post or edit — community posts and comments, reviews, service requests, story captions, bulk deals, and business listings and provider profiles — may be checked automatically, and reports about such content may be triaged the same way. The check is done by **TypeSafe**, an AI service acting as our processor (Section 8.2). It returns judgments, not text: for example whether the content contains abusive language, a threat, a request for money or an OTP, someone else's personal details, or signs that someone may harm themselves. Before the text is sent, phone numbers, email addresses, ID numbers and UPI IDs in it are masked, and no account identifiers are sent. **Private chat messages and offer (proposal) messages are not checked.** Photos are not checked automatically. We carry out these checks on the basis of the consent you give when you create an Account (Section 2.2), only for the specified purpose of keeping public spaces on the Platform safe, and only on content you have chosen to publish or that has been reported.
 
 7.4 **What happens with the result.** If the check finds a clear problem, the content may be hidden from other Users while a STRYT moderator reviews it; content that is only possibly a problem is flagged for review without being hidden. A post or comment is also hidden automatically when several different Users report it. Business listings and provider profiles are never hidden by the automated check. Content that is hidden stays visible to you, marked as under review. **A person decides** whether it is removed or restored — the automated check does not remove anything on its own. If you think your content was hidden by mistake, contact our Grievance Officer (Section 13).
 
 7.5 Apart from Sections 7.3–7.4, we do not send your content to an external AI service. If that changes, we will update this Policy and give any notice, and obtain any consent, the law requires before doing so.
-
-> `[Counsel to confirm: whether the automated checks in 7.3–7.4 need consent under the DPDP Act or can rely on notice and legitimate use for safety and moderation, and TypeSafe's processing location for Section 9.]`
 
 ---
 
@@ -160,15 +159,17 @@ We do **not sell** your personal data. We share it only as follows:
 As inherent to the features you use — e.g. a Seller sees your name/alias and details for a booking or deal you make with them; the recipient of a live-location share sees your live location; for a delivery, the delivery partner sees the customer's name, address and (once on the way) phone number, the customer sees the delivery partner's name, photo and phone number once they set off, and the Business sees the delivery partner's live location while they deliver; other Users see content you post per your privacy settings.
 
 ### 8.2 With processors / third-party services (Data Processors)
-- **Supabase** — database, authentication, and file storage infrastructure that hosts app data on our behalf.
+- **Supabase** — database, authentication, and file storage infrastructure that hosts app data on our behalf, including the in-app usage events described in Section 3.11.
 - **Google / Firebase** — Google Sign-In and phone sign-in (Firebase Authentication, which sends the one-time SMS code and confirms it; your phone number is shared with Google for that purpose) and Firebase Cloud Messaging (push notifications).
 - **Vercel** — website hosting and anonymous analytics/speed insights.
 - **Mapbox** — primary geocoding and place search; when you search a place or we reverse-geocode your coordinates, that query/those coordinates are sent to Mapbox to return results.
 - **OpenStreetMap / Nominatim** — fallback geocoding, and the source of the underlying map tile data.
 - **Map tile providers** — OpenFreeMap, CARTO, and Mapbox when a Mapbox style is in use. Showing you a map sends the map area you are viewing to whichever of these serves the tiles.
 - **Overpass API (OpenStreetMap)** — queried for nearby public places when you browse the map.
-- **Email/SMTP provider** — to deliver support-ticket emails to our support inbox (your reply-to email, category, subject, and message are included).
+- **Google (Gmail)** — sends and holds support-ticket emails in our support inbox (your reply-to email, category, subject, and message are included). Our stryt.in mailboxes are hosted by **Hostinger**, which therefore holds emails you send us at those addresses.
 - **Web Push services** — the browser's push service to deliver web notifications.
+- **Your browser's speech service** — on the website, the voice-to-text button uses your browser's built-in speech recognition where the browser offers it. Your browser's maker (for example Google, for Chrome) may process the audio under its own terms; STRYT receives only the resulting text. The Android app does not record audio.
+- **Font and image providers** — the app and website load fonts from **Google Fonts** and some stock images from **Unsplash**. Your device fetches these files directly, so those providers receive your IP address and basic device and browser information.
 - **Sentry** — error and crash monitoring (Section 3.9). Receives the technical details of an error after personal data has been removed from it; it does not receive your content, contacts or location.
 - **TypeSafe** — automated content-safety checks (Section 7.3). Receives the text of public content and of reports about it, with phone numbers, email addresses, ID numbers and UPI IDs masked and no account identifiers; never private chat or offer messages.
 - **NPCI/UPI and your bank/UPI app** — you interact with these directly to make payments (not a STRYT processor, but essential to the payment you initiate).
@@ -182,7 +183,7 @@ We may disclose data where required by law, court order, or a lawful government 
 
 ## 9. Cross-border storage and transfers
 
-9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase), our error-monitoring processor (Sentry) and our content-safety processor (TypeSafe) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
+9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase), our email providers (Google, Hostinger), our error-monitoring processor (Sentry), our content-safety processor (TypeSafe) and the other providers listed in Section 8.2 may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
 
 9.2 Our primary product audience is India. Infrastructure regions depend on each provider's project configuration (Supabase database/auth/storage, Vercel edge/hosting, Google/Firebase). If you need the current hosting region details for a data-rights request, contact us at contact@stryt.in and we will provide them.
 
@@ -190,7 +191,7 @@ We may disclose data where required by law, court order, or a lawful government 
 
 ## 10. Data retention
 
-We keep personal data only as long as needed for the purposes above or as required by law, and then delete or anonymise it. Account deletion is **self-serve** from Settings: a **30-day recoverable grace period**, then automatic permanent removal or irreversible anonymisation (including uploaded files and KYC documents), subject to guardrails (no active deals / no "held"-status payment records) and legally required retention. Full details and periods are in the [Data Retention Policy](data-retention-policy.md).
+We keep personal data only as long as needed for the purposes above or as required by law, and then delete or anonymise it. Account deletion is **self-serve** from Settings: a **30-day recoverable grace period**, then automatic permanent removal or irreversible anonymisation (including uploaded files and KYC documents), subject to guardrails (no active deals / no "held"-status payment records) and legally required retention. In-app usage events, error logs and listing view logs are kept for up to 12 months; after an account is deleted, any that remain are linked only to the anonymised account. Full details and periods are in the [Data Retention Policy](data-retention-policy.md).
 
 ---
 
@@ -215,7 +216,7 @@ You also have the right to complain to the **Data Protection Board of India** if
 
 12.1 We apply reasonable technical and organisational measures appropriate to the sensitivity of the data, including database **row-level security** (so Users can only access data they're permitted to), rate-limiting on sensitive actions (e.g. verification/admin/login flows), restricted server-side secrets kept out of the browser, origin-restricted server functions, and access controls on stored files.
 
-12.2 No method of transmission or storage is completely secure; we cannot guarantee absolute security. You are responsible for the security of the Google account you sign in with and any Business/Provider password you set.
+12.2 No method of transmission or storage is completely secure; we cannot guarantee absolute security. You are responsible for the security of the Google account or mobile number you sign in with, the one-time codes sent to you (never share them), and any Business/Provider password you set.
 
 12.3 In the event of a personal-data breach, we will follow the notification obligations under the DPDP Act, including notifying the Data Protection Board and affected Data Principals as required.
 
@@ -225,7 +226,7 @@ You also have the right to complain to the **Data Protection Board of India** if
 
 For any question, request, or grievance about your personal data:
 
-- **Grievance Officer:** Devashish Patel, Grievance Officer — see the [Grievance Redressal Policy](grievance-redressal-policy.md)
+- **Grievance Officer:** Devashish Patel (Grievance Officer) — **grievance@stryt.in**, **+91 95897 81311**. Timelines and escalation are in the [Grievance Redressal Policy](grievance-redressal-policy.md).
 - **Email:** contact@stryt.in (general) / support@stryt.in (support)
 - **In app:** Account → Help & Support
 - **Postal:** 434 A, Vyanktesh Vihar, Chota Bangarda Road, Indore, Madhya Pradesh 452005

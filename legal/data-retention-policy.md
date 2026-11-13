@@ -1,12 +1,11 @@
 ﻿# STRYT — Data Retention Policy
 
 **Effective Date:** 12 November 2026
-**Last Updated:** 12 November 2026
-**Version:** 1.0
+**Last Updated:** 13 November 2026
+**Version:** 1.1
 
 This Data Retention Policy explains how long STRYT keeps personal data and content, and what happens when you delete your account or a listing. It forms part of the [Terms & Conditions](terms-and-conditions.md) and [Privacy Policy](privacy-policy.md).
 
-> Grounding note: the retention behaviours below are drawn from the actual account/profile deletion function and schema. Where a period is a **recommended default rather than one hard-coded in the product**, it is marked "(policy default — configure/confirm)". STRYT should confirm final periods with counsel and ensure operational practice matches this document before publication.
 
 ---
 
@@ -64,27 +63,28 @@ We keep your account and content while your account is active so the Platform wo
 
 ## 5. Suggested retention periods by data category
 
-The following are STRYT's retention targets. Except where a mechanism is hard-coded in the product (noted), these are **policy defaults to be configured and confirmed**.
+The periods below are the maximum periods STRYT keeps each kind of data, unless a legal hold applies (Section 7). "Anonymised account" means the deleted account described in Section 3.3: the record stays only as "Deleted User", with no name, phone number, email or photo.
 
 | Data category | Retention target |
 |---|---|
 | Active account profile & settings | While account is active; deleted/anonymised on account deletion |
 | Stories | Auto-expire 1 hour–7 days (product behaviour); Highlights until unpinned/deleted |
-| Requests/"asks" | Open until fulfilled or auto-expiry (up to 24h); records kept while account active *(policy default — configure)* |
+| Requests/"asks" | Open until fulfilled or auto-expiry (up to 24h); the record is kept while your account is active and is then linked only to the anonymised account |
 | **Delivery partner's live position** | Only the latest position is stored; it is erased automatically when the delivery or run ends *(hard-coded in the product — database trigger)* |
-| Delivery records (address, steps and times, hand-over attempts, cash records, proof photo and note, order timeline) | Same as appointments below: life of account + a period after completion for dispute/fraud/legal purposes *(policy default: e.g. up to 3 years — confirm)* |
-| Deals/Agreements, appointments, queue tokens, payment **records** | Life of account + a period after completion for dispute/fraud/legal purposes *(policy default: e.g. up to 3 years — confirm)* |
-| Direct messages | While account active; removed/anonymised on deletion *(policy default — configure)* |
+| Delivery records (address, steps and times, hand-over attempts, cash records, proof photo and note, order timeline) | Same as Deals/Agreements below |
+| Deals/Agreements, appointments, queue tokens, payment **records** | While your account is active, and up to 3 years after completion for disputes, fraud prevention and legal claims (the general limitation period under Indian law); linked only to the anonymised account after deletion |
+| Direct messages | While your account is active. After deletion, messages you sent stay with the people who received them, shown as from "Deleted User" |
 | Reviews, ratings, vouches, endorsements | Retained as community record; anonymised link to a deleted author |
-| KYC / verification documents | Until verification lifecycle ends or profile deletion; deleted on profile deletion *(policy default: delete promptly after review decision + minimal proof-of-check retention — confirm)* |
+| KYC / verification documents | While the Business or Provider profile exists; deleted from storage when the profile or your account is deleted. The verification decision (approved/rejected, when and by whom) is kept in the audit log |
 | Push tokens / web-push subscriptions | Until you disable notifications or the token expires/deletion |
-| In-app notifications | Rolling; older items pruned *(policy default — configure)* |
-| Support tickets & bug reports | For handling + reasonable record *(policy default: e.g. 24 months — confirm)*; note support tickets are also delivered to a support email inbox |
+| In-app notifications | Up to 12 months |
+| Support tickets & bug reports | Up to 24 months after the ticket is closed, in the app and in our support email inbox |
 | Reports & appeals | For trust/safety record and any legal need |
-| Admin action / audit logs | Extended retention for accountability & legal obligation *(policy default: e.g. 3–7 years — confirm)* |
-| Client error logs / view logs | Short operational retention *(policy default: e.g. 90 days — confirm)* |
+| Admin action / audit logs | Up to 3 years, or longer only under a legal hold (Section 7) |
+| Client error logs / listing view logs | Up to 12 months |
+| In-app usage events ([Privacy Policy](privacy-policy.md) §3.11) | Up to 12 months; linked only to the anonymised account after deletion |
 | Crash reports held by Sentry (error monitoring) | Per Sentry's plan retention — 30 days on the current plan |
-| Analytics (Vercel) | Per provider defaults; anonymous/aggregate |
+| Website analytics (Vercel) | Anonymous and aggregate only; kept by Vercel under its plan |
 | Backups | Short rolling window (Section 6) |
 
 
