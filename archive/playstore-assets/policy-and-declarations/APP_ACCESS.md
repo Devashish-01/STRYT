@@ -98,8 +98,9 @@ order to "suresh_k". Then, as this account:
    setting; it opens the phone's own settings page and can be skipped.)
 2. Assigned tab -> the order -> "Picked up from shop" -> "Start delivery".
 3. An in-app disclosure appears BEFORE the system dialog, stating that location is
-   collected even when the app is closed or not in use. Tap Continue and choose
-   "Allow all the time".
+   collected even when the app is closed or not in use. Tap Continue, grant the
+   runtime location permission, and on Android 11+ use the app-location settings
+   screen to grant "Allow all the time" if prompted.
 4. A persistent "STRYT Live Tracking" notification is shown while the delivery is
    under way. The shop owner's Live board shows the position.
 5. "I've arrived" -> enter the 6-digit code shown on the customer's screen ->
@@ -119,14 +120,16 @@ estimated arrival time only.
 | Password | `222222` |
 
 ```
-This and instruction set 3 are the two features the ACCESS_BACKGROUND_LOCATION
-declaration covers.
+This and instruction set 3 are the two features that use background location.
+The background-location form and video demonstrate delivery tracking as the
+representative feature; these instructions also let reviewers inspect My People.
 
 1. Sign in as the Customer. Its one emergency contact is the Shop owner account.
 2. Account -> My People -> Start sharing.
 3. An in-app disclosure appears BEFORE any system dialog, stating that location is
    collected even when the app is closed or not in use. Tap Continue.
-4. Grant location "Allow all the time", and notifications if prompted.
+4. Grant location "Allow all the time" (on Android 11+, via app-location settings),
+   and notifications if prompted.
 5. A persistent notification appears: "STRYT live location - Sharing your live
    location with My People until you stop."
 6. Lock or background the device. Signed in as the Shop owner (another phone, or

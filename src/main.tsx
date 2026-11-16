@@ -38,9 +38,8 @@ void initNativeApp();
 // no auto-reload path to escape it. The native app updates via a new APK, not a
 // SW. initNativeApp() actively tears down any leftover SW from older builds.
 
-// Hindi and Marathi strings load on demand (src/lib/i18n/runtime.ts). Fetch the saved language before the first render so
-// the app opens in it rather than flashing English; English users skip the wait entirely. A failed fetch still
-// renders, in English.
+// Hindi and Marathi strings load on demand (src/lib/i18n/runtime.ts). Fetch the saved language before the first render
+// so the app opens in it without flashing English. Sentry initialization starts above and never blocks the UI.
 void loadLang(initialLang()).finally(() => {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

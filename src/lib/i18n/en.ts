@@ -220,7 +220,7 @@ const strings: Record<string, string> = {
     dlv_track_notice_title: "STRYT Live Tracking",
     dlv_track_notice_msg: "Sharing live location for active deliveries. Open STRYT to view status.",
     dlv_track_disclosure_body: "STRYT collects your precise location even when the app is closed or not in use so the shop can see where you are and your customers get an accurate arrival time, until your delivery is complete.",
-    dlv_track_disclosure_notice: "Location is shared only for deliveries you've accepted. A persistent notification stays visible while sharing. Stop anytime by finishing or leaving the run.",
+    dlv_track_disclosure_notice: "For this delivery, location is shared with the shop. STRYT also uses background location for My People live shares with chosen contacts. A persistent notification stays visible. Stop by finishing or leaving the run.",
     dlv_trk_accepted: "Delivery accepted",
     dlv_trk_assigned: "A delivery agent is assigned",
     dlv_trk_picked_up: "Picked up — leaving shortly",

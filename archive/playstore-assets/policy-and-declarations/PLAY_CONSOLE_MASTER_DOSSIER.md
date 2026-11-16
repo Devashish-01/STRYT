@@ -1,5 +1,9 @@
 # STRYT: Google Play Console Master Submission Dossier
 
+> **Archive only — do not paste these answers into Play Console.** This file still describes version 1.0.61 and
+> Google sign-in reviewer credentials. Use the current files in `archive/docs/launch/play-console/` and
+> `archive/playstore-assets/metadata/APP_TITLE_AND_DESCRIPTIONS_EN.txt`.
+
 **App Name:** STRYT  
 **Package ID:** `in.stryt.app`  
 **Target SDK:** 36 (Android 15+) | **Min SDK:** 24 (Android 7.0+)  

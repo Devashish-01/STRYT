@@ -8,7 +8,7 @@ const DEFAULT_BODY = (
   </>
 );
 const DEFAULT_NOTICE =
-  "Location is shared only with emergency contacts you choose. A persistent notification stays visible while sharing. Stop anytime in the app.";
+  "For My People, location is shared only with contacts you choose. STRYT also uses background location during active deliveries so a shop can track its delivery partner. A persistent notification stays visible while sharing. Stop anytime in the app.";
 
 /**
  * Play / Apple prominent disclosure shown BEFORE the system location

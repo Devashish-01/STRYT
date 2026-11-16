@@ -24,7 +24,7 @@ type SentryModule = typeof import("@sentry/react");
 let sentry: SentryModule | null = null;
 let started = false;
 
-/** Where the DSN comes from. Empty string when unset, which is the normal case in dev and CI. */
+/** Where the DSN comes from. Empty when this build has no configured Sentry project. */
 function dsn(): string {
   try {
     return String((import.meta as { env?: Record<string, unknown> }).env?.VITE_SENTRY_DSN ?? "").trim();
@@ -92,15 +92,26 @@ export async function initSentry(): Promise<void> {
     const mod = await import("@sentry/react");
     sentry = mod;
 
+    const env = (import.meta as { env?: Record<string, unknown> }).env;
+    const sampleRateStr = env?.VITE_SENTRY_TRACES_SAMPLE_RATE;
+    const parsedTraceRate = sampleRateStr !== undefined ? Number(sampleRateStr) : 0;
+    const tracesSampleRate = Number.isFinite(parsedTraceRate)
+      ? Math.min(1, Math.max(0, parsedTraceRate))
+      : 0;
+    const supabaseUrl = String(env?.VITE_SUPABASE_URL ?? "");
+
     mod.init({
       dsn: d,
       release: `stryt@${__APP_VERSION__}-${platform()}`,
-      environment: (import.meta as { env?: Record<string, unknown> }).env?.MODE === "production"
-        ? "production"
-        : "staging",
-      // Errors only. Performance tracing samples every navigation and would cost quota this project has no
-      // budget for; turn it on deliberately, not by default.
-      tracesSampleRate: 0,
+      environment: env?.MODE === "production" ? "production" : "staging",
+      integrations: [mod.browserTracingIntegration()],
+      tracesSampleRate,
+      tracePropagationTargets: [
+        "localhost",
+        /^\//,
+        /^https:\/\/.*\.supabase\.co/,
+        ...(supabaseUrl ? [supabaseUrl] : []),
+      ],
       beforeSend: (event) => scrubEvent(event as unknown as Record<string, unknown>) as never,
       beforeBreadcrumb: (crumb) => scrubValue(crumb) as never,
     });

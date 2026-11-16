@@ -85,6 +85,11 @@ Each migration has a rollback in `supabase/rollbacks/` with the same name.
   everyone who used it (named team members are not affected), and the login ID is checked. Database only; no app update needed.
   Production has no saved shop login yet, so nothing changes for anyone today.
 
+## 3d. Retention (added 2026-11-13 — GAPS #54)
+
+- [ ] Apply `supabase/migrations/20261020_retention.sql` in the SQL editor, then run `supabase/tests/retention.test.sql` (pass = `ALL_RETENTION_CHECKS_PASSED`). Adds the daily clean-up (`purge-old-rows`) and the 180-day copy of a deleted account's registration details that the IT Rules require. Then say "push": the matching legal text is waiting uncommitted.
+- [ ] Confirm `grievance@stryt.in` exists on Hostinger and is read; ask TypeSafe where it processes data; check the Supabase project region (CERT-In wants logs kept 180 days in India).
+
 ## 4. Android signing and Firebase
 
 - [ ] **Rotate the keystore passwords** — `docs/launch/KEYSTORE_ROTATION.md` (three GitHub secrets).
@@ -102,10 +107,12 @@ Each migration has a rollback in `supabase/rollbacks/` with the same name.
   graphics are in `archive/playstore-assets/graphics/`. The four screenshots predate the new Home, tracker and
   delivery screens — replace or add some if you want the listing to show them (optional).
 - [ ] **App access:** add the four instruction sets from `archive/docs/launch/play-console/APP_ACCESS.md`.
-- [ ] **Record the background-location video** with `BACKGROUND_LOCATION_VIDEO_SCRIPT.md` (two parts: live share, then a
-  delivery; about 2–3 minutes), upload to YouTube as **Unlisted**.
-- [ ] **Sensitive permissions → Background location:** paste the text from `BACKGROUND_LOCATION_DECLARATION.md` §1 and
-  the video link. If the Console also shows **Foreground service permissions**, use the same text and link.
+- [ ] **Record the background-location video** with `BACKGROUND_LOCATION_VIDEO_SCRIPT.md` (one delivery-tracking
+  demonstration; Google recommends about 30 seconds), upload to YouTube as **Unlisted**.
+- [ ] **Sensitive permissions → Background location:** paste the single-feature delivery text from
+  `BACKGROUND_LOCATION_DECLARATION.md` §1 and the video link. If the Console also shows **Foreground service
+  permissions**, use the separate foreground-service text in that file. My People stays in the app and is covered by
+  its in-app disclosure, privacy policy and App access instructions.
 - [ ] **Data safety:** no new data types are needed for delivery. Open the form once and confirm it still matches
   `archive/docs/launch/play-console/DATA_SAFETY.md`.
 - [ ] **Download the AAB** (see below), create a **Closed testing** release, upload it, and in the Console's permission

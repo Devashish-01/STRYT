@@ -1,5 +1,7 @@
 ================================================================================
 STRYT - GOOGLE PLAY CONSOLE POLICY & QUESTIONNAIRES QUICK ANSWERS
+ARCHIVE ONLY - DO NOT COPY INTO PLAY CONSOLE. Reviewer sign-in, location declaration,
+and Data safety answers below are outdated. Use archive/docs/launch/play-console/.
 ================================================================================
 
 1. PRIVACY POLICY URL

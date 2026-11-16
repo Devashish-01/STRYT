@@ -43,7 +43,15 @@ service), Google Fonts / Unsplash, Gmail / Hostinger named as processors; §12.2
 retention and cookie policies, and the retention table now states fixed maximum periods. `LEGAL_VERSION` bumped, so signed-in users
 re-accept (the analytics disclosure is a material change).
 
-**Still open:**
+**Part 2 (2026-11-13, "complete the gaps"):** `20261020_retention.sql` + rollback + `retention.test.sql` written, PGlite green
+(negative check: after the rollback the test fails). It adds the daily `purge-old-rows` cron (items 1 below, except the 3-year transaction
+records) and `private.deleted_account_registrations` (item 2: name, alias, phone, email, sign-up date copied by an AFTER UPDATE trigger
+when `customer_deleted_at` is set; purged at 180 days). Privacy §10, Retention §3.4 + table and the account-deletion page now disclose the
+180-day copy; `LEGAL_VERSION` 2026-11-13.2. **Written, NOT applied; the legal text is held back (uncommitted) until it is**, so the policy
+never promises something production doesn't do. Remaining after that: deals / appointments / queue tokens / payment records "3 years after
+completion" (nothing is due before mid-2029; needs care with foreign keys), and the owner checks in item 3.
+
+**Originally open:**
 1. **The new retention periods are promises the database doesn't keep yet.** No cron deletes from `events`, `client_errors`,
    `business_view_logs`, `provider_view_logs` or `notifications` (all now "up to 12 months"), support tickets (24 months), or deals /
    appointments / queue tokens / payment records / `admin_actions` (3 years after completion). Everything is younger than those limits
@@ -54,6 +62,9 @@ re-accept (the analytics disclosure is a material change).
    advice that the rule doesn't apply. Owner decision; the policy text was deliberately **not** changed to claim 180-day retention.
 3. **Owner checks:** the `grievance@stryt.in` mailbox exists on Hostinger and is read; where TypeSafe processes data (for §9);
    CERT-In's April 2022 directions (logs kept 180 days, inside India) against the Supabase region.
+   **Checked 2026-11-13:** the Supabase project is in **ap-northeast-1 (Tokyo)**. Privacy §9 already says data may be stored outside
+   India (DPDP allows it unless the country is restricted). CERT-In's FAQ is understood to allow logs abroad if they can be produced on
+   demand; a lawyer should confirm. Moving to Mumbai (ap-south-1) would also cut latency for Indian users; a post-launch project.
 
 ---
 
