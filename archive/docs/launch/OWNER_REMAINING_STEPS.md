@@ -87,7 +87,8 @@ Each migration has a rollback in `supabase/rollbacks/` with the same name.
 
 ## 3d. Retention (added 2026-11-13 — GAPS #54)
 
-- [ ] Apply `supabase/migrations/20261020_retention.sql` in the SQL editor, then run `supabase/tests/retention.test.sql` (pass = `ALL_RETENTION_CHECKS_PASSED`). Adds the daily clean-up (`purge-old-rows`) and the 180-day copy of a deleted account's registration details that the IT Rules require. Then say "push": the matching legal text is waiting uncommitted.
+- [x] Apply `supabase/migrations/20261020_retention.sql` — applied through Supabase MCP on 2026-11-16. Read-only checks confirmed the daily clean-up (`purge-old-rows`), 180-day registration copy, trigger and access restrictions.
+- [x] Run `supabase/tests/retention.test.sql` — passed in production on 2026-11-16 with `ALL_RETENTION_CHECKS_PASSED`. The test rolled back; follow-up checks found no test rows or demo-account change. Publish the matching legal text with the next GitHub update.
 - [ ] Confirm `grievance@stryt.in` exists on Hostinger and is read; ask TypeSafe where it processes data; check the Supabase project region (CERT-In wants logs kept 180 days in India).
 
 ## 4. Android signing and Firebase

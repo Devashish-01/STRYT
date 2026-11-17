@@ -47,8 +47,9 @@ re-accept (the analytics disclosure is a material change).
 (negative check: after the rollback the test fails). It adds the daily `purge-old-rows` cron (items 1 below, except the 3-year transaction
 records) and `private.deleted_account_registrations` (item 2: name, alias, phone, email, sign-up date copied by an AFTER UPDATE trigger
 when `customer_deleted_at` is set; purged at 180 days). Privacy §10, Retention §3.4 + table and the account-deletion page now disclose the
-180-day copy; `LEGAL_VERSION` 2026-11-13.2. **Written, NOT applied; the legal text is held back (uncommitted) until it is**, so the policy
-never promises something production doesn't do. Remaining after that: deals / appointments / queue tokens / payment records "3 years after
+180-day copy; `LEGAL_VERSION` 2026-11-13.2. **Applied to production on 2026-11-16**; read-only checks confirmed the private table,
+trigger, cleanup function, daily cron and access restrictions. The corrected behavior test passed in production with
+`ALL_RETENTION_CHECKS_PASSED` and rolled back its temporary changes. Remaining: deals / appointments / queue tokens / payment records "3 years after
 completion" (nothing is due before mid-2029; needs care with foreign keys), and the owner checks in item 3.
 
 **Originally open:**

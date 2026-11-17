@@ -45,7 +45,8 @@ We keep your account and content while your account is active so the Platform wo
 3.4 **What may remain, and why.** After deletion, limited data may persist:
 - **Content already shared with, sent to, or copied by other Users** (e.g. a message another User received, or a screenshot) is outside our unilateral control.
 - **Records tied to another party's rights or ongoing matters** — for example a completed transaction, a review you left about a Seller, or a dispute — may be retained in anonymised or minimal form for the other party's records, fraud prevention, and legal defence.
-- **Audit/compliance logs** (e.g. `admin_action_logs`) are retained for security, accountability, and legal-obligation purposes.
+- **Registration details.** Your **registration details** (name, alias, phone number, email address and sign-up date) are kept in restricted storage for **180 days** after deletion, because the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021 (rule 3(1)(h)) require it, and are then deleted. They are not visible to other Users or used for any other purpose, and are disclosed only in answer to a lawful request.
+- **Audit/compliance logs** (`admin_actions`) are retained for security, accountability, and legal-obligation purposes, for up to 3 years.
 - **Anonymised or aggregate data** that no longer identifies you may be retained for analytics and service improvement.
 - **Residual backups** may hold data briefly until they cycle out (see Section 6).
 
@@ -78,7 +79,8 @@ The periods below are the maximum periods STRYT keeps each kind of data, unless 
 | KYC / verification documents | While the Business or Provider profile exists; deleted from storage when the profile or your account is deleted. The verification decision (approved/rejected, when and by whom) is kept in the audit log |
 | Push tokens / web-push subscriptions | Until you disable notifications or the token expires/deletion |
 | In-app notifications | Up to 12 months |
-| Support tickets & bug reports | Up to 24 months after the ticket is closed, in the app and in our support email inbox |
+| Support tickets & bug reports | Up to 24 months, in the app and in our support email inbox |
+| Registration details of a deleted account (name, alias, phone, email, sign-up date) | 180 days after deletion, in restricted storage (IT Rules 2021, rule 3(1)(h)); then deleted |
 | Reports & appeals | For trust/safety record and any legal need |
 | Admin action / audit logs | Up to 3 years, or longer only under a legal hold (Section 7) |
 | Client error logs / listing view logs | Up to 12 months |

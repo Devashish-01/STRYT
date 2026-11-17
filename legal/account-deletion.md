@@ -1,6 +1,6 @@
 # STRYT — Delete Your Account
 
-**Last Updated:** 12 November 2026
+**Last Updated:** 13 November 2026
 
 This page explains how to delete your STRYT account and what happens to your
 data when you do. It forms part of the [Privacy Policy](privacy-policy.md) and
@@ -72,7 +72,12 @@ Some limited data survives deletion. This is normal and is explained in full in
   you left about a seller, or an open dispute — may be kept in anonymised or
   minimal form for that party's records, for fraud prevention, and for legal
   defence.
-- **Audit and compliance logs** are retained for security and accountability.
+- **Your registration details** (name, alias, phone number, email address and
+  sign-up date) are kept in restricted storage for **180 days** after deletion,
+  as the IT Rules 2021 (rule 3(1)(h)) require, and are then deleted. Nobody else
+  can see them; they are disclosed only in answer to a lawful request.
+- **Audit and compliance logs** are retained for security and accountability (up
+  to 3 years).
 - **Anonymised or aggregate data** that no longer identifies you may be kept.
 - **Encrypted backups** may hold copies briefly until they cycle out.
 

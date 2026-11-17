@@ -27,7 +27,11 @@ begin
   perform pg_temp.chk(not has_function_privilege('authenticated', 'public.purge_old_rows()', 'execute'), 'users cannot run the clean-up');
 
   -- one old and one recent row in every table the clean-up touches
-  insert into public.events (name, created_at, user_id) values ('retention_test_old', v_old, null), ('retention_test_new', now(), null);
+  -- events.name is constrained to product event names in production; identify
+  -- these test rows by props instead of inventing event names.
+  insert into public.events (name, props, created_at, user_id)
+    values ('otp_sent', '{"retention_test":"old"}'::jsonb, v_old, null),
+           ('otp_verified', '{"retention_test":"new"}'::jsonb, now(), null);
   insert into public.client_errors (kind, message, created_at) values ('test', 'retention_test_old', v_old), ('test', 'retention_test_new', now());
   insert into public.business_view_logs (business_id, viewed_at) values (v_biz, v_old), (v_biz, now() - interval '1 minute');
   insert into public.notifications (user_id, type, title, body, created_at)
@@ -63,8 +67,8 @@ begin
   perform pg_temp.chk(not exists (select 1 from private.deleted_account_registrations where user_id = v_user), 'deleted after 180 days');
 
   -- old rows are gone, recent ones stay
-  perform pg_temp.chk(not exists (select 1 from public.events where name = 'retention_test_old'), 'old event deleted');
-  perform pg_temp.chk(exists (select 1 from public.events where name = 'retention_test_new'), 'recent event kept');
+  perform pg_temp.chk(not exists (select 1 from public.events where props->>'retention_test' = 'old'), 'old event deleted');
+  perform pg_temp.chk(exists (select 1 from public.events where props->>'retention_test' = 'new'), 'recent event kept');
   perform pg_temp.chk(not exists (select 1 from public.client_errors where message = 'retention_test_old'), 'old error deleted');
   perform pg_temp.chk(exists (select 1 from public.client_errors where message = 'retention_test_new'), 'recent error kept');
   perform pg_temp.chk(not exists (select 1 from public.business_view_logs where business_id = v_biz and viewed_at = v_old), 'old view deleted');
