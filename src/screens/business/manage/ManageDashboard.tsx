@@ -61,19 +61,19 @@ export default function ManageDashboard() {
     `delivery:awaiting:${id}`,
   );
   const waitingForRider = (awaitingDeliveries ?? []).length;
-  const { data: queue, refetch: refetchQueue } = useQueryWithRealtime(
+  const { data: queue, loading: queueLoading, error: queueError, refetch: refetchQueue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
   );
-  const { data: appointments, refetch: refetchAppointments } = useQueryWithRealtime(
+  const { data: appointments, loading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
   );
-  const { data: customPayments } = useQueryWithRealtime(
+  const { data: customPayments, loading: customLoading, error: customError, refetch: refetchCustom } = useQueryWithRealtime(
     () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
   );
-  const { data: pendingBulkDeposits, refetch: refetchBulkDeposits } = useQueryWithRealtime(
+  const { data: pendingBulkDeposits, loading: bulkLoading, error: bulkError, refetch: refetchBulkDeposits } = useQueryWithRealtime(
     () => bulkService.pendingDepositsForBusiness(id), "bulk_deal_pledges", [id], undefined, `business:${id}:bulk-deposits`,
   );
-  const { data: questions, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
+  const { data: questions, loading: questionsLoading, error: questionsError, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
     () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`,
   );
   const { data: reviews } = useQueryWithRealtime(
@@ -405,57 +405,97 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (
-          <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="row between center-v" style={{ marginBottom: 8 }}>
-              <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>{t("mdash_action_needed")}</span>
-              {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
-            </div>
-            {actionCount === 0 ? (
-              <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">{t("mdash_all_caught_up")}</span></div>
-            ) : (
-              <div className="col gap-10">
-                {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => (
-                  <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
-                  </TodayAction>
-                ))}
+        {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (() => {
+          const triageError = !!(appointmentsError || queueError || customError || bulkError || questionsError);
+          const triageLoading = (appointmentsLoading && !appointments) || (queueLoading && !queue) || (customLoading && !customPayments) || (bulkLoading && !pendingBulkDeposits) || (questionsLoading && !questions);
+          const hasAnyActionData = !!(appointments || queue || customPayments || pendingBulkDeposits || questions);
+          const refetchTriage = () => {
+            refetchAppointments();
+            refetchQueue();
+            refetchCustom();
+            refetchBulkDeposits();
+            refetchQuestions();
+          };
 
-                {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
-                  <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>{t("confirm")}</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>{t("mdash_reject")}</button>
-                  </TodayAction>
-                ))}
-
-                {hasScope("queue") && queueClaims.slice(0, 3).map((item) => (
-                  <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle={t("mdash_queue_payment")}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>{t("confirm")}</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>{t("mdash_reject")}</button>
-                  </TodayAction>
-                ))}
-
-                {hasScope("catalog") && bulkDepositClaims.slice(0, 3).map((item) => (
-                  <TodayAction key={`bulk-deposit-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.pledgerName || "A pledger"} claims ${inr(item.depositAmount ?? 0)}`} subtitle={item.dealTitle}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, true)}>{t("confirm")}</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, false)}>{t("mdash_reject")}</button>
-                  </TodayAction>
-                ))}
-
-                {hasScope("leads") && unanswered.slice(0, 2).map((question) => (
-                  <div key={question.id} className="card" style={{ padding: 14 }}>
-                    <div className="row gap-10 center-v"><HelpCircle size={18} color="var(--blue-500)" /><div className="grow"><div className="semi small">{question.question}</div><div className="tiny muted">Asked by {question.askerName}</div></div></div>
-                    {answeringId === question.id ? (
-                      <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder={t("mdash_answer_placeholder")} onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>{t("cancel")}</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>{t("mdash_post_answer")}</button></div></div>
-                    ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>{t("mdash_answer_now")}</button>}
-                  </div>
-                ))}
+          return (
+            <section className="page-pad" style={{ paddingTop: 0 }}>
+              <div className="row between center-v" style={{ marginBottom: 8 }}>
+                <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>{t("mdash_action_needed")}</span>
+                {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
               </div>
-            )}
-            {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">{t("mdash_reviews_link")}</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
-          </section>
-        )}
+
+              {triageError && !hasAnyActionData ? (
+                <div className="card col center gap-8" style={{ padding: 18 }}>
+                  <span className="small muted">Couldn't load pending action items</span>
+                  <button className="btn btn-outline btn-sm" onClick={refetchTriage}>Retry</button>
+                </div>
+              ) : triageLoading && !hasAnyActionData ? (
+                <div className="card col gap-8" style={{ padding: 14 }}>
+                  <Skeleton h={16} w="60%" />
+                  <Skeleton h={38} />
+                </div>
+              ) : (
+                <>
+                  {triageError && hasAnyActionData && (
+                    <div className="row between center-v" style={{ padding: "8px 12px", marginBottom: 8, background: "var(--red-50)", border: "1px solid var(--red-200)", borderRadius: 10 }}>
+                      <span className="tiny semi" style={{ color: "var(--red-700)" }}>Some action updates couldn't be refreshed.</span>
+                      <button className="btn btn-ghost btn-xs" style={{ minHeight: 28 }} onClick={refetchTriage}>Retry</button>
+                    </div>
+                  )}
+
+                  {actionCount === 0 && !triageError ? (
+                    <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">{t("mdash_all_caught_up")}</span></div>
+                  ) : actionCount === 0 && triageError ? (
+                    <div className="card col center gap-8" style={{ padding: 18 }}>
+                      <span className="small muted">Couldn't verify pending actions</span>
+                      <button className="btn btn-outline btn-sm" onClick={refetchTriage}>Retry</button>
+                    </div>
+                  ) : (
+                    <div className="col gap-10">
+                      {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => (
+                        <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
+                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
+                          <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
+                        </TodayAction>
+                      ))}
+
+                      {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
+                        <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
+                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>{t("confirm")}</button>
+                          <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>{t("mdash_reject")}</button>
+                        </TodayAction>
+                      ))}
+
+                      {hasScope("queue") && queueClaims.slice(0, 3).map((item) => (
+                        <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle={t("mdash_queue_payment")}>
+                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>{t("confirm")}</button>
+                          <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>{t("mdash_reject")}</button>
+                        </TodayAction>
+                      ))}
+
+                      {hasScope("catalog") && bulkDepositClaims.slice(0, 3).map((item) => (
+                        <TodayAction key={`bulk-deposit-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.pledgerName || "A pledger"} claims ${inr(item.depositAmount ?? 0)}`} subtitle={item.dealTitle}>
+                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, true)}>{t("confirm")}</button>
+                          <button className="btn btn-outline btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, false)}>{t("mdash_reject")}</button>
+                        </TodayAction>
+                      ))}
+
+                      {hasScope("leads") && unanswered.slice(0, 2).map((question) => (
+                        <div key={question.id} className="card" style={{ padding: 14 }}>
+                          <div className="row gap-10 center-v"><HelpCircle size={18} color="var(--blue-500)" /><div className="grow"><div className="semi small">{question.question}</div><div className="tiny muted">Asked by {question.askerName}</div></div></div>
+                          {answeringId === question.id ? (
+                            <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder={t("mdash_answer_placeholder")} onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>{t("cancel")}</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>{t("mdash_post_answer")}</button></div></div>
+                          ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>{t("mdash_answer_now")}</button>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">{t("mdash_reviews_link")}</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
+            </section>
+          );
+        })()}
 
         {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>

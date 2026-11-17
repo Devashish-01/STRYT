@@ -10,6 +10,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
   Share2, IndianRupee, Ban, Package, MapPin, MessageCircle,
@@ -912,13 +913,14 @@ export default function BusinessAppointments() {
       </div>
 
       {/* Response Note Modal (Accept / Decline / Cancel) */}
-      {activeApt && actionType && (
-        <div className="overlay" onClick={() => { if (!updatingStatus) { setActiveApt(null); setActionType(null); } }}>
-          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="bold large" style={{ fontSize: 16 }}>
-              {actionType === "ACCEPT" ? `Accept ${vocab.nounCap}` : actionType === "REJECT" ? `Decline ${vocab.nounCap}` : `Cancel ${vocab.nounCap}`}
-            </div>
+      <AccessibleSheet
+        isOpen={Boolean(activeApt && actionType)}
+        onClose={() => { if (!updatingStatus) { setActiveApt(null); setActionType(null); } }}
+        title={actionType === "ACCEPT" ? `Accept ${vocab.nounCap}` : actionType === "REJECT" ? `Decline ${vocab.nounCap}` : `Cancel ${vocab.nounCap}`}
+        variant="bottom-sheet"
+      >
+        {activeApt && actionType && (
+          <div className="col gap-14">
             <div className="tiny muted">
               {actionType === "CANCEL"
                 ? `Add a reason for cancelling ${activeApt.customerName}'s ${vocab.noun} (the customer will see this).`
@@ -1010,24 +1012,25 @@ export default function BusinessAppointments() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AccessibleSheet>
 
       {/* Payment confirm/reject modal */}
-      {paymentAction && (
-        <div className="overlay" onClick={() => { if (!processingPayment) setPaymentAction(null); }}>
-          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="bold" style={{ fontSize: 16 }}>
-              {paymentAction.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
-            </div>
+      <AccessibleSheet
+        isOpen={Boolean(paymentAction)}
+        onClose={() => { if (!processingPayment) setPaymentAction(null); }}
+        title={paymentAction?.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
+        variant="bottom-sheet"
+      >
+        {paymentAction && (
+          <div className="col gap-14">
             <div className="tiny muted" style={{ lineHeight: 1.6 }}>
               {paymentAction.action === "CONFIRM"
                 ? `This will mark ${paymentAction.apt.customerName}'s ${vocab.noun} as fully paid. Make sure you've checked your bank app or UPI history before confirming.`
                 : `The customer will be notified that you couldn't verify their payment. They can retry. Repeated false claims are tracked.`}
             </div>
             {paymentAction.action === "CONFIRM" && paymentAction.apt.paymentAmount && (
-              <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
+              <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>{inr(paymentAction.apt.paymentAmount)}</div>
             )}
             <div className="row gap-8 end">
               <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>{t("back_word")}</button>
@@ -1040,8 +1043,8 @@ export default function BusinessAppointments() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AccessibleSheet>
 
       {/* Block slot / whole day modal */}
       {blockModal && (
@@ -1098,38 +1101,37 @@ export default function BusinessAppointments() {
       )}
 
       {/* Agent picker for the selected batch */}
-      {batchAgentPicking && (
-        <div className="overlay" onClick={() => { if (!batchAssigning) setBatchAgentPicking(false); }}>
-          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="bold" style={{ fontSize: 16 }}>
-              Assign {selectedForBatch.size} {selectedForBatch.size === 1 ? "delivery" : "deliveries"} to…
+      <AccessibleSheet
+        isOpen={batchAgentPicking}
+        onClose={() => { if (!batchAssigning) setBatchAgentPicking(false); }}
+        title={`Assign ${selectedForBatch.size} ${selectedForBatch.size === 1 ? "delivery" : "deliveries"} to…`}
+        variant="bottom-sheet"
+      >
+        <div className="col gap-14">
+          <div className="tiny muted">{t("bapt_whole_run")}</div>
+          {(deliveryTeam ?? []).length === 0 ? (
+            <div className="tiny muted">{t("bapt_no_delivery_team")}</div>
+          ) : (
+            <div className="col gap-8">
+              {(deliveryTeam ?? []).map((m) => (
+                <button
+                  key={m.userId}
+                  type="button"
+                  className="row gap-10 center-v"
+                  disabled={batchAssigning}
+                  onClick={() => assignBatchToAgent(m.userId)}
+                  style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--ink-200)", textAlign: "left" }}
+                >
+                  <Package size={16} color="var(--delivery-600)" />
+                  <span className="semi small grow">{m.name}</span>
+                  {batchAssigning && <span className="tiny muted">…</span>}
+                </button>
+              ))}
             </div>
-            <div className="tiny muted">{t("bapt_whole_run")}</div>
-            {(deliveryTeam ?? []).length === 0 ? (
-              <div className="tiny muted">{t("bapt_no_delivery_team")}</div>
-            ) : (
-              <div className="col gap-8">
-                {(deliveryTeam ?? []).map((m) => (
-                  <button
-                    key={m.userId}
-                    type="button"
-                    className="row gap-10 center-v"
-                    disabled={batchAssigning}
-                    onClick={() => assignBatchToAgent(m.userId)}
-                    style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--ink-200)", textAlign: "left" }}
-                  >
-                    <Package size={16} color="var(--delivery-600)" />
-                    <span className="semi small grow">{m.name}</span>
-                    {batchAssigning && <span className="tiny muted">…</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-            <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>{t("cancel")}</button>
-          </div>
+          )}
+          <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>{t("cancel")}</button>
         </div>
-      )}
+      </AccessibleSheet>
 
       {paymentModalApt && (
         <RecordPaymentModal

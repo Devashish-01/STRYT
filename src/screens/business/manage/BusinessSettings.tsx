@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { businessService, bustBusinessGetCache, profileControlService, uploadService, userService } from "@/services";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
-import { ErrorView } from "@/components/states";
+import { ErrorView, Skeleton } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2, Star, MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -13,6 +13,7 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryTermsEditor from "@/components/delivery/DeliveryTermsEditor";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
@@ -24,9 +25,13 @@ export default function BusinessSettings() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: business, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const [ownerEnabled, setOwnerEnabled] = useState(true);
+  const [savingOwnerEnabled, setSavingOwnerEnabled] = useState(false);
   const [accepting, setAccepting] = useState(true);
+  const [savingAccepting, setSavingAccepting] = useState(false);
+  const [savingBookingsOn, setSavingBookingsOn] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
   // "New leads"/"New reviews" have no notification-emission trigger yet (no
   // insert into public.notifications is fired by the leads or ratings
   // tables) — localStorage-only until that trigger exists. "Matching
@@ -125,8 +130,81 @@ export default function BusinessSettings() {
     );
   }
 
-  function persist(patch: Record<string, unknown>) {
-    void businessService.update(id, patch as any).catch(() => showToast(t("cpd_save_failed")));
+  if (bizError && !business) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title={t("settings")} />
+        <div className="page-pad" style={{ marginTop: 20 }}>
+          <ErrorView error={bizError} onRetry={() => refetchBiz()} />
+        </div>
+        <ManageNav bizId={id} />
+      </div>
+    );
+  }
+
+  if (bizLoading && !business) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title={t("settings")} />
+        <div className="page-pad col gap-12" style={{ marginTop: 20 }}>
+          <Skeleton h={80} r={14} mb={0} />
+          <Skeleton h={140} r={14} mb={0} />
+          <Skeleton h={100} r={14} mb={0} />
+        </div>
+        <ManageNav bizId={id} />
+      </div>
+    );
+  }
+
+  async function toggleShowPhone(v: boolean) {
+    const prev = showPhone;
+    setShowPhone(v);
+    setSavingPrivacy(true);
+    try {
+      await businessService.update(id, { showPhonePublicly: v } as any);
+      showToast(v ? "Phone number visible publicly" : "Phone number hidden from profile");
+      bustBusinessGetCache(id);
+      void refetchBiz();
+    } catch {
+      setShowPhone(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
+
+  async function toggleShowEmail(v: boolean) {
+    const prev = showEmail;
+    setShowEmail(v);
+    setSavingPrivacy(true);
+    try {
+      await businessService.update(id, { showEmailPublicly: v } as any);
+      showToast(v ? "Email address visible publicly" : "Email hidden from profile");
+      bustBusinessGetCache(id);
+      void refetchBiz();
+    } catch {
+      setShowEmail(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
+
+  async function toggleLocPublic(v: boolean) {
+    const prev = locPublic;
+    setLocPublic(v);
+    setSavingPrivacy(true);
+    try {
+      await businessService.update(id, { locationPublic: v } as any);
+      showToast(v ? "Exact location visible publicly" : "Exact location hidden from profile");
+      bustBusinessGetCache(id);
+      void refetchBiz();
+    } catch {
+      setLocPublic(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
   }
   async function saveEmail() {
     setSavingEmail(true);
@@ -232,14 +310,18 @@ export default function BusinessSettings() {
   }
 
   async function handleToggleVisibility(v: boolean) {
+    const prev = ownerEnabled;
     setOwnerEnabled(v);
+    setSavingOwnerEnabled(true);
     try {
       await profileControlService.setEnabled("BUSINESS", id, v);
       showToast(v ? "Business is now visible publicly" : "Business is hidden from discovery");
       void refetchBiz();
     } catch (err) {
-      setOwnerEnabled(!v);
+      setOwnerEnabled(prev);
       showToast(errorMessage(err, "Failed to update visibility"));
+    } finally {
+      setSavingOwnerEnabled(false);
     }
   }
 
@@ -255,27 +337,35 @@ export default function BusinessSettings() {
   }
 
   async function toggleBookingsEnabled(v: boolean) {
+    const prev = bookingsOn;
     setBookingsOn(v);
+    setSavingBookingsOn(true);
     try {
       await businessService.update(id, { bookingsEnabled: v } as any);
       showToast(v ? "Bookings are on for this page" : "Bookings are off — your page shows products/services only, no booking button");
       void refetchBiz();
     } catch {
-      setBookingsOn(!v);
+      setBookingsOn(prev);
       showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingBookingsOn(false);
     }
   }
 
   async function toggleAccepting(v: boolean) {
+    const prev = accepting;
     setAccepting(v);
+    setSavingAccepting(true);
     try {
       await businessService.update(id, { isOpenNow: v } as any);
       showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBiz();
     } catch (err) {
-      setAccepting(!v);
+      setAccepting(prev);
       showToast(errorMessage(err, "Couldn't save — try again"));
+    } finally {
+      setSavingAccepting(false);
     }
   }
 
@@ -285,7 +375,7 @@ export default function BusinessSettings() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
 
         <SettingsSection title={t("bset_visibility")}>
-          <SettingsToggleRow label={t("bset_show_publicly")} on={ownerEnabled} onChange={handleToggleVisibility} />
+          <SettingsToggleRow label={t("bset_show_publicly")} on={ownerEnabled} disabled={savingOwnerEnabled} onChange={handleToggleVisibility} />
         </SettingsSection>
 
         {/* Business Packages — the choice made visible and changeable for
@@ -302,6 +392,7 @@ export default function BusinessSettings() {
             label={t("bset_take_bookings")}
             hint={bookingsOn ? t("bset_bookings_on") : t("bset_bookings_off")}
             on={bookingsOn}
+            disabled={savingBookingsOn}
             onChange={toggleBookingsEnabled}
           />
         </SettingsSection>
@@ -313,8 +404,18 @@ export default function BusinessSettings() {
             hint={t("bset_customer_reviews_hint")}
             onClick={() => nav(`/business/${id}/manage/reviews`)}
           />
-          <SettingsToggleRow label={t("bset_new_leads")} on={leads} onChange={setLeads} />
-          <SettingsToggleRow label={t("bset_new_reviews")} on={reviewsN} onChange={setReviewsN} />
+          <SettingsToggleRow
+            label={t("bset_new_leads")}
+            hint="Saved on this device. Live push notifications for new leads coming soon."
+            on={leads}
+            onChange={setLeads}
+          />
+          <SettingsToggleRow
+            label={t("bset_new_reviews")}
+            hint="Saved on this device. Live push notifications for new reviews coming soon."
+            on={reviewsN}
+            onChange={setReviewsN}
+          />
           <SettingsToggleRow
             label={t("bset_matching_requests")}
             hint={t("bset_matching_requests_hint")}
@@ -331,6 +432,7 @@ export default function BusinessSettings() {
             label={t("bset_accepting")}
             hint={accepting ? t("bset_accepting_on") : t("bset_accepting_off")}
             on={accepting}
+            disabled={savingAccepting}
             onChange={toggleAccepting}
           />
         </SettingsSection>
@@ -548,9 +650,9 @@ export default function BusinessSettings() {
               </button>
             </div>
           </div>
-          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
-          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
-          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
+          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} disabled={savingPrivacy} onChange={toggleShowPhone} />
+          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} disabled={savingPrivacy} onChange={toggleShowEmail} />
+          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} disabled={savingPrivacy} onChange={toggleLocPublic} />
         </SettingsSection>
 
         <SettingsSection title={t("bset_account")}>
@@ -574,93 +676,85 @@ export default function BusinessSettings() {
           />
         </SettingsSection>
 
-        {deleteOpen && (
-          <div className="overlay" onClick={() => !deleting && setDeleteOpen(false)}>
-            <div className="sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>Delete {business?.name || "this business"}?</h3>
-              <p className="small muted" style={{ marginBottom: 14 }}>
-                It disappears from search, the map and nearby feeds, and your team loses access.
-                Bookings customers already have with you are kept, so nobody loses their history.
-                This can't be undone from the app.
-              </p>
-              <label htmlFor="businesssettings-delete-confirm" className="tiny semi" style={{ display: "block", marginBottom: 6 }}>
-                Type <b>DELETE</b> to confirm
-              </label>
-              <input id="businesssettings-delete-confirm"
-                className="input"
-                value={deleteConfirm}
-                disabled={deleting}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder="DELETE"
-                autoFocus
-              />
-              <button
-                className="btn btn-block"
-                style={{ marginTop: 14, height: 48, background: deleteConfirm.trim().toUpperCase() === "DELETE" ? "var(--red-500)" : "var(--ink-200)", color: "#fff", fontWeight: 700 }}
-                disabled={deleting || deleteConfirm.trim().toUpperCase() !== "DELETE"}
-                onClick={async () => {
-                  setDeleting(true);
-                  try {
-                    await businessService.delete(id);
-                    showToast(t("bset_business_deleted"));
-                    setContext({ type: "customer", id: null, name: "Personal" });
-                    await refreshUser();
-                    nav("/home");
-                  } catch (e: any){
-                    // Surfaces the server's own reason — e.g. "You have 3
-                    // upcoming booking(s)" — which is actionable, unlike a
-                    // generic failure.
-                    showToast(e?.message || "Couldn't delete this business");
-                    setDeleting(false);
-                  }
-                }}
-              >
-                {deleting ? "Deleting…" : "Delete permanently"}
-              </button>
-              <button
-                className="btn btn-block"
-                style={{ marginTop: 8, height: 44, background: "transparent", color: "var(--ink-600)" }}
-                disabled={deleting}
-                onClick={() => setDeleteOpen(false)}
-              >
-                Keep my business
-              </button>
-            </div>
-          </div>
-        )}
+        <AccessibleSheet
+          isOpen={deleteOpen}
+          onClose={() => !deleting && setDeleteOpen(false)}
+          title={`Delete ${business?.name || "this business"}?`}
+          description="It disappears from search, the map and nearby feeds, and your team loses access. Bookings customers already have with you are kept, so nobody loses their history. This can't be undone from the app."
+          variant="bottom-sheet"
+        >
+          <label htmlFor="businesssettings-delete-confirm" className="tiny semi" style={{ display: "block", marginBottom: 6 }}>
+            Type <b>DELETE</b> to confirm
+          </label>
+          <input id="businesssettings-delete-confirm"
+            className="input"
+            value={deleteConfirm}
+            disabled={deleting}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            placeholder="DELETE"
+            autoFocus
+          />
+          <button
+            className="btn btn-block"
+            style={{ marginTop: 14, height: 48, background: deleteConfirm.trim().toUpperCase() === "DELETE" ? "var(--red-500)" : "var(--ink-200)", color: "#fff", fontWeight: 700 }}
+            disabled={deleting || deleteConfirm.trim().toUpperCase() !== "DELETE"}
+            onClick={async () => {
+              setDeleting(true);
+              try {
+                await businessService.delete(id);
+                showToast(t("bset_business_deleted"));
+                setContext({ type: "customer", id: null, name: "Personal" });
+                await refreshUser();
+                nav("/home");
+              } catch (e: any){
+                // Surfaces the server's own reason — e.g. "You have 3
+                // upcoming booking(s)" — which is actionable, unlike a
+                // generic failure.
+                showToast(e?.message || "Couldn't delete this business");
+                setDeleting(false);
+              }
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete permanently"}
+          </button>
+          <button
+            className="btn btn-block"
+            style={{ marginTop: 8, height: 44, background: "transparent", color: "var(--ink-600)" }}
+            disabled={deleting}
+            onClick={() => setDeleteOpen(false)}
+          >
+            Keep my business
+          </button>
+        </AccessibleSheet>
 
-        {packagePicking && (
-          <div className="overlay" onClick={() => setPackagePicking(false)}>
-            <div className="sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>{t("bset_choose_page_type")}</h3>
-              <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
-                Controls your page's layout, CTA wording, and the owner-side catalogue form.
-              </p>
-              <div className="col gap-8">
-                {PACKAGE_KEYS.map((key) => {
-                  const p = BUSINESS_PACKAGES[key];
-                  const active = pkg.key === key;
-                  return (
-                    <button
-                      key={key}
-                      className="card row gap-10"
-                      style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--brand-600)" : "1px solid var(--line)" }}
-                      onClick={() => savePackage(key)}
-                    >
-                      <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
-                      <span className="grow" style={{ minWidth: 0 }}>
-                        <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
-                        <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        <AccessibleSheet
+          isOpen={packagePicking}
+          onClose={() => setPackagePicking(false)}
+          title={t("bset_choose_page_type")}
+          description="Controls your page's layout, CTA wording, and the owner-side catalogue form."
+          variant="bottom-sheet"
+        >
+          <div className="col gap-8">
+            {PACKAGE_KEYS.map((key) => {
+              const p = BUSINESS_PACKAGES[key];
+              const active = pkg.key === key;
+              return (
+                <button
+                  key={key}
+                  className="card row gap-10"
+                  style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--brand-600)" : "1px solid var(--line)" }}
+                  onClick={() => savePackage(key)}
+                >
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
+                    <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </AccessibleSheet>
       </div>
       <ManageNav bizId={id} />
     </div>

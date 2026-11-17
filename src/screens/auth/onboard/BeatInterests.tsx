@@ -36,7 +36,7 @@ export function BeatInterests({
   onSkip: () => void;
 }) {
   const { t, tf } = useI18n();
-  const { data, loading } = useQuery(() => catalogService.getCategories(), [], "categories");
+  const { data, loading, error, refetch } = useQuery(() => catalogService.getCategories(), [], "categories");
   const groups = (data ?? []).filter((c) => c.parentId === null);
   const [picked, setPicked] = useState<string[]>(initial ?? []);
 
@@ -48,12 +48,25 @@ export function BeatInterests({
     <BeatFrame
       title={t("ob_beat4_title")}
       sub={t("ob_beat4_sub")}
-      ctaLabel={t("ob_beat4_finish")}
+      ctaLabel={error ? "Continue without topics" : t("ob_beat4_finish")}
       ctaBusy={busy}
-      onCta={() => onDone(picked)}
+      ctaDisabled={loading}
+      onCta={() => (error ? onSkip() : onDone(picked))}
       onSkip={onSkip}
     >
-      {loading ? (
+      {error ? (
+        <div className="card col gap-10" style={{ padding: 14, textAlign: "center" }}>
+          <p className="small muted">Couldn't load categories. You can retry loading them or continue without selecting topics now.</p>
+          <div className="row center gap-8">
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void refetch()}>
+              Retry
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onSkip}>
+              Continue without topics
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="onb-interests" aria-hidden="true">
           {[112, 96, 132, 88, 120, 104, 90, 126].map((w, i) => <span key={i} className="onb-skel" style={{ width: w }} />)}
         </div>
@@ -74,7 +87,7 @@ export function BeatInterests({
           ))}
         </div>
       )}
-      {picked.length > 0 && <p className="onb-hint" aria-live="polite">{tf("ob_picked_count", { n: picked.length })}</p>}
+      {!error && picked.length > 0 && <p className="onb-hint" aria-live="polite">{tf("ob_picked_count", { n: picked.length })}</p>}
     </BeatFrame>
   );
 }

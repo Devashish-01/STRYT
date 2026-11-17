@@ -291,9 +291,9 @@ h3, .h3 {
 }
 
 .tiny {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.35;
   color: var(--ink-500);
 }
 
@@ -1620,10 +1620,11 @@ textarea.input {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--ink-400);
   position: relative;
+  min-height: 48px;
 }
 .nav-item.active { color: var(--brand-700); }
 /* A tab may shrink below its label's width, and the label shortens with "…", instead of pushing the last tab off
@@ -3214,6 +3215,7 @@ button.set-row:active {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    text-decoration: none;
     transition: all 0.15s ease;
   }
 

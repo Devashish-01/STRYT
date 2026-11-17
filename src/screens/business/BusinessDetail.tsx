@@ -844,16 +844,39 @@ export default function BusinessDetail() {
                   {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
                     <div key={q.id} className="card card-condensed row gap-10">
                       {/* Guests see the upvote count, but can't cast one. Same for owners. */}
-                      <div
-                        className="col center"
-                        onClick={isGuest || isOwner ? undefined : () => toggleQuestionUpvote(q)}
-                        role={isGuest || isOwner ? undefined : "button"}
-                        aria-label={isGuest || isOwner ? undefined : "Upvote question"}
-                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)", cursor: isGuest || isOwner ? "default" : "pointer" }}
-                      >
-                        <ThumbsUp size={16} weight={q.upvoted ? "fill" : "regular"} />
-                        <span className="tiny semi">{q.upvotes}</span>
-                      </div>
+                      {isGuest || isOwner ? (
+                        <div
+                          className="col center"
+                          style={{ gap: 2, flexShrink: 0, color: "var(--ink-400)", cursor: "default", minWidth: 44, minHeight: 44, justifyContent: "center" }}
+                          aria-label={`${q.upvotes} upvotes`}
+                        >
+                          <ThumbsUp size={16} weight="regular" />
+                          <span className="tiny semi">{q.upvotes}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="col center"
+                          onClick={() => toggleQuestionUpvote(q)}
+                          aria-pressed={q.upvoted}
+                          aria-label={`Upvote question (${q.upvotes} upvotes)`}
+                          style={{
+                            gap: 2,
+                            flexShrink: 0,
+                            color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)",
+                            cursor: "pointer",
+                            minWidth: 44,
+                            minHeight: 44,
+                            justifyContent: "center",
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                          }}
+                        >
+                          <ThumbsUp size={16} weight={q.upvoted ? "fill" : "regular"} />
+                          <span className="tiny semi">{q.upvotes}</span>
+                        </button>
+                      )}
                       <div className="grow">
                         <div className="row between">
                           <span className="semi small">{q.askerName}</span>

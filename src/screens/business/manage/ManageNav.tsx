@@ -196,6 +196,7 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
             className="manage-home-hit"
             aria-label={open ? t("bdial_close") : t("bdial_home_aria")}
             aria-expanded={open}
+            aria-haspopup="dialog"
             onClick={onClick}
             onKeyDown={onKeyDown}
             onPointerDown={onPointerDown}

@@ -1,13 +1,15 @@
 import { adminService } from "@/services/core/adminService";
 import { useQuery } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { Store, Briefcase, Flag, Users, TrendingUp } from "@/components/Icons";
 import { Stat, Sep } from "./adminPrimitives";
 
 export function AdminDashboard() {
-  const { data, loading } = useQuery(() => adminService.overview(), [], "admin:overview");
+  const { data, loading, error, refetch } = useQuery(() => adminService.overview(), [], "admin:overview");
   if (loading) return <div className="page-pad"><Skeleton h={120} /></div>;
-  const d = data!;
+  if (error) return <div className="page-pad"><ErrorView error={error} onRetry={refetch} /></div>;
+  if (!data) return <div className="page-pad"><ErrorView error={{ code: "UNKNOWN", message: "Failed to load admin overview." } as any} onRetry={refetch} /></div>;
+  const d = data;
   const cards = [
     { label: "Businesses", value: d.businesses, icon: Store, color: "var(--orange-500)" },
     { label: "Providers", value: d.providers, icon: Briefcase, color: "var(--green-500)" },

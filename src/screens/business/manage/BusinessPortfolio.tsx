@@ -8,6 +8,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 export default function BusinessPortfolio() {
   const { id = "" } = useParams();
@@ -168,11 +169,14 @@ export default function BusinessPortfolio() {
           ))}
         </div>
       </div>
-      {confirmDelete && (
-        <div className="overlay" onClick={() => !deleting && setConfirmDelete(null)}>
-          <div className="sheet" role="dialog" aria-label="Remove this work sample?" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 6 }}>Remove this work sample?</h3>
+      <AccessibleSheet
+        isOpen={Boolean(confirmDelete)}
+        onClose={() => !deleting && setConfirmDelete(null)}
+        title="Remove this work sample?"
+        variant="bottom-sheet"
+      >
+        {confirmDelete && (
+          <div>
             <p className="small muted" style={{ marginBottom: 14 }}>It disappears from your shop profile straight away. You can upload it again later.</p>
             <SafeImg src={confirmDelete.url} className="thumb" style={{ width: "100%", height: 150, borderRadius: 14, objectFit: "cover", marginBottom: 14 }} />
             <div className="row gap-10">
@@ -182,8 +186,8 @@ export default function BusinessPortfolio() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AccessibleSheet>
       <ManageNav bizId={id} />
     </div>
   );

@@ -17,6 +17,9 @@ import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SelectableChip } from "@/components/ui/SelectableChip";
 
 
 export function CatalogManager({ kind }: { kind: Kind }) {
@@ -179,27 +182,22 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         />
       )}
 
-      {confirmDelete && (
-        <div className="overlay" onClick={() => setConfirmDelete(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 6 }}>Delete {confirmDelete.name}?</h3>
-            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
-              This item will be permanently removed from your {bizTheme.catalogNoun.toLowerCase()} list.
-            </p>
-            <div className="col gap-8">
-              <button
-                className="btn btn-block"
-                style={{ background: "var(--red-500)", color: "var(--white)" }}
-                onClick={() => { const it = confirmDelete; setConfirmDelete(null); remove(it); }}
-              >
-                Yes, delete item
-              </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDelete(null)}>{t("cancel")}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          if (confirmDelete) {
+            const it = confirmDelete;
+            setConfirmDelete(null);
+            remove(it);
+          }
+        }}
+        title={`Delete ${confirmDelete?.name}?`}
+        description={`This item will be permanently removed from your ${bizTheme.catalogNoun.toLowerCase()} list.`}
+        confirmLabel="Yes, delete item"
+        cancelLabel={t("cancel")}
+        destructive
+      />
       {kind === "business" ? <ManageNav bizId={id} /> : <ProviderManageNav pid={id} />}
     </div>
   );
@@ -311,145 +309,197 @@ export function ItemEditor({
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? `Edit ${bizTheme.itemNounSingular}` : `New ${bizTheme.itemNounSingular}`}</h3>
+    <AccessibleSheet
+      isOpen={true}
+      onClose={onClose}
+      title={item ? `Edit ${bizTheme.itemNounSingular}` : `New ${bizTheme.itemNounSingular}`}
+      variant="bottom-sheet"
+    >
+      {/* Photo picker */}
+      <div style={{ position: "relative", marginBottom: 14 }}>
+        <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--line)", overflow: "hidden", cursor: "pointer", background: "var(--ink-50)" }}>
+          {image
+            ? <SafeImg src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
+                <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
+              </span>
+          }
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickImage} disabled={uploading} />
+        </label>
+        {image && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs"
+            aria-label="Remove photo"
+            style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "var(--white)", borderRadius: 6 }}
+            onClick={(e) => { e.stopPropagation(); setImage(""); }}
+          >
+            Remove photo
+          </button>
+        )}
+      </div>
 
-        {/* Photo picker */}
-        <div style={{ position: "relative", marginBottom: 14 }}>
-          <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--line)", overflow: "hidden", cursor: "pointer", background: "var(--ink-50)" }}>
-            {image
-              ? <SafeImg src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
-                  <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
-                </span>
-            }
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickImage} disabled={uploading} />
-          </label>
-          {image && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-xs"
-              style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "var(--white)", borderRadius: 6 }}
-              onClick={(e) => { e.stopPropagation(); setImage(""); }}
+      <div className="col gap-12">
+        <div className="field">
+          <label htmlFor="catalogmanager-name">{t("cat_name")}</label>
+          <input id="catalogmanager-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
+        </div>
+        <div className="field">
+          <label htmlFor="catalogmanager-description">{t("cat_description")}</label>
+          <input id="catalogmanager-description" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t("cat_desc_placeholder")} />
+        </div>
+        <div className="row gap-10">
+          <div className="field grow">
+            <label htmlFor="catalogmanager-price">{t("cat_price")}</label>
+            <input id="catalogmanager-price" className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+          </div>
+          <div className="field grow">
+            <label htmlFor="catalogmanager-sale-price">{t("cat_sale_price")}</label>
+            <input id="catalogmanager-sale-price" className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_optional_placeholder")} />
+          </div>
+        </div>
+        {saleTooHigh && <div className="tiny" style={{ color: "var(--red-600)" }}>{t("cat_sale_too_high")}</div>}
+
+        {/* Inventory mode — countable stock vs an always-available service */}
+        <div className="field">
+          <label id="catalogmanager-availability-label">{t("cat_availability")}</label>
+          <div className="row gap-8" role="radiogroup" aria-labelledby="catalogmanager-availability-label">
+            <SelectableChip
+              role="radio"
+              selected={invType === "INFINITE"}
+              onClick={() => setInvType("INFINITE")}
+              style={{ flex: 1, justifyContent: "center" }}
             >
-              Remove photo
-            </button>
-          )}
+              {t("cat_always_available")}
+            </SelectableChip>
+            <SelectableChip
+              role="radio"
+              selected={invType === "FINITE"}
+              onClick={() => setInvType("FINITE")}
+              style={{ flex: 1, justifyContent: "center" }}
+            >
+              {t("cat_limited_stock")}
+            </SelectableChip>
+          </div>
+          <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+            {invType === "FINITE"
+              ? "Each booking uses one unit. Sells out at zero — raise the count to restock."
+              : "Services like a haircut or consultation — bookable any number of times."}
+          </p>
         </div>
 
-        <div className="col gap-12">
+        {invType === "FINITE" && (
           <div className="field">
-            <label htmlFor="catalogmanager-name">{t("cat_name")}</label>
-            <input id="catalogmanager-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
+            <label htmlFor="catalogmanager-quantity-in-stock">{t("cat_quantity")}</label>
+            <input id="catalogmanager-quantity-in-stock" className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_qty_placeholder")} />
           </div>
-          <div className="field">
-            <label htmlFor="catalogmanager-description">{t("cat_description")}</label>
-            <input id="catalogmanager-description" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t("cat_desc_placeholder")} />
-          </div>
-          <div className="row gap-10">
-            <div className="field grow"><label>{t("cat_price")}</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
-            <div className="field grow"><label>{t("cat_sale_price")}</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_optional_placeholder")} /></div>
-          </div>
-          {saleTooHigh && <div className="tiny" style={{ color: "var(--red-600)" }}>{t("cat_sale_too_high")}</div>}
+        )}
 
-          {/* Inventory mode — countable stock vs an always-available service */}
+        {/* Concurrency — how many of THIS service can run at the same time.
+            Separate from stock: 3 chairs is a capacity of 3 forever, not 3
+            units that sell out. Blank inherits the business default.
+            Business-only: providers are solo operators with no concurrency
+            to configure, and the server ignores these fields for them. */}
+        {kind === "business" && bizTheme.showSlotCapacitySection && (
           <div className="field">
-            <label>{t("cat_availability")}</label>
-            <div className="row gap-8">
-              <button className={`chip ${invType === "INFINITE" ? "active" : ""}`} onClick={() => setInvType("INFINITE")} style={{ flex: 1, justifyContent: "center" }}>{t("cat_always_available")}</button>
-              <button className={`chip ${invType === "FINITE" ? "active" : ""}`} onClick={() => setInvType("FINITE")} style={{ flex: 1, justifyContent: "center" }}>{t("cat_limited_stock")}</button>
+            <label htmlFor="catalogmanager-slot-capacity">{bizTheme.slotCapacityLabel}</label>
+            <div className="row gap-10">
+              <input id="catalogmanager-slot-capacity"
+                className="input grow"
+                inputMode="numeric"
+                value={slotCap}
+                onChange={(e) => setSlotCap(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder={`Business default${businessDefaultCapacity ? ` (${businessDefaultCapacity})` : ""}`}
+              />
+              <input
+                id="catalogmanager-max-party"
+                className="input grow"
+                inputMode="numeric"
+                value={maxParty}
+                aria-label={t("cat_spots_placeholder")}
+                onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder={t("cat_spots_placeholder")}
+              />
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              {invType === "FINITE"
-                ? "Each booking uses one unit. Sells out at zero — raise the count to restock."
-                : "Services like a haircut or consultation — bookable any number of times."}
+              Left: how many customers you can serve at one time slot (e.g. 3 chairs → 3).
+              {" "}
+              {slotCap.trim()
+                ? "This overrides your business default for this service only."
+                : businessDefaultCapacity
+                  ? `Blank = uses your business default of ${businessDefaultCapacity}.`
+                  : "Blank = uses your business default (set in Business → Settings)."}
+              {" "}Right: how many spots one customer may take in a single booking.
             </p>
           </div>
+        )}
 
-          {invType === "FINITE" && (
-            <div className="field">
-              <label htmlFor="catalogmanager-quantity-in-stock">{t("cat_quantity")}</label>
-              <input id="catalogmanager-quantity-in-stock" className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_qty_placeholder")} />
+        {/* "auto-nonfood" packages skip this entirely (a consultation is
+            never a food item) and "auto-food" packages skip it too
+            (already defaulted to food above) — only "manual" packages
+            (most categories) show the toggle. */}
+        {bizTheme.foodToggleMode === "manual" && (
+          <div className="field">
+            <label id="catalogmanager-food-label">{t("cat_is_food")}</label>
+            <div className="row gap-8" role="radiogroup" aria-labelledby="catalogmanager-food-label">
+              <SelectableChip
+                role="radio"
+                selected={isFood}
+                onClick={() => setIsFood(true)}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                {t("cat_food_item")}
+              </SelectableChip>
+              <SelectableChip
+                role="radio"
+                selected={!isFood}
+                onClick={() => setIsFood(false)}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                {t("cat_not_food")}
+              </SelectableChip>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Concurrency — how many of THIS service can run at the same time.
-              Separate from stock: 3 chairs is a capacity of 3 forever, not 3
-              units that sell out. Blank inherits the business default.
-              Business-only: providers are solo operators with no concurrency
-              to configure, and the server ignores these fields for them. */}
-          {kind === "business" && bizTheme.showSlotCapacitySection && (
-            <div className="field">
-              <label htmlFor="catalogmanager-slot-capacity">{bizTheme.slotCapacityLabel}</label>
-              <div className="row gap-10">
-                <input id="catalogmanager-slot-capacity"
-                  className="input grow"
-                  inputMode="numeric"
-                  value={slotCap}
-                  onChange={(e) => setSlotCap(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  placeholder={`Business default${businessDefaultCapacity ? ` (${businessDefaultCapacity})` : ""}`}
-                />
-                <input
-                  className="input grow"
-                  inputMode="numeric"
-                  value={maxParty}
-                  onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  placeholder={t("cat_spots_placeholder")}
-                />
-              </div>
-              <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-                Left: how many customers you can serve at one time slot (e.g. 3 chairs → 3).
-                {" "}
-                {slotCap.trim()
-                  ? "This overrides your business default for this service only."
-                  : businessDefaultCapacity
-                    ? `Blank = uses your business default of ${businessDefaultCapacity}.`
-                    : "Blank = uses your business default (set in Business → Settings)."}
-                {" "}Right: how many spots one customer may take in a single booking.
-              </p>
+        {isFood && (
+          <div className="field">
+            <label id="catalogmanager-veg-label">{t("cat_veg_nonveg")}</label>
+            <div className="row gap-8" role="radiogroup" aria-labelledby="catalogmanager-veg-label">
+              <SelectableChip
+                role="radio"
+                selected={isVeg}
+                onClick={() => setIsVeg(true)}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                <VegDot veg /> Veg
+              </SelectableChip>
+              <SelectableChip
+                role="radio"
+                selected={!isVeg}
+                onClick={() => setIsVeg(false)}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                <VegDot veg={false} /> Non-veg
+              </SelectableChip>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* "auto-nonfood" packages skip this entirely (a consultation is
-              never a food item) and "auto-food" packages skip it too
-              (already defaulted to food above) — only "manual" packages
-              (most categories) show the toggle. */}
-          {bizTheme.foodToggleMode === "manual" && (
-            <div className="field">
-              <label>{t("cat_is_food")}</label>
-              <div className="row gap-8">
-                <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>{t("cat_food_item")}</button>
-                <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>{t("cat_not_food")}</button>
-              </div>
-            </div>
-          )}
-
-          {isFood && (
-            <div className="field">
-              <label>{t("cat_veg_nonveg")}</label>
-              <div className="row gap-8">
-                <button className={`chip ${isVeg ? "active" : ""}`} onClick={() => setIsVeg(true)} style={{ flex: 1, justifyContent: "center" }}>
-                  <VegDot veg /> Veg
-                </button>
-                <button className={`chip ${!isVeg ? "active" : ""}`} onClick={() => setIsVeg(false)} style={{ flex: 1, justifyContent: "center" }}>
-                  <VegDot veg={false} /> Non-veg
-                </button>
-              </div>
-            </div>
-          )}
-
-          <button className={`chip ${best ? "active" : ""}`} onClick={() => setBest((v) => !v)} style={{ justifyContent: "center" }}>
-            ⭐ Mark as featured
-          </button>
-        </div>
-
-        <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave || saving || uploading} onClick={save}>
-          {saving ? "Saving…" : item ? "Save changes" : "Add listing"}
-        </button>
+        <SelectableChip
+          role="checkbox"
+          selected={best}
+          onClick={() => setBest((v) => !v)}
+          style={{ justifyContent: "center" }}
+        >
+          ⭐ Mark as featured
+        </SelectableChip>
       </div>
-    </div>
+
+      <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave || saving || uploading} onClick={save}>
+        {saving ? "Saving…" : item ? "Save changes" : "Add listing"}
+      </button>
+    </AccessibleSheet>
   );
 }
 

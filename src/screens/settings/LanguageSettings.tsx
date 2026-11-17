@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AppBar } from "@/components/common";
 import { Check } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -9,7 +10,24 @@ import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 export default function LanguageSettings() {
   const { showToast } = useApp();
   const { lang, setLang } = useI18n();
+  const [savingLang, setSavingLang] = useState<Lang | null>(null);
   const langs = Object.entries(LANG_LABELS) as [Lang, string][];
+
+  async function handleSelectLang(code: Lang, label: string) {
+    if (savingLang || code === lang) return;
+    const prevLang = lang;
+    setSavingLang(code);
+    setLang(code);
+    try {
+      await userService.update({ language: code });
+      showToast(`Language set to ${label}`);
+    } catch {
+      setLang(prevLang);
+      showToast("Failed to save language preference. Reverted.");
+    } finally {
+      setSavingLang(null);
+    }
+  }
 
   return (
     <div className="screen screen-boxed">
@@ -18,19 +36,20 @@ export default function LanguageSettings() {
         <div className="set-group">
           {langs.map(([code, label]) => {
             const active = lang === code;
+            const isSaving = savingLang === code;
             return (
               <button
                 key={code}
                 className="set-row"
-                aria-current={active ? "true" : undefined}
-                onClick={() => {
-                  setLang(code);
-                  showToast(`Language set to ${label}`);
-                  void userService.update({ language: code }).catch(() => {});
-                }}
+                role="radio"
+                aria-checked={active}
+                disabled={savingLang !== null}
+                style={{ opacity: savingLang && !isSaving && !active ? 0.6 : 1 }}
+                onClick={() => void handleSelectLang(code, label)}
               >
                 <span className="set-row-label grow">{label}</span>
-                {active && <Check size={18} color="var(--brand-600)" />}
+                {isSaving && <span className="tiny muted" style={{ marginRight: 6 }}>Saving…</span>}
+                {active && !isSaving && <Check size={18} color="var(--brand-600)" />}
               </button>
             );
           })}

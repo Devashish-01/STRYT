@@ -1,5 +1,5 @@
 import { RASTER_TILES } from "@/lib/mapTiles";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 import L from "leaflet";
@@ -45,6 +45,8 @@ export default function TrackingPage() {
   const markerRef = useRef<L.Marker | null>(null);
 
   const [expired, setExpired] = useState(false);
+  const [invalidLink, setInvalidLink] = useState(false);
+  const [netError, setNetError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [providerName, setProviderName] = useState("");
   const [providerAvatar, setProviderAvatar] = useState("");
@@ -75,20 +77,44 @@ export default function TrackingPage() {
   }, []);
 
   // Initial data load
-  useEffect(() => {
-    if (!token) return;
-    (async () => {
+  const loadData = useCallback(async () => {
+    if (!token || !token.trim()) {
+      setLoading(false);
+      setInvalidLink(true);
+      return;
+    }
+    setLoading(true);
+    setNetError(null);
+    setExpired(false);
+    setInvalidLink(false);
+
+    try {
       // Read via the get_tracking() RPC, not the agreements table directly.
       // The RPC returns only the safe live-location fields for a valid,
       // non-expired token, so the agreements table stays locked to participants
       // (see supabase/legacy/migration_launch_hardening.sql).
       const { data, error } = await anonSb.rpc("get_tracking", { p_token: token });
+      if (error) {
+        if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+          setNetError(error.message || "Network error. Please check your connection.");
+          setLoading(false);
+          return;
+        }
+        setExpired(true);
+        setLoading(false);
+        track(EVENTS.SHARE_LINK_OPENED, { link_type: "tracking", is_valid: false });
+        return;
+      }
       const row = Array.isArray(data) ? data[0] : data;
       // A tracking link is the one STRYT URL that routinely travels through
       // WhatsApp and comes back. Whether it still resolves is the signal;
       // the token itself is never sent.
-      track(EVENTS.SHARE_LINK_OPENED, { link_type: "tracking", is_valid: !error && !!row });
-      if (error || !row) { setExpired(true); setLoading(false); return; }
+      track(EVENTS.SHARE_LINK_OPENED, { link_type: "tracking", is_valid: !!row });
+      if (!row) {
+        setExpired(true);
+        setLoading(false);
+        return;
+      }
       setAgreementId(row.agreement_id);
       setProviderLat(row.provider_lat ?? null);
       setProviderLng(row.provider_lng ?? null);
@@ -101,8 +127,15 @@ export default function TrackingPage() {
       setDestLat(row.dest_lat ?? null);
       setDestLng(row.dest_lng ?? null);
       setLoading(false);
-    })();
+    } catch (err: any) {
+      setNetError(err?.message || "Failed to load tracking data. Please try again.");
+      setLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   // Init Leaflet map — skipped entirely for deliveries, which never carry
   // coordinates, so a map here would just stay permanently blank.
@@ -196,12 +229,41 @@ export default function TrackingPage() {
     );
   }
 
+  if (invalidLink) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12, padding: 24, textAlign: "center" }}>
+        <div style={{ fontSize: 40 }}>⚠️</div>
+        <div style={{ fontWeight: 700, fontSize: 18 }}>Invalid tracking link</div>
+        <div style={{ color: "var(--ink-500)", fontSize: 14, maxWidth: 300 }}>
+          This link doesn't contain a valid tracking token. Please ask the sender to share the full link.
+        </div>
+      </div>
+    );
+  }
+
+  if (netError) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12, padding: 24, textAlign: "center" }}>
+        <div style={{ fontSize: 40 }}>📡</div>
+        <div style={{ fontWeight: 700, fontSize: 18 }}>Connection failed</div>
+        <div style={{ color: "var(--ink-500)", fontSize: 14, maxWidth: 300 }}>{netError}</div>
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ marginTop: 8 }}
+          onClick={() => void loadData()}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (expired) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12, padding: 24, textAlign: "center" }}>
         <div style={{ fontSize: 40 }}>🔗</div>
         <div style={{ fontWeight: 700, fontSize: 18 }}>{t("dlv_pub_expired_title")}</div>
-        <div style={{ color: "var(--ink-500)", fontSize: 14 }}>{t("dlv_pub_expired_text")}</div>
+        <div style={{ color: "var(--ink-500)", fontSize: 14, maxWidth: 300 }}>{t("dlv_pub_expired_text")}</div>
       </div>
     );
   }

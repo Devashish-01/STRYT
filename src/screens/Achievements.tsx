@@ -1,5 +1,5 @@
-import { AppBar, SafeImg } from "@/components/common";
-import { ListSkeleton } from "@/components/states";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -9,7 +9,7 @@ import { displayName } from "@/lib/publicName";
 export default function Achievements() {
   const { user } = useApp();
   const { t } = useI18n();
-  const { data, loading } = useQuery(() => socialService.achievements(), [user.id], `achievements:${user.id}`);
+  const { data, loading, error, refetch } = useQuery(() => socialService.achievements(), [user.id], `achievements:${user.id}`);
   const achievements = data ?? [];
   const unlocked = achievements.filter((a) => a.unlocked).length;
 
@@ -31,6 +31,18 @@ export default function Achievements() {
 
         {loading ? (
           <ListSkeleton count={4} />
+        ) : error ? (
+          <div className="page-pad">
+            <ErrorView error={error} onRetry={refetch} />
+          </div>
+        ) : achievements.length === 0 ? (
+          <div className="page-pad">
+            <EmptyState
+              emoji="🏆"
+              title={t("no_badges_earned")}
+              text={t("no_badges_earned_desc")}
+            />
+          </div>
         ) : (
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>

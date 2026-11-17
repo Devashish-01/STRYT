@@ -2,14 +2,14 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common";
 import { adminService, type VerificationQueueItem } from "@/services/core/adminService";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Check, X, Store, Briefcase, AlertTriangle, Eye, ExternalLink } from "@/components/Icons";
 import { useApp } from "@/store";
 import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminVerificationQueue() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => adminService.verificationQueue(), [], "admin:verification-queue");
+  const { data, loading, error, refetch } = useQuery(() => adminService.verificationQueue(), [], "admin:verification-queue");
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [docsById, setDocsById] = useState<Record<string, string[]>>({});
   const [loadingDocsKey, setLoadingDocsKey] = useState<string | null>(null);
@@ -53,6 +53,7 @@ export function AdminVerificationQueue() {
   }
 
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  if (error) return <div className="page-pad" style={{ paddingTop: 12 }}><ErrorView error={error} onRetry={refetch} /></div>;
   const items = data ?? [];
 
   return (

@@ -23,14 +23,22 @@ export default function Support() {
   const nav = useNavigate();
   const { user, activeRole, showToast } = useApp();
   const { t } = useI18n();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reporterRole, setReporterRole] = useState<ReporterRole>(() => defaultReporterRole(activeRole));
 
-  // Tab state initialized from URL param if available (e.g. ?tab=bug)
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const t = searchParams.get("tab")?.toUpperCase();
-    return t === "BUG" ? "BUG" : "CONTACT";
-  });
+  // Tab derived bidirectionally from URL search params (?tab=bug or ?tab=contact)
+  const tabParam = searchParams.get("tab")?.toLowerCase();
+  const activeTab: Tab = tabParam === "bug" ? "BUG" : "CONTACT";
+
+  const handleTabChange = (nextTab: Tab) => {
+    if (nextTab === "CONTACT") {
+      setTicketSubmitted(false);
+      setSearchParams({ tab: "contact" }, { replace: true });
+    } else {
+      setBugSubmitted(false);
+      setSearchParams({ tab: "bug" }, { replace: true });
+    }
+  };
 
   // Form states
   const [category, setCategory] = useState("COMPLAINT");
@@ -107,12 +115,13 @@ export default function Support() {
       <AppBar title={t("sup_title")} />
 
       {/* Tabs */}
-      <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
+      <div className="row" role="tablist" aria-label="Support navigation" style={{ borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <button
-          onClick={() => {
-            setActiveTab("CONTACT");
-            setTicketSubmitted(false);
-          }}
+          role="tab"
+          aria-selected={activeTab === "CONTACT"}
+          aria-controls="support-contact-panel"
+          id="support-tab-contact"
+          onClick={() => handleTabChange("CONTACT")}
           className="semi"
           style={{
             flex: 1,
@@ -130,10 +139,11 @@ export default function Support() {
           <span>{t("sup_contact_us")}</span>
         </button>
         <button
-          onClick={() => {
-            setActiveTab("BUG");
-            setBugSubmitted(false);
-          }}
+          role="tab"
+          aria-selected={activeTab === "BUG"}
+          aria-controls="support-bug-panel"
+          id="support-tab-bug"
+          onClick={() => handleTabChange("BUG")}
           className="semi"
           style={{
             flex: 1,
@@ -152,7 +162,13 @@ export default function Support() {
         </button>
       </div>
 
-      <div className="screen-scroll page-pad fade-up col gap-16" style={{ paddingBottom: 40 }}>
+      <div
+        className="screen-scroll page-pad fade-up col gap-16"
+        style={{ paddingBottom: 40 }}
+        role="tabpanel"
+        id={activeTab === "CONTACT" ? "support-contact-panel" : "support-bug-panel"}
+        aria-labelledby={activeTab === "CONTACT" ? "support-tab-contact" : "support-tab-bug"}
+      >
         {activeTab === "CONTACT" ? (
           ticketSubmitted ? (
             <div className="card col center" style={{ padding: "40px 24px", textAlign: "center", gap: 16 }}>

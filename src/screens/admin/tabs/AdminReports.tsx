@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AppBar, EmptyState } from "@/components/common";
 import { adminService, type ReportTriage } from "@/services/core/adminService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -33,7 +34,7 @@ const PRIORITY_BADGE: Record<Priority, string> = {
 };
 
 export function AdminReports() {
-  const { data, loading } = useQueryWithRealtime<ModerationItem[]>(() => adminService.moderationQueue(), "reports", []);
+  const { data, loading, error, refetch } = useQueryWithRealtime<ModerationItem[]>(() => adminService.moderationQueue(), "reports", []);
   const { showToast } = useApp();
   const nav = useNavigate();
   const [done, setDone] = useState<Record<string, "ACTION_TAKEN" | "DISMISSED">>({});
@@ -110,8 +111,17 @@ export function AdminReports() {
   return (
     <>
       {loading && <ListSkeleton count={3} />}
-      {data && items.length === 0 && <p className="page-pad small muted">No open reports.</p>}
-      {data && items.length > 0 && (
+      {!loading && error && (
+        <div className="page-pad" style={{ paddingTop: 12 }}>
+          <ErrorView error={error} onRetry={refetch} />
+        </div>
+      )}
+      {!loading && !error && data && items.length === 0 && (
+        <div className="page-pad" style={{ paddingTop: 12 }}>
+          <EmptyState emoji="🛡️" title="No open reports" text="All reports have been reviewed and resolved." />
+        </div>
+      )}
+      {!loading && !error && data && items.length > 0 && (
         <div className="page-pad col gap-12">
           {items.map((item) => {
             const outcome = done[item.key];

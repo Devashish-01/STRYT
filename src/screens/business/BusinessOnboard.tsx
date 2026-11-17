@@ -16,6 +16,7 @@ import { PackageConfirmCard } from "@/components/PackageConfirmCard";
 import { OnboardBookingsToggle } from "@/components/OnboardBookingsToggle";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useI18n } from "@/lib/i18n";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** Keys, resolved in the header so the step name reads in the viewer's language. */
 const stepKeys = ["bon_step_basics", "bon_step_location", "bon_step_photos", "bon_step_contact"];
@@ -50,6 +51,7 @@ export default function BusinessOnboard() {
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDiscardDraft, setConfirmDiscardDraft] = useState(false);
 
   const [name, setName] = useState("");
   const [cat, setCat] = useState<string | null>(null);
@@ -401,7 +403,15 @@ export default function BusinessOnboard() {
       <AppBar title={t("bon_title")} subtitle={tf("bon_step_of", { n: step + 1, name: t(stepKeys[step]) })} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       {/* Progress */}
-      <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
+      <div
+        className="row gap-4 page-pad"
+        style={{ paddingTop: 12, paddingBottom: 4 }}
+        role="progressbar"
+        aria-valuenow={step + 1}
+        aria-valuemin={1}
+        aria-valuemax={stepKeys.length}
+        aria-valuetext={tf("bon_step_of", { n: step + 1, name: t(stepKeys[step]) })}
+      >
         {stepKeys.map((_, i) => (
           <div key={i} style={{ flex: 1, height: 5, borderRadius: 4, background: i <= step ? "var(--brand-600)" : "var(--ink-200)" }} />
         ))}
@@ -413,28 +423,40 @@ export default function BusinessOnboard() {
             <span className="tiny semi" style={{ color: "var(--amber-800)", lineHeight: 1.4 }}>
               Picked up where you left off.{photos.length === 0 ? " Photos need choosing again." : ""}
             </span>
-            <div className="row gap-8" style={{ flexShrink: 0 }}>
+            <div className="row gap-8 center-v" style={{ flexShrink: 0 }}>
               <button
                 type="button"
                 className="tiny semi"
-                style={{ color: "var(--amber-800)", background: "none", border: "none", cursor: "pointer", padding: "4px 6px" }}
-                onClick={() => {
-                  discardDraft();
-                  setStep(0); setName(""); setCat(null); setNewCat(""); setSub([]); setDescription("");
-                  setAddress(""); setCity(""); setPincode(""); setPhone(""); setWhatsapp(""); setEmail("");
-                  setOpenDate(""); setOffer(""); setLat(null); setLng(null);
-                  setPackageOverride(null); setBookingsOverride(null);
-                  cityTouched.current = false; pincodeTouched.current = false;
-                }}
+                style={{ color: "var(--amber-800)", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", minHeight: 44, display: "inline-flex", alignItems: "center" }}
+                onClick={() => setConfirmDiscardDraft(true)}
               >
                 Start over
               </button>
-              <button type="button" className="icon-btn" aria-label={t("dismiss_word")} style={{ width: 24, height: 24 }} onClick={acknowledge}>
-                <X size={12} />
+              <button type="button" className="icon-btn" aria-label={t("dismiss_word")} style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }} onClick={acknowledge}>
+                <X size={16} />
               </button>
             </div>
           </div>
         )}
+
+        <ConfirmDialog
+          isOpen={confirmDiscardDraft}
+          onClose={() => setConfirmDiscardDraft(false)}
+          onConfirm={() => {
+            setConfirmDiscardDraft(false);
+            discardDraft();
+            setStep(0); setName(""); setCat(null); setNewCat(""); setSub([]); setDescription("");
+            setAddress(""); setCity(""); setPincode(""); setPhone(""); setWhatsapp(""); setEmail("");
+            setOpenDate(""); setOffer(""); setLat(null); setLng(null);
+            setPackageOverride(null); setBookingsOverride(null);
+            cityTouched.current = false; pincodeTouched.current = false;
+          }}
+          title="Discard saved draft?"
+          description="This will clear all details you entered and start a fresh onboarding form. This cannot be undone."
+          confirmLabel="Discard and start over"
+          cancelLabel="Keep draft"
+          destructive
+        />
         {step === 0 && (
           <>
 

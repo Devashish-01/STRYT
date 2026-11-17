@@ -2,7 +2,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common";
 import { adminService } from "@/services/core/adminService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 
 const BUG_ROLE_META: Record<string, { label: string; color: string }> = {
@@ -12,14 +12,18 @@ const BUG_ROLE_META: Record<string, { label: string; color: string }> = {
 };
 
 export function AdminBugs() {
-  const { data, loading, refetch } = useQueryWithRealtime(() => adminService.bugReports(), "bug_reports", [], undefined, "admin:bug-reports");
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => adminService.bugReports(), "bug_reports", [], undefined, "admin:bug-reports");
   const { showToast } = useApp();
   const [roleFilter, setRoleFilter] = useState<"ALL" | "CUSTOMER" | "BUSINESS" | "PROVIDER">("ALL");
 
   async function resolve(id: string, status: "RESOLVED" | "DISMISSED") {
-    await adminService.resolveBugReport(id, status);
-    showToast(status === "RESOLVED" ? "Marked resolved" : "Dismissed");
-    refetch();
+    try {
+      await adminService.resolveBugReport(id, status);
+      showToast(status === "RESOLVED" ? "Marked resolved" : "Dismissed");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Failed to update bug report");
+    }
   }
 
   const items = (data ?? []).filter((b) => roleFilter === "ALL" || b.reporterRole === roleFilter);
@@ -41,8 +45,9 @@ export function AdminBugs() {
       </div>
 
       {loading && <ListSkeleton count={3} />}
-      {!loading && items.length === 0 && <EmptyState emoji="🐞" title="No bug reports" text="Nothing reported in this category yet." />}
-      {items.map((b) => {
+      {!loading && error && <ErrorView error={error} onRetry={refetch} />}
+      {!loading && !error && items.length === 0 && <EmptyState emoji="🐞" title="No bug reports" text="Nothing reported in this category yet." />}
+      {!loading && !error && items.map((b) => {
         const roleMeta = BUG_ROLE_META[b.reporterRole];
         return (
           <div key={b.id} className="card">

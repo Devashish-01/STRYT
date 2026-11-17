@@ -14,6 +14,8 @@ import Toggle from "@/components/Toggle";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** Keys, not words: every row here is read in the viewer's language. */
 const SCOPE_META: Record<Scope, { labelKey: string; textKey: string }> = {
@@ -608,169 +610,162 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 4 }}>{business.name} — team & access</h3>
-        <p className="small muted" style={{ marginBottom: 14 }}>{t("bacc_add_member_hint")}</p>
+    <AccessibleSheet
+      isOpen={true}
+      onClose={onClose}
+      title={`${business.name} — team & access`}
+      variant="bottom-sheet"
+    >
+      <p className="small muted" style={{ marginBottom: 14 }}>{t("bacc_add_member_hint")}</p>
 
-        <div className="field">
-          <label htmlFor="businessaccess-mobile-number-email-or-username">{t("bacc_identifier_label")}</label>
-          <input id="businessaccess-mobile-number-email-or-username"
-            className="input"
-            value={identifier}
-            autoCapitalize="none"
-            autoCorrect="off"
-            placeholder={t("bacc_identifier_placeholder")}
-            onChange={(e) => setIdentifier(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") addGrant(); }}
-          />
-          <div className="tiny muted" style={{ marginTop: 4 }}>{t("bacc_must_have_account")}</div>
-        </div>
-
-        <div className="field" style={{ marginTop: 14 }}>
-          <label>{t("bacc_access_label")}</label>
-          <PresetChips preset={preset} onPick={pickPreset} />
-          <ScopeToggleList scopes={scopes} onToggle={toggleScope} />
-        </div>
-
-        <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={adding || !identifier.trim() || scopes.length === 0} onClick={addGrant}>
-          <UserPlus size={16} /> {adding ? "Adding…" : "Add to team"}
-        </button>
-
-        {/* Nudge, not a block — a business password is optional, but if there's
-            already a team member/delegate on the roster the owner probably
-            wants to know anyone with a grant can currently open this business
-            without one. */}
-        {active.length > 0 && !businessPasswordIsSet && (
-          <div className="card row gap-10 center-v" style={{ marginTop: 16, padding: 12, background: "var(--amber-50)", border: "none" }}>
-            <div className="grow">
-              <div className="tiny semi">{t("bacc_no_password")}</div>
-              <div className="tiny muted">{t("bacc_no_password_hint")}</div>
-            </div>
-            <button className="tiny semi" style={{ color: "var(--brand-700)", flexShrink: 0 }} onClick={() => nav("/settings")}>{t("bacc_set_up")}</button>
-          </div>
-        )}
-
-        {/* #2 — waiting requests, which used to appear nowhere. */}
-        {pending.length > 0 && (
-          <div className="col gap-8" style={{ marginTop: 20 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_waiting_approval")}</span>
-            {pending.map((s) => (
-              <div key={s.id} className="card" style={{ padding: 10, border: "1px solid var(--amber-200)", background: "var(--amber-50)" }}>
-                <div className="row gap-10 center-v">
-                  <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
-                  <div className="grow">
-                    <div className="semi small">{s.granteeName}</div>
-                    <div className="tiny muted">
-                      Signed in with the shop login · {new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}
-                    </div>
-                  </div>
-                </div>
-                <div className="row gap-8" style={{ marginTop: 10 }}>
-                  <button className="btn btn-ghost btn-sm grow" disabled={deciding === s.id} onClick={() => decide(s.id, false)}>
-                    <X size={14} /> Deny
-                  </button>
-                  <button className="btn btn-primary btn-sm grow" disabled={deciding === s.id} onClick={() => decide(s.id, true)}>
-                    <Check size={14} /> {deciding === s.id ? "…" : "Approve"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <ShopLoginSection businessId={business.id} />
-
-        {/* People with access */}
-        {active.length > 0 && (
-          <div className="col gap-8" style={{ marginTop: 20 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_people_with_access")}</span>
-            {active.map((s) => (
-              <div key={s.id} className="card" style={{ padding: 10 }}>
-                <div className="row gap-10 center-v">
-                  <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
-                  <div className="grow">
-                    <div className="semi small">{s.granteeName}</div>
-                    <div className="tiny" style={{ color: s.accessLevel === "FULL" ? "var(--brand-700)" : "var(--green-600)" }}>
-                      {scopeSummary(s, t)}
-                      {expiryLabel(s.expiresAt, t, tf) && <span className="muted"> · {expiryLabel(s.expiresAt, t, tf)}</span>}
-                    </div>
-                  </div>
-                  <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => (editingId === s.id ? setEditingId(null) : startEdit(s))} aria-label={t("bacc_edit_access")}>
-                    <Pencil size={15} color="var(--ink-500)" />
-                  </button>
-                  <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={() => setRevoking(s)}>{t("bacc_revoke")}</button>
-                </div>
-                {editingId === s.id && (
-                  <div style={{ marginTop: 12 }}>
-                    {s.accessLevel === "FULL" && (
-                      <div className="card" style={{ padding: 10, marginBottom: 10, background: "var(--amber-50)", border: "1px solid var(--amber-200)" }}>
-                        <div className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("bacc_revoke_warning")}</div>
-                        <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
-                          They currently have everything the owner has. Picking sections below limits
-                          them to only those, including for anything added later. Leave this without
-                          saving to keep their full access.
-                        </div>
-                      </div>
-                    )}
-                    <ScopeToggleList
-                      scopes={editScopes}
-                      onToggle={(sc) => setEditScopes((prev) => toggleScopeIn(prev, sc))}
-                    />
-                    <div className="row gap-8" style={{ marginTop: 10 }}>
-                      <button className="btn btn-ghost btn-sm grow" onClick={() => setEditingId(null)}>{t("cancel")}</button>
-                      <button className="btn btn-primary btn-sm grow" disabled={savingEdit || editScopes.length === 0} onClick={saveEdit}>
-                        {savingEdit ? "Saving…" : s.accessLevel === "FULL" ? "Limit access" : "Save"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {revoking && (
-          <div className="overlay" style={{ zIndex: 1200 }} onClick={() => setRevoking(null)}>
-            <div className="sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 6 }}>Remove {revoking.granteeName}'s access?</h3>
-              <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
-                They lose access to {business.name} straight away, including anything they have open
-                right now. You can add them again later, but this exact session can't be restored.
-              </p>
-              <div className="col gap-8">
-                <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={confirmRevoke}>
-                  Yes, remove access
-                </button>
-                <button className="btn btn-ghost btn-block" onClick={() => setRevoking(null)}>{t("keep_it")}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* History */}
-        {history.length > 0 && (
-          <div className="col gap-8" style={{ marginTop: 18 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_access_history")}</span>
-            {history.map((s) => {
-              const label = s.status === "DENIED" ? "Denied" : s.status === "REVOKED" ? "Revoked" : "Expired";
-              const when = new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-              return (
-                <div key={s.id} className="card row gap-10 center-v" style={{ padding: 10, opacity: 0.7 }}>
-                  <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 32, height: 32 }} />
-                  <div className="grow">
-                    <div className="semi small">{s.granteeName}</div>
-                    <div className="tiny muted">{label} · {when}</div>
-                  </div>
-                  <span className="tiny semi" style={{ color: s.status === "DENIED" ? "var(--red-600)" : "var(--ink-400)" }}>{label}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className="field">
+        <label htmlFor="businessaccess-mobile-number-email-or-username">{t("bacc_identifier_label")}</label>
+        <input id="businessaccess-mobile-number-email-or-username"
+          className="input"
+          value={identifier}
+          autoCapitalize="none"
+          autoCorrect="off"
+          placeholder={t("bacc_identifier_placeholder")}
+          onChange={(e) => setIdentifier(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") addGrant(); }}
+        />
+        <div className="tiny muted" style={{ marginTop: 4 }}>{t("bacc_must_have_account")}</div>
       </div>
-    </div>
+
+      <div className="field" style={{ marginTop: 14 }}>
+        <label>{t("bacc_access_label")}</label>
+        <PresetChips preset={preset} onPick={pickPreset} />
+        <ScopeToggleList scopes={scopes} onToggle={toggleScope} />
+      </div>
+
+      <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={adding || !identifier.trim() || scopes.length === 0} onClick={addGrant}>
+        <UserPlus size={16} /> {adding ? "Adding…" : "Add to team"}
+      </button>
+
+      {/* Nudge, not a block — a business password is optional, but if there's
+          already a team member/delegate on the roster the owner probably
+          wants to know anyone with a grant can currently open this business
+          without one. */}
+      {active.length > 0 && !businessPasswordIsSet && (
+        <div className="card row gap-10 center-v" style={{ marginTop: 16, padding: 12, background: "var(--amber-50)", border: "none" }}>
+          <div className="grow">
+            <div className="tiny semi">{t("bacc_no_password")}</div>
+            <div className="tiny muted">{t("bacc_no_password_hint")}</div>
+          </div>
+          <button className="tiny semi" style={{ color: "var(--brand-700)", flexShrink: 0 }} onClick={() => nav("/settings")}>{t("bacc_set_up")}</button>
+        </div>
+      )}
+
+      {/* #2 — waiting requests, which used to appear nowhere. */}
+      {pending.length > 0 && (
+        <div className="col gap-8" style={{ marginTop: 20 }}>
+          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_waiting_approval")}</span>
+          {pending.map((s) => (
+            <div key={s.id} className="card" style={{ padding: 10, border: "1px solid var(--amber-200)", background: "var(--amber-50)" }}>
+              <div className="row gap-10 center-v">
+                <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
+                <div className="grow">
+                  <div className="semi small">{s.granteeName}</div>
+                  <div className="tiny muted">
+                    Signed in with the shop login · {new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}
+                  </div>
+                </div>
+              </div>
+              <div className="row gap-8" style={{ marginTop: 10 }}>
+                <button className="btn btn-ghost btn-sm grow" disabled={deciding === s.id} onClick={() => decide(s.id, false)}>
+                  <X size={14} /> Deny
+                </button>
+                <button className="btn btn-primary btn-sm grow" disabled={deciding === s.id} onClick={() => decide(s.id, true)}>
+                  <Check size={14} /> {deciding === s.id ? "…" : "Approve"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ShopLoginSection businessId={business.id} />
+
+      {/* People with access */}
+      {active.length > 0 && (
+        <div className="col gap-8" style={{ marginTop: 20 }}>
+          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_people_with_access")}</span>
+          {active.map((s) => (
+            <div key={s.id} className="card" style={{ padding: 10 }}>
+              <div className="row gap-10 center-v">
+                <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
+                <div className="grow">
+                  <div className="semi small">{s.granteeName}</div>
+                  <div className="tiny" style={{ color: s.accessLevel === "FULL" ? "var(--brand-700)" : "var(--green-600)" }}>
+                    {scopeSummary(s, t)}
+                    {expiryLabel(s.expiresAt, t, tf) && <span className="muted"> · {expiryLabel(s.expiresAt, t, tf)}</span>}
+                  </div>
+                </div>
+                <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => (editingId === s.id ? setEditingId(null) : startEdit(s))} aria-label={t("bacc_edit_access")}>
+                  <Pencil size={15} color="var(--ink-500)" />
+                </button>
+                <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={() => setRevoking(s)}>{t("bacc_revoke")}</button>
+              </div>
+              {editingId === s.id && (
+                <div style={{ marginTop: 12 }}>
+                  {s.accessLevel === "FULL" && (
+                    <div className="card" style={{ padding: 10, marginBottom: 10, background: "var(--amber-50)", border: "1px solid var(--amber-200)" }}>
+                      <div className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("bacc_revoke_warning")}</div>
+                      <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
+                        They currently have everything the owner has. Picking sections below limits
+                        them to only those, including for anything added later. Leave this without
+                        saving to keep their full access.
+                      </div>
+                    </div>
+                  )}
+                  <ScopeToggleList
+                    scopes={editScopes}
+                    onToggle={(sc) => setEditScopes((prev) => toggleScopeIn(prev, sc))}
+                  />
+                  <div className="row gap-8" style={{ marginTop: 10 }}>
+                    <button className="btn btn-ghost btn-sm grow" onClick={() => setEditingId(null)}>{t("cancel")}</button>
+                    <button className="btn btn-primary btn-sm grow" disabled={savingEdit || editScopes.length === 0} onClick={saveEdit}>
+                      {savingEdit ? "Saving…" : s.accessLevel === "FULL" ? "Limit access" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={Boolean(revoking)}
+        onClose={() => setRevoking(null)}
+        onConfirm={confirmRevoke}
+        title={revoking ? `Remove ${revoking.granteeName}'s access?` : ""}
+        description={revoking ? `They lose access to ${business.name} straight away, including anything they have open right now. You can add them again later, but this exact session can't be restored.` : ""}
+        confirmLabel="Yes, remove access"
+        cancelLabel={t("keep_it")}
+        destructive
+      />
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="col gap-8" style={{ marginTop: 18 }}>
+          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_access_history")}</span>
+          {history.map((s) => {
+            const label = s.status === "DENIED" ? "Denied" : s.status === "REVOKED" ? "Revoked" : "Expired";
+            const when = new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+            return (
+              <div key={s.id} className="card row gap-10 center-v" style={{ padding: 10, opacity: 0.7 }}>
+                <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 32, height: 32 }} />
+                <div className="grow">
+                  <div className="semi small">{s.granteeName}</div>
+                  <div className="tiny muted">{label} · {when}</div>
+                </div>
+                <span className="tiny semi" style={{ color: s.status === "DENIED" ? "var(--red-600)" : "var(--ink-400)" }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </AccessibleSheet>
   );
 }

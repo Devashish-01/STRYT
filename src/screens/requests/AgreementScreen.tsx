@@ -8,7 +8,7 @@ import DealUpiSheet from "@/components/DealUpiSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { Agreement, AgreementStatus, JobLiveStatus } from "@/types";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
@@ -147,7 +147,7 @@ export default function AgreementScreen() {
   const { t } = useI18n();
   const { user, showToast } = useApp();
 
-  const { data: fetched, loading, refetch } = useQueryWithRealtime(
+  const { data: fetched, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.getAgreement(id),
     "agreements",
     [id],
@@ -216,6 +216,17 @@ export default function AgreementScreen() {
           <Skeleton h={120} mb={0} />
           <Skeleton h={80} mb={0} />
           <Skeleton h={100} mb={0} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="screen">
+        <AppBar title="Agreement" />
+        <div className="page-pad" style={{ marginTop: 12 }}>
+          <ErrorView error={error} onRetry={refetch} />
         </div>
       </div>
     );

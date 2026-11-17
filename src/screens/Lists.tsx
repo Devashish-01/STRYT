@@ -6,6 +6,8 @@ import { Plus, ChevronRight, Users, Store, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import { RowSkeleton } from "@/components/states";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Business, Provider } from "@/types";
 import { useI18n } from "@/lib/i18n";
 
@@ -22,6 +24,7 @@ export default function Lists() {
   const open = params.get("list");
   const setOpen = (id: string | null) => setParams(id ? { list: id } : {});
   const [creating, setCreating] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🌟");
 
@@ -33,11 +36,11 @@ export default function Lists() {
   // render here even though it's genuinely in the list.
   const bizIds = Array.from(new Set((active?.items ?? []).filter((it) => it.type === "BUSINESS").map((it) => it.id)));
   const provIds = Array.from(new Set((active?.items ?? []).filter((it) => it.type === "PROVIDER").map((it) => it.id)));
-  const { data: bizData } = useQuery(async () => {
+  const { data: bizData, loading: bizLoading, refetch: refetchBiz } = useQuery(async () => {
     const rows = await Promise.all(bizIds.map((id) => businessService.get(id).catch(() => undefined)));
     return rows.filter((b): b is Business => !!b);
   }, [bizIds.join(",")], `lists:biz-by-id:${active?.id}:${bizIds.join(",")}`);
-  const { data: provData } = useQuery(async () => {
+  const { data: provData, loading: provLoading, refetch: refetchProv } = useQuery(async () => {
     const rows = await Promise.all(provIds.map((id) => providerService.get(id).catch(() => undefined)));
     return rows.filter((p): p is Provider => !!p);
   }, [provIds.join(",")], `lists:prov-by-id:${active?.id}:${provIds.join(",")}`);
@@ -61,15 +64,25 @@ export default function Lists() {
               className="icon-btn"
               title="Delete list"
               aria-label="Delete list"
-              onClick={async () => {
-                if (!confirm(`Delete list "${active.name}"?`)) return;
-                await deleteList(active.id);
-                setOpen(null);
-              }}
+              onClick={() => setDeleteConfirmOpen(true)}
             >
               <Trash2 size={18} color="var(--red-500)" />
             </button>
           }
+        />
+        <ConfirmDialog
+          isOpen={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}
+          onConfirm={async () => {
+            await deleteList(active.id);
+            setDeleteConfirmOpen(false);
+            setOpen(null);
+          }}
+          title="Delete list"
+          description={`Are you sure you want to delete "${active.name}"? This cannot be undone.`}
+          confirmLabel={t("delete_action")}
+          cancelLabel={t("cancel_action")}
+          destructive
         />
         <div className="screen-scroll page-pad col gap-12">
           {active.items.length === 0 ? (
@@ -88,6 +101,68 @@ export default function Lists() {
             active.items.map((it) => {
               const b = it.type === "BUSINESS" ? businesses.find((x) => x.id === it.id) : undefined;
               const p = it.type === "PROVIDER" ? providers.find((x) => x.id === it.id) : undefined;
+              const isPending = (it.type === "BUSINESS" && bizLoading && !b) || (it.type === "PROVIDER" && provLoading && !p);
+
+              if (isPending) {
+                return <RowSkeleton key={it.id} />;
+              }
+
+              if (!b && !p) {
+                return (
+                  <div key={it.id} className="card row gap-12 center-v" style={{ padding: 12, opacity: 0.9 }}>
+                    <div
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 12,
+                        background: "var(--ink-100)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 22,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ⚠️
+                    </div>
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div className="semi small" style={{ color: "var(--ink-700)" }}>
+                        {it.type === "BUSINESS" ? "Shop unavailable" : "Provider unavailable"}
+                      </div>
+                      <div className="tiny muted ellipsis">
+                        {it.type === "BUSINESS" ? "Shop" : "Provider"} · {it.id}
+                      </div>
+                    </div>
+                    <div className="row gap-6 center-v" style={{ flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ minHeight: 36, padding: "4px 10px", fontSize: 12 }}
+                        onClick={() => {
+                          if (it.type === "BUSINESS") refetchBiz();
+                          else refetchProv();
+                        }}
+                      >
+                        {t("retry") || "Retry"}
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        style={{ padding: 6 }}
+                        title="Remove from list"
+                        aria-label="Remove from list"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeFromList(active.id, it.type, it.id);
+                        }}
+                      >
+                        <Trash2 size={16} color="var(--ink-400)" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               const name = b?.name ?? p?.displayName ?? t("item_fallback");
               const img = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";

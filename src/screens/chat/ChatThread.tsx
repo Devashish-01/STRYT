@@ -11,6 +11,7 @@ import { useApp } from "@/store";
 import LiveLocationCard from "@/features/live-share/LiveLocationCard";
 import ReportSheet from "@/components/ReportSheet";
 import PhotoViewer from "@/components/PhotoViewer";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Message, Conversation } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
@@ -62,6 +63,9 @@ export default function ChatThread() {
   const [otherTyping, setOtherTyping] = useState(false);
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [reporting, setReporting] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   // A long thread loads its most recent page and walks backwards from there (C8).
@@ -208,6 +212,46 @@ export default function ChatThread() {
     }
   }
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setMenuOpen(false);
+        menuTriggerRef.current?.focus();
+      }
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        menuTriggerRef.current &&
+        !menuTriggerRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuOpen]);
+
+  async function handleBlock() {
+    if (!other?.id) return;
+    try {
+      await socialService.blockUser(other.id);
+      setIsBlocked(true);
+      showToast(`Blocked ${other.name}`);
+    } catch (e) {
+      showToast(errorMessage(e, "Failed to block user"));
+    } finally {
+      setBlockConfirmOpen(false);
+    }
+  }
+
   async function toggleBlock() {
     if (!other?.id) return;
     setMenuOpen(false);
@@ -220,14 +264,7 @@ export default function ChatThread() {
         showToast(errorMessage(e, "Failed to unblock user"));
       }
     } else {
-      if (!window.confirm(`Block ${other.name}? They will no longer be able to message you.`)) return;
-      try {
-        await socialService.blockUser(other.id);
-        setIsBlocked(true);
-        showToast(`Blocked ${other.name}`);
-      } catch (e) {
-        showToast(errorMessage(e, "Failed to block user"));
-      }
+      setBlockConfirmOpen(true);
     }
   }
 
@@ -266,22 +303,28 @@ export default function ChatThread() {
         {other && (
           <div className="row gap-4 center-v" style={{ position: "relative" }}>
             <button
+              ref={menuTriggerRef}
               className="icon-btn"
               onClick={() => setMenuOpen((o) => !o)}
               aria-label="More options"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
             >
               <DotsThree size={20} />
             </button>
 
             {menuOpen && (
               <div
+                ref={menuRef}
+                role="menu"
+                aria-label="Conversation options"
                 className="card col"
                 style={{
                   position: "absolute",
                   top: "100%",
                   right: 0,
                   zIndex: 100,
-                  minWidth: 160,
+                  minWidth: 180,
                   padding: "4px 0",
                   background: "var(--surface)",
                   boxShadow: "var(--shadow-md)",
@@ -290,22 +333,25 @@ export default function ChatThread() {
                 }}
               >
                 <button
+                  role="menuitem"
                   className="row gap-8 center-v small"
-                  style={{ padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
+                  style={{ minHeight: 44, padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
                   onClick={() => { setMenuOpen(false); nav(other.profilePath); }}
                 >
                   <Phone size={15} /> {other.kind === "business" ? t("chat_view_business") : other.kind === "provider" ? t("chat_view_provider") : "View contact"}
                 </button>
                 <button
+                  role="menuitem"
                   className="row gap-8 center-v small"
-                  style={{ padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--red-600)" }}
+                  style={{ minHeight: 44, padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--red-600)" }}
                   onClick={() => { setMenuOpen(false); setReporting(true); }}
                 >
                   <Flag size={15} /> Report chat
                 </button>
                 <button
+                  role="menuitem"
                   className="row gap-8 center-v small"
-                  style={{ padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", color: isBlocked ? "var(--green-600)" : "var(--red-600)" }}
+                  style={{ minHeight: 44, padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", color: isBlocked ? "var(--green-600)" : "var(--red-600)" }}
                   onClick={toggleBlock}
                 >
                   <Ban size={15} /> {isBlocked ? "Unblock user" : "Block user"}
@@ -578,6 +624,18 @@ export default function ChatThread() {
           onClose={() => setReporting(false)}
         />
       )}
+
+      {/* Block contact confirmation */}
+      <ConfirmDialog
+        isOpen={blockConfirmOpen}
+        onClose={() => setBlockConfirmOpen(false)}
+        onConfirm={handleBlock}
+        title={`Block ${other?.name || "user"}?`}
+        description="They will no longer be able to message you or see your activity."
+        confirmLabel="Block"
+        cancelLabel="Cancel"
+        destructive
+      />
     </div>
   );
 }

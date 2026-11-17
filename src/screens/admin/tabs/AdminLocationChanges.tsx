@@ -2,7 +2,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common";
 import { adminService, type PendingLocationChange } from "@/services/core/adminService";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Check, X, Store, MapPin } from "@/components/Icons";
 import MiniMap from "@/components/MiniMap";
 import { useApp } from "@/store";
@@ -20,7 +20,7 @@ function fmtCoord(lat: number | null, lng: number | null): string {
 // lat/lng (geom auto-syncs), rejectLocationChange discards them.
 export function AdminLocationChanges() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => adminService.pendingLocationChanges(), [], "admin:location-changes");
+  const { data, loading, error, refetch } = useQuery(() => adminService.pendingLocationChanges(), [], "admin:location-changes");
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [actingId, setActingId] = useState<string | null>(null);
 
@@ -43,6 +43,7 @@ export function AdminLocationChanges() {
   }
 
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  if (error) return <div className="page-pad" style={{ paddingTop: 12 }}><ErrorView error={error} onRetry={refetch} /></div>;
   const items = data ?? [];
 
   return (

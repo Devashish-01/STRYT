@@ -461,6 +461,74 @@ function isAuthOrPublicScreen(pathname: string): boolean {
   );
 }
 
+const ROUTE_TITLES: Record<string, string> = {
+  "/": "STRYT - Local street discoveries & trusted pros",
+  "/home": "Home · STRYT",
+  "/explore": "Explore · STRYT",
+  "/map": "Map · STRYT",
+  "/search": "Search · STRYT",
+  "/categories": "Categories · STRYT",
+  "/community-hub": "Community · STRYT",
+  "/chats": "Chats · STRYT",
+  "/notifications": "Notifications · STRYT",
+  "/profile": "Profile · STRYT",
+  "/profile/edit": "Edit Profile · STRYT",
+  "/bookmarks": "Saved · STRYT",
+  "/lists": "Lists · STRYT",
+  "/my-activity": "My Activity · STRYT",
+  "/achievements": "Achievements · STRYT",
+  "/queues": "My Queues · STRYT",
+  "/appointments": "Appointments · STRYT",
+  "/agreements": "Agreements · STRYT",
+  "/delivery": "Delivery Console · STRYT",
+  "/ask": "Ask your Street · STRYT",
+  "/story/new": "New Story · STRYT",
+  "/safety": "Safety & Location · STRYT",
+  "/safety/contacts": "Emergency Contacts · STRYT",
+  "/settings": "Settings · STRYT",
+  "/settings/notifications": "Notifications · STRYT",
+  "/settings/privacy": "Privacy · STRYT",
+  "/settings/security": "Security · STRYT",
+  "/settings/location": "Location · STRYT",
+  "/settings/language": "Language · STRYT",
+  "/settings/discovery": "Discovery · STRYT",
+  "/settings/data": "Data & Account · STRYT",
+  "/manage": "Manage Hub · STRYT",
+  "/admin": "Admin Console · STRYT",
+  "/admin/login": "Admin Sign In · STRYT",
+  "/support": "Help & Support · STRYT",
+  "/legal": "Legal & Terms · STRYT",
+  "/guide": "Guides & Help · STRYT",
+};
+
+function getRouteDocumentTitle(pathname: string): string {
+  if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
+  if (pathname.startsWith("/business/") && pathname.endsWith("/manage")) return "Business Console · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/dashboard")) return "Dashboard · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/queue")) return "Queue · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/appointments")) return "Appointments · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/catalog")) return "Catalog · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/payments")) return "Payments · STRYT";
+  if (pathname.startsWith("/business/") && pathname.includes("/manage/settings")) return "Business Settings · STRYT";
+  if (pathname.startsWith("/business/")) return "Business · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.includes("/manage/jobs")) return "Jobs · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.includes("/manage/find-work")) return "Find Work · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.includes("/manage/money")) return "Money · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.includes("/manage/settings")) return "Provider Settings · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.endsWith("/manage")) return "Provider Dashboard · STRYT";
+  if (pathname.startsWith("/provider/")) return "Provider · STRYT";
+  if (pathname.startsWith("/category/")) return "Category · STRYT";
+  if (pathname.startsWith("/chat/")) return "Chat · STRYT";
+  if (pathname.startsWith("/community/")) return "Community Post · STRYT";
+  if (pathname.startsWith("/place/")) return "Place · STRYT";
+  if (pathname.startsWith("/u/")) return "User Profile · STRYT";
+  if (pathname.startsWith("/agreement/")) return "Agreement · STRYT";
+  if (pathname.startsWith("/rate/")) return "Review & Rate · STRYT";
+  if (pathname.startsWith("/track/")) return "Order Tracking · STRYT";
+  if (pathname.startsWith("/auth/")) return "Sign In · STRYT";
+  return "STRYT";
+}
+
 export default function App() {
   const location = useLocation();
   const { toast, notifExplainerPending, confirmNotifExplainer, dismissNotifExplainer } = useApp();
@@ -516,6 +584,18 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return;
     const darkTop = location.pathname === "/" || location.pathname === "/home";
     void StatusBar.setStyle({ style: darkTop ? Style.Dark : Style.Light }).catch(() => {});
+  }, [location.pathname]);
+
+  // Route change: update document title and manage accessible focus target (S5)
+  useEffect(() => {
+    document.title = getRouteDocumentTitle(location.pathname);
+    const mainHeading = document.querySelector<HTMLElement>("main h1, .screen h1, h1, h2");
+    if (mainHeading && !document.querySelector(".overlay, [role='dialog']")) {
+      mainHeading.setAttribute("tabindex", "-1");
+      if (document.activeElement === document.body || !document.activeElement) {
+        mainHeading.focus({ preventScroll: true });
+      }
+    }
   }, [location.pathname]);
 
   // Push-notification taps route into the SPA instead of forcing a full reload.

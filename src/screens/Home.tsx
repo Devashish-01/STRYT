@@ -17,6 +17,7 @@ import { buildParentMap, rankByInterests } from "@/lib/interestRank";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import { mostUrgentPledge, needsDeposit } from "@/lib/bulkFeed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
+import HomeWordmark from "@/components/HomeWordmark";
 import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
 import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
@@ -92,6 +93,257 @@ function getWeatherText(code: number): string {
   if (code >= 85 && code <= 86) return "Snow Showers";
   if (code >= 95 && code <= 99) return "Thunderstorm";
   return "Clear";
+}
+
+function AmbientBanner({
+  banner,
+  accent,
+  onDismiss,
+}: {
+  banner: string;
+  accent: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      style={{
+        background: accent + "18",
+        borderBottom: `1px solid ${accent}30`,
+        padding: "4px 8px 4px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+      }}
+    >
+      <span className="tiny grow" style={{ color: accent, fontWeight: 500, lineHeight: 1.4 }}>
+        {banner}
+      </span>
+      <button
+        type="button"
+        className="icon-btn-sm"
+        onClick={onDismiss}
+        aria-label="Dismiss banner"
+        style={{
+          color: accent,
+          opacity: 0.8,
+          flexShrink: 0,
+          minWidth: 44,
+          minHeight: 44,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
+function TodayRail({
+  todayItems,
+  hasActiveQueues,
+  onOpenQueues,
+  title,
+  myQueuesText,
+  isDesktop = false,
+}: {
+  todayItems: TodayItem[];
+  hasActiveQueues: boolean;
+  onOpenQueues: () => void;
+  title: string;
+  myQueuesText: string;
+  isDesktop?: boolean;
+}) {
+  if (todayItems.length === 0) return null;
+
+  return (
+    <div style={isDesktop ? undefined : { paddingTop: 14 }}>
+      <div className={`row between ${isDesktop ? "" : "page-pad"}`} style={{ marginBottom: isDesktop ? 12 : 0, paddingBottom: 0, paddingTop: 0 }}>
+        <span className="semi" style={{ fontSize: 15 }}>{title}</span>
+        {hasActiveQueues && (
+          <button className="see-all" style={isDesktop ? { border: "none", background: "none", cursor: "pointer" } : undefined} onClick={onOpenQueues}>
+            {myQueuesText}
+          </button>
+        )}
+      </div>
+      <div className="hscroll today-rail" style={{ padding: isDesktop ? 0 : undefined, scrollPaddingInline: isDesktop ? 0 : undefined, paddingTop: isDesktop ? undefined : 10 }}>
+        {todayItems.map((t, idx) => (
+          <button
+            key={t.key}
+            className="today-card fade-up"
+            style={{ "--today-accent": t.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+            onClick={t.onClick}
+          >
+            <div className="today-card-head">
+              <span className="today-card-icon">{t.icon}</span>
+              <span className="today-card-kicker grow">{t.kicker}</span>
+              {t.live && <span className="today-live">LIVE</span>}
+            </div>
+            <div>
+              <div className="today-card-title">{t.title}</div>
+              <div className="today-card-stat" style={{ marginTop: 6 }}>{t.stat}</div>
+              {t.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{t.sub}</div>}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LaunchHero({
+  onAsk,
+  title,
+  desc,
+  isDesktop = false,
+}: {
+  onAsk: () => void;
+  title: string;
+  desc: string;
+  isDesktop?: boolean;
+}) {
+  const content = (
+    <button
+      className="launch-hero fade-up"
+      onClick={onAsk}
+      style={{
+        width: "100%",
+        border: "1px solid rgba(139, 92, 246, 0.2)",
+        boxShadow: "0 8px 24px rgba(139, 92, 246, 0.15)",
+        cursor: "pointer",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        borderRadius: 18,
+      }}
+    >
+      <span className="launch-hero-icon" style={{ fontSize: 24 }}>📋</span>
+      <div className="grow" style={{ textAlign: "left" }}>
+        <div style={{ fontSize: isDesktop ? 18 : 17, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</div>
+        <div style={{ fontSize: 13.5, opacity: 0.92, marginTop: 2 }}>{desc}</div>
+      </div>
+      <ChevronRight size={22} style={{ opacity: 0.9, flexShrink: 0 }} />
+    </button>
+  );
+
+  if (isDesktop) return content;
+  return <div className="page-pad" style={{ paddingTop: 16, paddingBottom: 0 }}>{content}</div>;
+}
+
+function LaunchTilesGrid({
+  tiles,
+  isDesktop = false,
+}: {
+  tiles: { emoji: string; label: string; sub: string; tint: string; color: string; onClick: () => void; badge?: number }[];
+  isDesktop?: boolean;
+}) {
+  const content = (
+    <div className="launch-grid">
+      {tiles.map((t, idx) => (
+        <button
+          key={t.label}
+          className="launch-tile fade-up"
+          onClick={t.onClick}
+          style={{
+            border: isDesktop ? "1px solid rgba(0, 0, 0, 0.04)" : undefined,
+            boxShadow: isDesktop ? "0 4px 14px rgba(0, 0, 0, 0.05)" : undefined,
+            borderRadius: 16,
+            cursor: "pointer",
+            animationDelay: `${idx * 35}ms`,
+          }}
+        >
+          {t.badge ? <span className="count-badge launch-tile-badge">{t.badge > 9 ? "9+" : t.badge}</span> : null}
+          <span className="launch-tile-icon" style={{ background: t.tint, color: t.color, borderRadius: 12 }}>{t.emoji}</span>
+          <div style={{ textAlign: "left" }}>
+            <div className="launch-tile-label">{t.label}</div>
+            <div className="launch-tile-sub">{t.sub}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
+  if (isDesktop) return content;
+  return <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>{content}</div>;
+}
+
+function RecentlyViewedRail({
+  items,
+  title,
+  onNavigate,
+  isDesktop = false,
+}: {
+  items: { type: string; id: string; name: string; image?: string }[];
+  title: string;
+  onNavigate: (path: string) => void;
+  isDesktop?: boolean;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className={isDesktop ? "card" : "page-pad"} style={isDesktop ? { padding: 20 } : { paddingTop: 16, paddingBottom: 0 }}>
+      <span className="semi" style={{ fontSize: 15, display: "block", marginBottom: isDesktop ? 14 : 10 }}>{title}</span>
+      <div className="hscroll" style={{ padding: isDesktop ? 0 : undefined, scrollPaddingInline: isDesktop ? 0 : undefined }}>
+        {items.map((r) => (
+          <button
+            key={`${r.type}:${r.id}`}
+            className="col center"
+            style={{ gap: 6, width: 72, flexShrink: 0, background: "none", border: "none", cursor: "pointer" }}
+            onClick={() => onNavigate(r.type === "business" ? `/business/${r.id}` : `/provider/${r.id}`)}
+          >
+            <SafeImg src={r.image} variant={r.type === "provider" ? "avatar" : "photo"} style={{ width: 56, height: 56, borderRadius: r.type === "provider" ? "50%" : 12, objectFit: "cover" }} />
+            <span className="tiny semi ellipsis" style={{ maxWidth: 68, textAlign: "center" }}>{r.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyStreetCard({
+  hasAnyBusiness,
+  onListSpot,
+  onPostRequest,
+  title,
+  desc,
+  listSpotText,
+  postRequestText,
+  isDesktop = false,
+}: {
+  hasAnyBusiness: boolean;
+  onListSpot: () => void;
+  onPostRequest: () => void;
+  title: string;
+  desc: string;
+  listSpotText: string;
+  postRequestText: string;
+  isDesktop?: boolean;
+}) {
+  return (
+    <div
+      className="card col center"
+      style={{
+        padding: isDesktop ? 40 : 36,
+        gap: 12,
+        textAlign: "center",
+        background: "linear-gradient(135deg, var(--brand-50), var(--surface))",
+        margin: isDesktop ? 0 : undefined,
+      }}
+    >
+      <span style={{ fontSize: 48 }}>🏘️</span>
+      <div className="bold" style={{ fontSize: 18 }}>{title}</div>
+      <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{desc}</p>
+      <div className="row gap-10" style={{ marginTop: 4 }}>
+        {!hasAnyBusiness && (
+          <button className="btn btn-primary btn-sm" onClick={onListSpot}>{listSpotText}</button>
+        )}
+        <button className="btn btn-ghost btn-sm" onClick={onPostRequest}>{postRequestText}</button>
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -326,7 +578,7 @@ export default function Home() {
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
           <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v" style={{ marginBottom: 12 }}>
-            <BrandHome color="var(--white)" glow={theme.lampGlow} />
+            <HomeWordmark glow={theme.lampGlow} onClick={() => nav("/home")} />
             <div className="row gap-8">
               <button
                 className="icon-btn"
@@ -414,20 +666,12 @@ export default function Home() {
         </div>
 
         {/* ── Ambient banner ── */}
-        {showBanner && (
-          <div style={{
-            background: theme.accent + "18",
-            borderBottom: `1px solid ${theme.accent}30`,
-            padding: "8px 14px 8px 16px",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <span className="tiny grow" style={{ color: theme.accent, fontWeight: 500, lineHeight: 1.4 }}>
-              {theme.banner}
-            </span>
-            <button onClick={() => setBannerDismissed(true)} style={{ color: theme.accent, opacity: 0.6, flexShrink: 0, padding: 2, background: "none", border: "none", cursor: "pointer" }}>
-              <X size={14} />
-            </button>
-          </div>
+        {showBanner && theme.banner && (
+          <AmbientBanner
+            banner={theme.banner}
+            accent={theme.accent}
+            onDismiss={() => setBannerDismissed(true)}
+          />
         )}
 
         {/* ── Location Share Request Alert Banner ── */}
@@ -496,35 +740,13 @@ export default function Home() {
           )}
 
           {/* ── Your day — consolidated live activity rail ── */}
-          {todayItems.length > 0 && (
-            <div style={{ paddingTop: 14 }}>
-              <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
-                <span className="semi" style={{ fontSize: 15 }}>{t("your_day")}</span>
-                {activeQueues.length > 0 && <button className="see-all" onClick={() => nav("/queues")}>{t("my_queues")}</button>}
-              </div>
-              <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
-                {todayItems.map((t, idx) => (
-                  <button
-                    key={t.key}
-                    className="today-card fade-up"
-                    style={{ "--today-accent": t.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
-                    onClick={t.onClick}
-                  >
-                    <div className="today-card-head">
-                      <span className="today-card-icon">{t.icon}</span>
-                      <span className="today-card-kicker grow">{t.kicker}</span>
-                      {t.live && <span className="today-live">LIVE</span>}
-                    </div>
-                    <div>
-                      <div className="today-card-title">{t.title}</div>
-                      <div className="today-card-stat" style={{ marginTop: 6 }}>{t.stat}</div>
-                      {t.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{t.sub}</div>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <TodayRail
+            todayItems={todayItems}
+            hasActiveQueues={activeQueues.length > 0}
+            onOpenQueues={() => nav("/queues")}
+            title={t("your_day")}
+            myQueuesText={t("my_queues")}
+          />
 
           {/* Browse Categories */}
           {categoriesError && (
@@ -571,54 +793,14 @@ export default function Home() {
           )}
 
           {/* Hero "Need something?" */}
-          <div className="page-pad" style={{ paddingTop: 16, paddingBottom: 0 }}>
-            <button
-              className="launch-hero fade-up"
-              onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
-              style={{
-                width: "100%",
-                border: "1px solid rgba(139, 92, 246, 0.2)",
-                boxShadow: "0 8px 24px rgba(139, 92, 246, 0.15)",
-                cursor: "pointer",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                borderRadius: 18,
-              }}
-            >
-              <span className="launch-hero-icon" style={{ fontSize: 24 }}>📋</span>
-              <div className="grow" style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>{t("need_something")}</div>
-                <div style={{ fontSize: 13, opacity: 0.92, marginTop: 2 }}>{t("ask_street_desc")}</div>
-              </div>
-              <ChevronRight size={22} style={{ opacity: 0.9, flexShrink: 0 }} />
-            </button>
-          </div>
+          <LaunchHero
+            onAsk={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
+            title={t("need_something")}
+            desc={t("ask_street_desc")}
+          />
 
           {/* 2x2 Launch Grid */}
-          <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-            <div className="launch-grid">
-              {tiles.map((tTile, idx) => (
-                <button
-                  key={tTile.label}
-                  className="launch-tile fade-up"
-                  onClick={tTile.onClick}
-                  style={{
-                    border: "1px solid rgba(0, 0, 0, 0.04)",
-                    boxShadow: "0 4px 14px rgba(0, 0, 0, 0.05)",
-                    borderRadius: 16,
-                    cursor: "pointer",
-                    animationDelay: `${idx * 35}ms`
-                  }}
-                >
-                  {tTile.badge ? <span className="count-badge launch-tile-badge">{tTile.badge > 9 ? "9+" : tTile.badge}</span> : null}
-                  <span className="launch-tile-icon" style={{ background: tTile.tint, color: tTile.color, borderRadius: 12 }}>{tTile.emoji}</span>
-                  <div style={{ textAlign: "left" }}>
-                    <div className="launch-tile-label">{tTile.label}</div>
-                    <div className="launch-tile-sub">{tTile.sub}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <LaunchTilesGrid tiles={tiles} />
 
           {/* Bulk & group buys — a banner rather than a 5th launch tile, since
               the tile grid is a fixed row of four on desktop. */}
@@ -664,31 +846,15 @@ export default function Home() {
           {/* Empty street CTA */}
           {agreements.length === 0 && (categories ?? []).length === 0 && (
             <div className="page-pad col gap-12" style={{ paddingTop: 20 }}>
-              <div
-                className="card col center"
-                style={{
-                  padding: 32,
-                  gap: 14,
-                  textAlign: "center",
-                  background: "linear-gradient(135deg, rgba(245, 243, 255, 0.95), rgba(255, 255, 255, 0.98))",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(139, 92, 246, 0.15)",
-                  boxShadow: "0 8px 30px rgba(139, 92, 246, 0.08)",
-                  borderRadius: 22,
-                }}
-              >
-                <span style={{ fontSize: 52 }}>🏘️</span>
-                <div className="bold" style={{ fontSize: 19, letterSpacing: "-0.01em" }}>{t("street_getting_started")}</div>
-                <p className="small muted" style={{ maxWidth: 290, lineHeight: 1.55 }}>
-                  {t("first_to_list_desc")}
-                </p>
-                <div className="row gap-10" style={{ marginTop: 6 }}>
-                  {!hasAnyBusiness && (
-                    <button className="btn btn-primary btn-sm" style={{ borderRadius: 12, padding: "8px 16px" }} onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
-                  )}
-                  <button className="btn btn-ghost btn-sm" style={{ borderRadius: 12, padding: "8px 16px" }} onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
-                </div>
-              </div>
+              <EmptyStreetCard
+                hasAnyBusiness={hasAnyBusiness}
+                onListSpot={() => nav("/onboard/business")}
+                onPostRequest={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
+                title={t("street_getting_started")}
+                desc={t("first_to_list_desc")}
+                listSpotText={t("list_spot")}
+                postRequestText={t("post_request")}
+              />
             </div>
           )}
 
@@ -721,7 +887,7 @@ export default function Home() {
           <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
           <div>
             <span style={{ color: "var(--white)", display: "inline-flex", marginBottom: 6 }}>
-              <BrandLockup glow={theme.lampGlow} size={19} onClick={() => nav("/home")} />
+              <HomeWordmark glow={theme.lampGlow} onClick={() => nav("/home")} />
             </span>
             <span className="tiny" style={{ color: "var(--white)", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
@@ -781,14 +947,14 @@ export default function Home() {
         </header>
 
         {/* Contextual banners — same triggers as mobile */}
-        {showBanner && (
-          <button
-            onClick={() => setBannerDismissed(true)}
-            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: theme.accent + "14", border: `1px solid ${theme.accent}33`, borderRadius: 14, padding: "10px 16px", marginBottom: 16, cursor: "pointer" }}
-          >
-            <span className="small grow" style={{ color: theme.accent, fontWeight: 600 }}>{theme.banner}</span>
-            <X size={15} color={theme.accent} style={{ opacity: 0.6 }} />
-          </button>
+        {showBanner && theme.banner && (
+          <div style={{ marginBottom: 16 }}>
+            <AmbientBanner
+              banner={theme.banner}
+              accent={theme.accent}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          </div>
         )}
         {pendingLocReqs && pendingLocReqs.length > 0 && (
           <button
@@ -836,80 +1002,25 @@ export default function Home() {
             )}
 
             {/* Your day — same consolidated live rail as mobile, leading the column */}
-            {todayItems.length > 0 && (
-              <div>
-                <div className="row between" style={{ marginBottom: 12 }}>
-                  <span className="semi" style={{ fontSize: 15 }}>{t("your_day")}</span>
-                  {activeQueues.length > 0 && <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/queues")}>{t("my_queues")}</button>}
-                </div>
-                <div className="hscroll today-rail" style={{ padding: 0, scrollPaddingInline: 0 }}>
-                  {todayItems.map((tItem, idx) => (
-                    <button
-                      key={tItem.key}
-                      className="today-card fade-up"
-                      style={{ "--today-accent": tItem.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
-                      onClick={tItem.onClick}
-                    >
-                      <div className="today-card-head">
-                        <span className="today-card-icon">{tItem.icon}</span>
-                        <span className="today-card-kicker grow">{tItem.kicker}</span>
-                        {tItem.live && <span className="today-live">LIVE</span>}
-                      </div>
-                      <div>
-                        <div className="today-card-title">{tItem.title}</div>
-                        <div className="today-card-stat" style={{ marginTop: 6 }}>{tItem.stat}</div>
-                        {tItem.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{tItem.sub}</div>}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <TodayRail
+              todayItems={todayItems}
+              hasActiveQueues={activeQueues.length > 0}
+              onOpenQueues={() => nav("/queues")}
+              title={t("your_day")}
+              myQueuesText={t("my_queues")}
+              isDesktop
+            />
 
             {/* "Need something?" hero — identical to mobile */}
-            <button
-              className="launch-hero"
-              onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
-              style={{
-                border: "1px solid rgba(139, 92, 246, 0.2)",
-                boxShadow: "0 8px 24px rgba(139, 92, 246, 0.15)",
-                borderRadius: 18,
-                cursor: "pointer",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease",
-              }}
-            >
-              <span className="launch-hero-icon" style={{ fontSize: 24 }}>📋</span>
-              <div className="grow" style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>{t("need_something")}</div>
-                <div style={{ fontSize: 13.5, opacity: 0.92, marginTop: 2 }}>{t("ask_street_desc")}</div>
-              </div>
-              <ChevronRight size={22} style={{ opacity: 0.9, flexShrink: 0 }} />
-            </button>
+            <LaunchHero
+              onAsk={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
+              title={t("need_something")}
+              desc={t("ask_street_desc")}
+              isDesktop
+            />
 
             {/* Launch tiles — same four as mobile, one row of four on desktop */}
-            <div className="launch-grid">
-              {tiles.map((t, idx) => (
-                <button
-                  key={t.label}
-                  className="launch-tile fade-up"
-                  onClick={t.onClick}
-                  style={{
-                    border: "1px solid rgba(0, 0, 0, 0.04)",
-                    boxShadow: "0 4px 14px rgba(0, 0, 0, 0.05)",
-                    borderRadius: 16,
-                    cursor: "pointer",
-                    animationDelay: `${idx * 35}ms`
-                  }}
-                >
-                  {t.badge ? <span className="count-badge launch-tile-badge">{t.badge > 9 ? "9+" : t.badge}</span> : null}
-                  <span className="launch-tile-icon" style={{ background: t.tint, color: t.color, borderRadius: 12 }}>{t.emoji}</span>
-                  <div style={{ textAlign: "left" }}>
-                    <div className="launch-tile-label">{t.label}</div>
-                    <div className="launch-tile-sub">{t.sub}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <LaunchTilesGrid tiles={tiles} isDesktop />
 
             {/* Nearby on Your Street — discovery content the wide canvas can afford */}
             {nearbyRailLoading ? (
@@ -933,38 +1044,25 @@ export default function Home() {
             )}
 
             {/* Recently viewed */}
-            {recentlyViewed.length > 0 && (
-              <div className="card" style={{ padding: 20 }}>
-                <span className="semi" style={{ fontSize: 15, display: "block", marginBottom: 14 }}>{t("recently_viewed")}</span>
-                <div className="hscroll" style={{ padding: 0, scrollPaddingInline: 0 }}>
-                  {recentlyViewed.map((r) => (
-                    <button
-                      key={`${r.type}:${r.id}`}
-                      className="col center"
-                      style={{ gap: 6, width: 72, flexShrink: 0, background: "none", border: "none", cursor: "pointer" }}
-                      onClick={() => nav(r.type === "business" ? `/business/${r.id}` : `/provider/${r.id}`)}
-                    >
-                      <SafeImg src={r.image} variant={r.type === "provider" ? "avatar" : "photo"} style={{ width: 56, height: 56, borderRadius: r.type === "provider" ? "50%" : 12, objectFit: "cover" }} />
-                      <span className="tiny semi ellipsis" style={{ maxWidth: 68, textAlign: "center" }}>{r.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <RecentlyViewedRail
+              items={recentlyViewed}
+              title={t("recently_viewed")}
+              onNavigate={nav}
+              isDesktop
+            />
 
             {/* Empty street CTA — same as mobile, for brand-new accounts */}
             {agreements.length === 0 && (categories ?? []).length === 0 && nearbyBiz.length === 0 && nearbyProv.length === 0 && (
-              <div className="card col center" style={{ padding: 40, gap: 12, textAlign: "center", background: "linear-gradient(135deg, var(--brand-50), var(--surface))" }}>
-                <span style={{ fontSize: 52 }}>🏘️</span>
-                <div className="bold" style={{ fontSize: 18 }}>{t("street_getting_started")}</div>
-                <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{t("first_to_list_desc")}</p>
-                <div className="row gap-10" style={{ marginTop: 4 }}>
-                  {!hasAnyBusiness && (
-                    <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
-                  )}
-                  <button className="btn btn-ghost btn-sm" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
-                </div>
-              </div>
+              <EmptyStreetCard
+                hasAnyBusiness={hasAnyBusiness}
+                onListSpot={() => nav("/onboard/business")}
+                onPostRequest={requireAuth(() => nav("/ask"), "Sign in to ask your street")}
+                title={t("street_getting_started")}
+                desc={t("first_to_list_desc")}
+                listSpotText={t("list_spot")}
+                postRequestText={t("post_request")}
+                isDesktop
+              />
             )}
           </div>
 

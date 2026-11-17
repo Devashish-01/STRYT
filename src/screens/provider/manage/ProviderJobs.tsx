@@ -30,6 +30,7 @@ import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
@@ -620,13 +621,14 @@ export default function ProviderJobs() {
       </div>
 
       {/* Response Note Modal */}
-      {activeApt && actionType && (
-        <div className="overlay" onClick={() => { if (!updatingStatus) { setActiveApt(null); setActionType(null); } }}>
-          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="bold large" style={{ fontSize: 16 }}>
-              {actionType === "ACCEPT" ? `Accept ${vocab.nounCap}` : actionType === "REJECT" ? `Decline ${vocab.nounCap}` : `Cancel ${vocab.nounCap}`}
-            </div>
+      <AccessibleSheet
+        isOpen={Boolean(activeApt && actionType)}
+        onClose={() => { if (!updatingStatus) { setActiveApt(null); setActionType(null); } }}
+        title={actionType === "ACCEPT" ? `Accept ${vocab.nounCap}` : actionType === "REJECT" ? `Decline ${vocab.nounCap}` : `Cancel ${vocab.nounCap}`}
+        variant="bottom-sheet"
+      >
+        {activeApt && actionType && (
+          <div className="col gap-14">
             <div className="tiny muted">
               {actionType === "CANCEL"
                 ? `Add a reason for cancelling ${activeApt.customerName}'s appointment (the customer will see this).`
@@ -656,24 +658,25 @@ export default function ProviderJobs() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AccessibleSheet>
 
       {/* Payment confirm/reject modal */}
-      {paymentAction && (
-        <div className="overlay" onClick={() => { if (!processingPayment) setPaymentAction(null); }}>
-          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="bold" style={{ fontSize: 16 }}>
-              {paymentAction.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
-            </div>
+      <AccessibleSheet
+        isOpen={Boolean(paymentAction)}
+        onClose={() => { if (!processingPayment) setPaymentAction(null); }}
+        title={paymentAction?.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
+        variant="bottom-sheet"
+      >
+        {paymentAction && (
+          <div className="col gap-14">
             <div className="tiny muted" style={{ lineHeight: 1.6 }}>
               {paymentAction.action === "CONFIRM"
                 ? `This will mark ${paymentAction.apt.customerName}'s ${vocab.noun} as fully paid. Make sure you've checked your bank app or UPI history before confirming.`
                 : `The customer will be notified that you couldn't verify their payment. They can retry. Repeated false claims are tracked.`}
             </div>
             {paymentAction.action === "CONFIRM" && paymentAction.apt.paymentAmount && (
-              <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
+              <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>{inr(paymentAction.apt.paymentAmount)}</div>
             )}
             <div className="row gap-8 end">
               <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>{t("back_word")}</button>
@@ -687,8 +690,8 @@ export default function ProviderJobs() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AccessibleSheet>
 
       {/* Block slot / whole day modal */}
       {blockModal && (

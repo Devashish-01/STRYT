@@ -6,7 +6,7 @@ import { appointmentService, bulkService, businessService, customPaymentService 
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { CustomerKhataSection } from "@/components/appointments/CustomerKhataSection";
 import type { AppointmentRecord, QueueOwnerToken, CustomPayment } from "@/types";
@@ -26,27 +26,27 @@ export default function BusinessPayments() {
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
-  const { data: aptsData, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
+  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
     "appointments",
     [id],
     `target_id=eq.${id}`
   );
-  const { data: queueData, loading: queueLoading, refetch: refetchQueue } = useQueryWithRealtime(
+  const { data: queueData, loading: queueLoading, error: queueError, refetch: refetchQueue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(id),
     "queue_tokens",
     [id],
     `business_id=eq.${id}`,
     `queue:${id}`
   );
-  const { data: customData, refetch: refetchCustom } = useQueryWithRealtime<CustomPayment[]>(
+  const { data: customData, loading: customLoading, error: customError, refetch: refetchCustom } = useQueryWithRealtime<CustomPayment[]>(
     () => customPaymentService.listForTarget("BUSINESS", id),
     "custom_payments",
     [id],
     `target_id=eq.${id}`,
     `custom-payments:${id}`
   );
-  const { data: bulkDepositData, refetch: refetchBulkDeposits } = useQueryWithRealtime(
+  const { data: bulkDepositData, loading: bulkLoading, error: bulkError, refetch: refetchBulkDeposits } = useQueryWithRealtime(
     () => bulkService.pendingDepositsForBusiness(id),
     "bulk_deal_pledges",
     [id],
@@ -207,15 +207,46 @@ export default function BusinessPayments() {
   const claimsCount = aptClaims.length + queueClaims.length + customClaims.length + bulkDepositClaims.length;
   const outstandingCount = aptOutstanding.length + queueOutstanding.length;
 
+  const isInitialLoading = (aptsLoading && !aptsData) || (queueLoading && !queueData) || (customLoading && !customData) || (bulkLoading && !bulkDepositData);
+  const anySourceFailed = !!(aptsError || queueError || customError || bulkError);
+  const allSourcesFailed = anySourceFailed && !aptsData && !queueData && !customData && !bulkDepositData;
+
+  const refetchAll = () => {
+    refetchApts();
+    refetchQueue();
+    refetchCustom();
+    refetchBulkDeposits();
+  };
+
   return (
     <div className="screen with-nav">
       <AppBar title="Payments" subtitle={b?.name ? `For ${b.name}` : "Booking & queue payments"} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }} ref={containerRef}>
         <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
 
-        {queueLoading && !queueData && <Skeleton h={80} mb={0} />}
+        {isInitialLoading && (
+          <div className="col gap-12" aria-busy="true" aria-label="Loading payments">
+            <Skeleton h={84} r={16} mb={0} />
+            <Skeleton h={110} r={16} mb={0} />
+            <Skeleton h={110} r={16} mb={0} />
+          </div>
+        )}
 
-        {claimsCount === 0 && outstandingCount === 0 && aptRecentlyPaid.length === 0 && queueRecentlyPaid.length === 0 && customRecentlyPaid.length === 0 && (
+        {allSourcesFailed && !isInitialLoading && (
+          <ErrorView
+            error={aptsError || queueError || customError || bulkError || ({ code: "UNKNOWN", message: "Couldn't load payment records." } as any)}
+            onRetry={refetchAll}
+          />
+        )}
+
+        {anySourceFailed && !allSourcesFailed && (
+          <div className="card row between center-v" style={{ padding: "10px 14px", background: "var(--red-50)", border: "1px solid var(--red-200)", borderRadius: 12 }}>
+            <span className="tiny semi" style={{ color: "var(--red-700)" }}>Some payment updates couldn't be loaded.</span>
+            <button className="btn btn-outline btn-xs" style={{ minHeight: 32 }} onClick={refetchAll}>Retry</button>
+          </div>
+        )}
+
+        {!isInitialLoading && !anySourceFailed && claimsCount === 0 && outstandingCount === 0 && aptRecentlyPaid.length === 0 && queueRecentlyPaid.length === 0 && customRecentlyPaid.length === 0 && (
           <div className="card col center" style={{ padding: 28, gap: 6 }}>
             <span style={{ fontSize: 28 }}>💳</span>
             <span className="tiny muted">Payment claims and history will show up here.</span>

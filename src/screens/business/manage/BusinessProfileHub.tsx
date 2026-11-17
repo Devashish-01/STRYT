@@ -110,7 +110,12 @@ export default function BusinessProfileHub() {
         )}
 
         {(reviews ?? []).length > 0 && (
-          <div className="card row between center-v" style={{ padding: 14, cursor: "pointer" }} onClick={() => nav(`${base}/reviews`)}>
+          <button
+            type="button"
+            className="card row between center-v"
+            style={{ width: "100%", padding: 14, cursor: "pointer", textAlign: "left", minHeight: 44 }}
+            onClick={() => nav(`${base}/reviews`)}
+          >
             <div className="row gap-10 center-v">
               <Star size={20} color="var(--amber-500)" weight="fill" />
               <div>
@@ -119,7 +124,7 @@ export default function BusinessProfileHub() {
               </div>
             </div>
             <ChevronRight size={16} className="muted" />
-          </div>
+          </button>
         )}
 
         <HatSwitcherCard showManageLink={false} />

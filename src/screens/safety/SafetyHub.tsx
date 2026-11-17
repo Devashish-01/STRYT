@@ -34,15 +34,29 @@ export default function SafetyHub() {
   );
 
   async function onStart() {
-    if (list.length === 0) { nav("/safety/contacts"); return; }
-    const id = await start();
-    if (id) showToast("Live location shared with My People");
-    else if (list.length === 0) showToast("Add a contact first");
+    if (list.length === 0) {
+      nav("/safety/contacts");
+      return;
+    }
+    try {
+      const id = await start();
+      if (id) {
+        showToast("Live location shared with My People");
+      } else {
+        showToast("Could not start sharing — check location permissions and GPS fix, then try again");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Failed to start location sharing — try again");
+    }
   }
 
   async function onStop() {
-    await stop();
-    showToast("Live location sharing stopped");
+    try {
+      await stop();
+      showToast("Live location sharing stopped");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to stop location sharing — try again");
+    }
   }
 
   async function onRevokeRecipient(userId: string, name: string) {
@@ -59,7 +73,7 @@ export default function SafetyHub() {
     <div className="screen">
       <AppBar title="My People" onBack={() => nav(-1)} />
 
-      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="screen-scroll page-pad col gap-16 scroll-pad-end" style={{ paddingTop: 16 }}>
         {/* Hero: the big share control */}
         <div
           className="card"

@@ -6,6 +6,7 @@ import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { prefetchMapView } from "@/lib/prefetchRoutes";
 import { ActionIconBadge } from "@/components/ActionIconBadge";
+import AccessibleSheet from "@/components/ui/AccessibleSheet";
 import FooterProfileTab from "./FooterProfileTab";
 
 export default function BottomNav() {
@@ -78,88 +79,80 @@ export default function BottomNav() {
       </nav>
 
       {sheet && (
-        <>
-          <div
-            className="bottom-sheet-backdrop"
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", zIndex: 200 }}
-            onClick={() => setSheet(false)}
-          />
-          <div
-            className="create-action-sheet"
-            style={{
-              position: "fixed",
-              bottom: 0,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "100%",
-              maxWidth: "var(--maxw)",
-              background: "#ffffff",
-              borderRadius: "28px 28px 0 0",
-              padding: "10px 18px calc(30px + var(--safe-area-bottom))",
-              zIndex: 201,
-              boxShadow: "0 -8px 32px rgba(26, 21, 48, 0.16)",
-              animation: "drawerSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            <div style={{ width: 44, height: 4, borderRadius: 2, background: "var(--ink-200)", margin: "8px auto 16px" }} />
+        <AccessibleSheet
+          isOpen={sheet}
+          onClose={() => setSheet(false)}
+          variant="bottom-sheet"
+          role="dialog"
+          maxWidth="var(--maxw)"
+          showGrab={false}
+          className="create-action-sheet"
+          style={{
+            background: "#ffffff",
+            borderRadius: "28px 28px 0 0",
+            padding: "10px 18px calc(30px + var(--safe-area-bottom))",
+            boxShadow: "0 -8px 32px rgba(26, 21, 48, 0.16)",
+            animation: "drawerSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        >
+          <div style={{ width: 44, height: 4, borderRadius: 2, background: "var(--ink-200)", margin: "8px auto 16px" }} />
 
-            <div className="row between" style={{ marginBottom: 16, alignItems: "center" }}>
-              <div>
-                <span className="semi" style={{ fontSize: 17, color: "var(--ink-900)" }}>{t("create_sheet_title")}</span>
-                <p className="tiny muted" style={{ margin: "2px 0 0" }}>{t("create_sheet_sub")}</p>
-              </div>
-              <button
-                className="icon-btn"
-                onClick={() => setSheet(false)}
-                aria-label={t("create_sheet_close")}
-                style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--ink-100)" }}
-              >
-                <X size={18} />
-              </button>
+          <div className="row between" style={{ marginBottom: 16, alignItems: "center" }}>
+            <div>
+              <span className="semi" style={{ fontSize: 17, color: "var(--ink-900)" }}>{t("create_sheet_title")}</span>
+              <p className="tiny muted" style={{ margin: "2px 0 0" }}>{t("create_sheet_sub")}</p>
             </div>
-
-            <div className="col gap-10">
-              <button
-                className="card action-hub-card row gap-14"
-                style={{ padding: "14px 16px", textAlign: "left", alignItems: "center" }}
-                onClick={() => { setSheet(false); nav("/ask"); }}
-              >
-                <ActionIconBadge variant="amber" icon={Megaphone} size="md" />
-                <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_request_title")}</div>
-                  <div className="tiny muted">{t("create_request_sub")}</div>
-                </div>
-                <ChevronRight size={18} className="action-hub-card__arrow muted" />
-              </button>
-
-              <button
-                className="card action-hub-card row gap-14"
-                style={{ padding: "14px 16px", textAlign: "left", alignItems: "center" }}
-                onClick={() => { setSheet(false); nav("/story/new"); }}
-              >
-                <ActionIconBadge variant="sunset" icon={Camera} size="md" />
-                <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_story_title")}</div>
-                  <div className="tiny muted">{t("create_story_sub")}</div>
-                </div>
-                <ChevronRight size={18} className="action-hub-card__arrow muted" />
-              </button>
-
-              <button
-                className="card action-hub-card row gap-14"
-                style={{ padding: "14px 16px", textAlign: "left", alignItems: "center" }}
-                onClick={() => { setSheet(false); nav("/community/new"); }}
-              >
-                <ActionIconBadge variant="emerald" icon={Users} size="md" />
-                <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_post_title")}</div>
-                  <div className="tiny muted">{t("create_post_sub")}</div>
-                </div>
-                <ChevronRight size={18} className="action-hub-card__arrow muted" />
-              </button>
-            </div>
+            <button
+              className="icon-btn"
+              onClick={() => setSheet(false)}
+              aria-label={t("create_sheet_close")}
+              style={{ width: 44, height: 44, minWidth: 44, minHeight: 44, borderRadius: "50%", background: "var(--ink-100)" }}
+            >
+              <X size={18} />
+            </button>
           </div>
-        </>
+
+          <div className="col gap-10">
+            <button
+              className="card action-hub-card row gap-14"
+              style={{ padding: "14px 16px", textAlign: "left", alignItems: "center", minHeight: 48 }}
+              onClick={() => { setSheet(false); nav("/ask"); }}
+            >
+              <ActionIconBadge variant="amber" icon={Megaphone} size="md" />
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_request_title")}</div>
+                <div className="tiny muted">{t("create_request_sub")}</div>
+              </div>
+              <ChevronRight size={18} className="action-hub-card__arrow muted" />
+            </button>
+
+            <button
+              className="card action-hub-card row gap-14"
+              style={{ padding: "14px 16px", textAlign: "left", alignItems: "center", minHeight: 48 }}
+              onClick={() => { setSheet(false); nav("/story/new"); }}
+            >
+              <ActionIconBadge variant="sunset" icon={Camera} size="md" />
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_story_title")}</div>
+                <div className="tiny muted">{t("create_story_sub")}</div>
+              </div>
+              <ChevronRight size={18} className="action-hub-card__arrow muted" />
+            </button>
+
+            <button
+              className="card action-hub-card row gap-14"
+              style={{ padding: "14px 16px", textAlign: "left", alignItems: "center", minHeight: 48 }}
+              onClick={() => { setSheet(false); nav("/community/new"); }}
+            >
+              <ActionIconBadge variant="emerald" icon={Users} size="md" />
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>{t("create_post_title")}</div>
+                <div className="tiny muted">{t("create_post_sub")}</div>
+              </div>
+              <ChevronRight size={18} className="action-hub-card__arrow muted" />
+            </button>
+          </div>
+        </AccessibleSheet>
       )}
     </>
   );

@@ -109,6 +109,7 @@ export default function BusinessHome() {
   const badgeFor = (cap: string): number | undefined => {
     if (cap === "bookings") return pending.length || undefined;
     if (cap === "queue") return waiting || undefined;
+    if (cap === "payments") return paymentClaims || undefined;
     return undefined;
   };
 

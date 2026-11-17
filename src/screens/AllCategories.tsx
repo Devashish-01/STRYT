@@ -38,7 +38,7 @@ export default function AllCategories() {
 
 
   const { data: categories, loading, error, refetch } = useQuery(() => catalogService.getCategories(), [], "categories");
-  const { data: counts, loading: countsLoading } = useQuery(() => {
+  const { data: counts, loading: countsLoading, error: countsError, refetch: refetchCounts } = useQuery(() => {
     return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radius);
   }, [user.lat, user.lng, radius], `category-counts:${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}:${radius}`);
 
@@ -69,7 +69,9 @@ export default function AllCategories() {
   return (
     <div className="screen">
       <header className="appbar">
-        <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t("back_word")}>
+          <ArrowLeft size={20} />
+        </button>
         <div className="col grow" style={{ gap: 1 }}>
           <span className="bold" style={{ fontSize: 18 }}>{t("allcat_title")}</span>
           <span className="tiny muted">{t("allcat_subtitle")}</span>
@@ -79,10 +81,10 @@ export default function AllCategories() {
       {/* Search */}
       <div className="page-pad row gap-8 center-v" style={{ paddingBottom: 0 }}>
         <div
-          className="row gap-8 grow"
+          className="row gap-8 grow center-v"
           style={{ background: "var(--ink-50)", border: "1.5px solid var(--ink-200)", borderRadius: 12, padding: "0 12px", minWidth: 0 }}
         >
-          <Search size={16} color="var(--ink-400)" />
+          <Search size={16} color="var(--ink-400)" style={{ flexShrink: 0 }} />
           <input
             className="input"
             style={{ border: "none", background: "transparent", padding: "11px 0" }}
@@ -91,13 +93,34 @@ export default function AllCategories() {
             onChange={(e) => setQ(e.target.value)}
           />
           {q && (
-            <button onClick={() => setQ("")} style={{ color: "var(--ink-400)", padding: 2 }}>
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              aria-label={t("search_clear_aria")}
+              style={{ color: "var(--ink-400)", padding: 2, background: "none", border: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            >
               <X size={16} />
             </button>
           )}
         </div>
         <RadiusDropdown value={radius} onChange={setRadius} accentColor="var(--brand-600)" label={t("allcat_radius")} />
       </div>
+
+      {countsError && (
+        <div className="page-pad row between center-v" style={{ paddingBottom: 0, paddingTop: 6 }}>
+          <span className="tiny" style={{ color: "var(--red-600)" }}>
+            Category counts unavailable
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ minHeight: 32, padding: "2px 8px", fontSize: 11 }}
+            onClick={() => refetchCounts()}
+          >
+            {t("retry")}
+          </button>
+        </div>
+      )}
 
       <div className="screen-scroll">
         {loading ? (
@@ -162,6 +185,10 @@ export default function AllCategories() {
                     {/* Count row */}
                     {countsLoading ? (
                       <div className="skel" style={{ height: 16, width: 60, borderRadius: 20, marginTop: 6 }} />
+                    ) : countsError ? (
+                      <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 5, fontStyle: "italic" }}>
+                        Count unavailable
+                      </div>
                     ) : total > 0 ? (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
                         {biz > 0 && (

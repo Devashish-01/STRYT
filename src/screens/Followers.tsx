@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
+import { ChevronRight } from "@/components/Icons";
 import { useQuery } from "@/hooks/useApi";
 import { socialService } from "@/services";
 import { useApp } from "@/store";
-import { openProfile } from "@/lib/profileSheet";
 
 export default function Followers() {
   const nav = useNavigate();
@@ -27,17 +27,19 @@ export default function Followers() {
         {(data ?? []).map((f) => (
           <button
             key={f.id}
+            type="button"
             className="card row gap-12 center-v"
-            style={{ padding: 14, borderRadius: 16, textAlign: "left" }}
+            style={{ padding: 14, borderRadius: 16, textAlign: "left", cursor: "pointer", width: "100%", border: "none" }}
             onClick={() => nav(`/u/${f.id}`)}
+            aria-label={`View ${f.name}'s profile`}
           >
             <SafeImg
               src={f.avatar}
               variant="avatar"
-              style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", cursor: "pointer" }}
-              onClick={(e) => { e.stopPropagation(); openProfile(f.id, "USER", { name: f.name, avatar: f.avatar }); }}
+              style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
             />
-            <span className="bold small">{f.name}</span>
+            <span className="bold small grow">{f.name}</span>
+            <ChevronRight size={18} color="var(--ink-300)" />
           </button>
         ))}
       </div>

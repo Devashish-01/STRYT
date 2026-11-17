@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
+import { SelectableChip } from "@/components/ui/SelectableChip";
 import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image, RefreshCw } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -449,11 +450,17 @@ export default function AskCompose() {
           ) : (categories ?? []).length === 0 ? (
             <div className="tiny muted">{t("no_categories_available")} <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>{t("reload_word")}</button></div>
           ) : (
-            <div className="row wrap gap-8">
+            <div className="row wrap gap-8" role="radiogroup" aria-label={t("category")}>
               {(categories ?? []).map((c) => (
-                <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSubCat(null); }}>
-                  {c.icon} {c.name.split(" ")[0]}
-                </button>
+                <SelectableChip
+                  key={c.id}
+                  role="radio"
+                  selected={cat === c.id}
+                  onSelect={() => { setCat(c.id); setSubCat(null); }}
+                  label={<span style={{ whiteSpace: "normal", textAlign: "left" }}>{c.icon ? `${c.icon} ` : ""}{c.name}</span>}
+                  size="sm"
+                  style={{ height: "auto", minHeight: 38 }}
+                />
               ))}
             </div>
           )}
@@ -465,13 +472,14 @@ export default function AskCompose() {
             <label>{t("subcategory_label")} <span className="tiny muted">{t("optional_word")}</span></label>
             <div className="row wrap gap-8">
               {subOptions.map((s) => (
-                <button
+                <SelectableChip
                   key={s.id}
-                  className={`chip ${subCat === s.name ? "active" : ""}`}
-                  onClick={() => setSubCat(subCat === s.name ? null : s.name)}
-                >
-                  {s.icon} {s.name}
-                </button>
+                  selected={subCat === s.name}
+                  onSelect={() => setSubCat(subCat === s.name ? null : s.name)}
+                  label={<span style={{ whiteSpace: "normal", textAlign: "left" }}>{s.icon ? `${s.icon} ` : ""}{s.name}</span>}
+                  size="sm"
+                  style={{ height: "auto", minHeight: 38 }}
+                />
               ))}
             </div>
           </div>

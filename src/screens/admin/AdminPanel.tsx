@@ -1,19 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppBar, EmptyState } from "@/components/common";
-import { adminService, type AdminReport, type VerificationQueueItem, type PendingLocationChange } from "@/services/core/adminService";
-import { profileControlService, type DeletionRequest } from "@/services/core/profileControlService";
-import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
-import { notificationService } from "@/services/engagement/notificationService";
-import { appealService, type AccountAppeal } from "@/services/core/appealService";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { Skeleton, ListSkeleton } from "@/components/states";
-import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut, Eye, ExternalLink, MapPin, Mountains } from "@/components/Icons";
-import MiniMap from "@/components/MiniMap";
-import PlaceRequestForm from "@/screens/places/PlaceRequestForm";
+import { AppBar } from "@/components/common";
+import { adminService } from "@/services/core/adminService";
+import { Shield } from "@/components/Icons";
 import { useApp } from "@/store";
-import { getSupabase } from "@/lib/supabaseClient";
-
+import { errorMessage } from "@/lib/errorMessage";
 import type { Tab } from "./types";
 
 import { AdminAccount } from "./tabs/AdminAccount";
@@ -27,17 +18,58 @@ import { AdminDisputes } from "./tabs/AdminDisputes";
 import { AdminAppeals } from "./tabs/AdminAppeals";
 import { AdminProfiles } from "./tabs/AdminProfiles";
 import { AdminDeliveries } from "./tabs/AdminDeliveries";
-import { errorMessage } from "@/lib/errorMessage";
+
+const TABS: [Tab, string][] = [
+  ["dashboard", "Overview"],
+  ["queue", "Queue"],
+  ["verification", "Verification"],
+  ["location", "Location changes"],
+  ["disputes", "Disputes"],
+  ["appeals", "Appeals"],
+  ["reports", "Reports"],
+  ["bugs", "Bugs"],
+  ["profiles", "Profiles"],
+  ["deliveries", "Deliveries"],
+  ["account", "Account"],
+];
 
 export default function AdminPanel() {
   const nav = useNavigate();
   const { user, showToast, refreshUser } = useApp();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [claiming, setClaiming] = useState(false);
+  const tabListRef = useRef<HTMLDivElement>(null);
 
   const isAdmin =
     (user.roles as string[]).includes("admin") ||
     (user.roles as string[]).includes("super_admin");
+
+  useEffect(() => {
+    const btn = tabListRef.current?.querySelector<HTMLButtonElement>(`#admin-tab-${tab}`);
+    btn?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }, [tab]);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    const currentIndex = TABS.findIndex(([t]) => t === tab);
+    if (currentIndex === -1) return;
+    let nextIndex = currentIndex;
+    if (e.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % TABS.length;
+    } else if (e.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + TABS.length) % TABS.length;
+    } else if (e.key === "Home") {
+      nextIndex = 0;
+    } else if (e.key === "End") {
+      nextIndex = TABS.length - 1;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    const nextTab = TABS[nextIndex][0];
+    setTab(nextTab);
+    const btn = tabListRef.current?.querySelector<HTMLButtonElement>(`#admin-tab-${nextTab}`);
+    btn?.focus();
+  }
 
   async function claimFirstAdmin() {
     setClaiming(true);
@@ -89,12 +121,45 @@ export default function AdminPanel() {
   return (
     <div className="screen">
       <AppBar title="Admin Console" subtitle="Moderation & ops" onBack={() => nav("/profile")} />
-      <div className="row chip-fade" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
-        {([["dashboard", "Overview"], ["queue", "Queue"], ["verification", "Verification"], ["location", "Location changes"], ["disputes", "Disputes"], ["appeals", "Appeals"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["deliveries", "Deliveries"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)} className="semi" style={{ flex: "1 0 auto", padding: "12px 14px", fontSize: 13.5, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>{label}</button>
-        ))}
+      <div
+        ref={tabListRef}
+        role="tablist"
+        aria-label="Admin console sections"
+        onKeyDown={handleKeyDown}
+        className="row chip-fade"
+        style={{ borderBottom: "1px solid var(--line)", background: "var(--surface)", overflowX: "auto" }}
+      >
+        {TABS.map(([t, label]) => {
+          const selected = tab === t;
+          return (
+            <button
+              key={t}
+              id={`admin-tab-${t}`}
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`admin-panel-${t}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => setTab(t)}
+              className="semi"
+              style={{
+                flex: "1 0 auto",
+                padding: "12px 14px",
+                fontSize: 13.5,
+                color: selected ? "var(--brand-700)" : "var(--ink-500)",
+                borderBottom: selected ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
-      <div className="screen-scroll">
+      <div
+        className="screen-scroll"
+        role="tabpanel"
+        id={`admin-panel-${tab}`}
+        aria-labelledby={`admin-tab-${tab}`}
+      >
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "queue" && <AdminQueue />}
         {tab === "verification" && <AdminVerificationQueue />}

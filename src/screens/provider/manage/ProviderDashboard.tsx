@@ -72,7 +72,7 @@ export default function ProviderDashboard() {
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
   const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
   const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id], `provider:${id}:posts`);
-  const { data: appts, refetch: refetchApts } = useQueryWithRealtime(
+  const { data: appts, loading: apptsLoading, error: apptsError, refetch: refetchApts } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id),
     "appointments",
     [id],
@@ -354,24 +354,24 @@ export default function ProviderDashboard() {
             <div className="row gap-8" style={{ alignItems: "center", flexShrink: 0 }}>
               <button
                 className="icon-btn-sm"
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", minWidth: 44, minHeight: 44, width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
                 onClick={() => nav(`/notifications?scope=PROVIDER&id=${id}`)}
                 aria-label={t("notifications")}
               >
-                <Bell size={15} />
+                <Bell size={18} />
                 {(notifUnread ?? 0) > 0 && (
-                  <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
                 )}
               </button>
               <button
                 className="icon-btn-sm"
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", minWidth: 44, minHeight: 44, width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
                 onClick={() => nav(`/chats?scope=PROVIDER&id=${id}`)}
                 aria-label={t("messages_header")}
               >
-                <MessageSquareText size={15} />
+                <MessageSquareText size={18} />
                 {(chatUnread ?? 0) > 0 && (
-                  <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
                 )}
               </button>
               <button
@@ -501,61 +501,86 @@ export default function ProviderDashboard() {
             {actionCount > 0 && <span className="badge badge-amber" style={{ fontSize: 10 }}>{actionCount}</span>}
           </div>
 
-          {actionCount === 0 ? (
-            <div className="card col center" style={{ padding: 22, gap: 6 }}>
-              <span style={{ fontSize: 26 }}>✅</span>
-              <span className="tiny muted">{t("pdash_all_caught_up")}</span>
+          {apptsError && !appts ? (
+            <div className="card col center gap-8" style={{ padding: 18 }}>
+              <span className="small muted">Couldn't load pending items</span>
+              <button className="btn btn-outline btn-sm" onClick={() => refetchApts()}>Retry</button>
+            </div>
+          ) : apptsLoading && !appts ? (
+            <div className="card col gap-8" style={{ padding: 14 }}>
+              <Skeleton h={16} w="60%" />
+              <Skeleton h={38} />
             </div>
           ) : (
-            <div className="col gap-10">
-              {/* Payment claims first — money in hand */}
-              {paymentClaims.map((apt) => (
-                <div key={apt.id} className="card col gap-10" style={{ padding: 14, border: "1px solid var(--amber-100)" }}>
-                  <div className="row gap-10 center-v">
-                    <span style={{ fontSize: 20 }}>💳</span>
-                    <div className="grow" style={{ minWidth: 0 }}>
-                      <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)} paid {inr(apt.paymentAmount ?? apt.packagePrice ?? 0)}</div>
-                      <div className="tiny muted">Confirm you received it{apt.paymentReference ? ` · ref ${apt.paymentReference}` : ""}</div>
-                    </div>
-                  </div>
-                  <div className="row gap-8">
-                    <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "CONFIRM")}>
-                      <Check size={14} /> Confirm
-                    </button>
-                    <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "REJECT")}>
-                      <XIcon size={14} /> Reject
-                    </button>
-                  </div>
+            <>
+              {apptsError && appts && (
+                <div className="row between center-v" style={{ padding: "8px 12px", marginBottom: 8, background: "var(--red-50)", border: "1px solid var(--red-200)", borderRadius: 10 }}>
+                  <span className="tiny semi" style={{ color: "var(--red-700)" }}>Action updates couldn't be refreshed.</span>
+                  <button className="btn btn-ghost btn-xs" style={{ minHeight: 28 }} onClick={() => refetchApts()}>Retry</button>
                 </div>
-              ))}
+              )}
+              {actionCount === 0 && !apptsError ? (
+                <div className="card col center" style={{ padding: 22, gap: 6 }}>
+                  <span style={{ fontSize: 26 }}>✅</span>
+                  <span className="tiny muted">{t("pdash_all_caught_up")}</span>
+                </div>
+              ) : actionCount === 0 && apptsError ? (
+                <div className="card col center gap-8" style={{ padding: 18 }}>
+                  <span className="small muted">Couldn't verify pending actions</span>
+                  <button className="btn btn-outline btn-sm" onClick={() => refetchApts()}>Retry</button>
+                </div>
+              ) : (
+                <div className="col gap-10">
+                  {/* Payment claims first — money in hand */}
+                  {paymentClaims.map((apt) => (
+                    <div key={apt.id} className="card col gap-10" style={{ padding: 14, border: "1px solid var(--amber-100)" }}>
+                      <div className="row gap-10 center-v">
+                        <span style={{ fontSize: 20 }}>💳</span>
+                        <div className="grow" style={{ minWidth: 0 }}>
+                          <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)} paid {inr(apt.paymentAmount ?? apt.packagePrice ?? 0)}</div>
+                          <div className="tiny muted">Confirm you received it{apt.paymentReference ? ` · ref ${apt.paymentReference}` : ""}</div>
+                        </div>
+                      </div>
+                      <div className="row gap-8">
+                        <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "CONFIRM")}>
+                          <Check size={14} /> Confirm
+                        </button>
+                        <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "REJECT")}>
+                          <XIcon size={14} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
 
-              {/* Pending appointments — accept/decline inline */}
-              {pendingAppts.map((apt) => (
-                <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
-                  <div className="row gap-10 center-v">
-                    <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
-                    <div className="grow" style={{ minWidth: 0 }}>
-                      <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)}</div>
-                      <div className="tiny muted row gap-4 center-v"><Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}{apt.packageName ? ` · ${apt.packageName}` : ""}</div>
+                  {/* Pending appointments — accept/decline inline */}
+                  {pendingAppts.map((apt) => (
+                    <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
+                      <div className="row gap-10 center-v">
+                        <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
+                        <div className="grow" style={{ minWidth: 0 }}>
+                          <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)}</div>
+                          <div className="tiny muted row gap-4 center-v"><Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}{apt.packageName ? ` · ${apt.packageName}` : ""}</div>
+                        </div>
+                      </div>
+                      {requiresPaymentFirst(apt) ? (
+                        <button className="btn btn-outline btn-sm btn-block" onClick={() => nav(`${base}/jobs`)}>
+                          Waiting for payment — open in Jobs
+                        </button>
+                      ) : (
+                        <div className="row gap-8">
+                          <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "ACCEPT")}>
+                            <Check size={14} /> Accept
+                          </button>
+                          <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "REJECT")}>
+                            <XIcon size={14} /> Decline
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  {requiresPaymentFirst(apt) ? (
-                    <button className="btn btn-outline btn-sm btn-block" onClick={() => nav(`${base}/jobs`)}>
-                      Waiting for payment — open in Jobs
-                    </button>
-                  ) : (
-                    <div className="row gap-8">
-                      <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "ACCEPT")}>
-                        <Check size={14} /> Accept
-                      </button>
-                      <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "REJECT")}>
-                        <XIcon size={14} /> Decline
-                      </button>
-                    </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 

@@ -1,4 +1,5 @@
 import { AppBar, SafeImg, EmptyState } from "@/components/common";
+import { Skeleton, ErrorView } from "@/components/states";
 import { MapPin, Check, X, Eye, FileText } from "@/components/Icons";
 import { useApp } from "@/store";
 import { locationService } from "@/services";
@@ -17,19 +18,28 @@ import type { LocationGrant } from "@/services/engagement/locationService";
 export default function LocationSettings() {
   const { showToast, user } = useApp();
 
-  const { data: pendingData, refetch: refetchPending } = useQueryWithRealtime(
+  const { data: pendingData, loading: pendingLoading, error: pendingError, refetch: refetchPending } = useQueryWithRealtime(
     () => locationService.pendingForMe(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `home:pending-loc:${user.id}`
   );
-  const { data: activeShares, refetch: refetchActive } = useQueryWithRealtime(
+  const { data: activeShares, loading: activeLoading, error: activeError, refetch: refetchActive } = useQueryWithRealtime(
     () => locationService.sharedByMe(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `location:active-shares:${user.id}`
   );
-  const { data: historyShares, refetch: refetchHistory } = useQueryWithRealtime(
+  const { data: historyShares, loading: historyLoading, error: historyError, refetch: refetchHistory } = useQueryWithRealtime(
     () => locationService.shareHistory(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `location:history:${user.id}`
   );
 
   const pending: LocationGrant[] = pendingData ?? [];
   const active = activeShares ?? [];
   const history = historyShares ?? [];
+
+  const loading = pendingLoading || activeLoading || historyLoading;
+  const error = pendingError || activeError || historyError;
+
+  const refetchAll = () => {
+    refetchPending();
+    refetchActive();
+    refetchHistory();
+  };
 
   async function respond(requesterUserId: string, approve: boolean) {
     try {
@@ -91,7 +101,36 @@ export default function LocationSettings() {
       <AppBar title="Location sharing" />
       <div className="screen-scroll page-pad col gap-16 scroll-pad-end" style={{ paddingTop: 14 }}>
 
-        {nothingAtAll && (
+        {loading && (
+          <div className="col gap-12" aria-label="Loading location sharing status">
+            <div className="card col gap-10" style={{ padding: 12 }}>
+              <Skeleton h={14} w="30%" mb={4} />
+              <div className="row gap-10" style={{ alignItems: "center" }}>
+                <Skeleton h={38} w={38} r={19} />
+                <div className="grow col gap-6">
+                  <Skeleton h={14} w="50%" />
+                  <Skeleton h={11} w="35%" />
+                </div>
+              </div>
+            </div>
+            <div className="card col gap-10" style={{ padding: 12 }}>
+              <Skeleton h={14} w="40%" mb={4} />
+              <div className="row gap-10" style={{ alignItems: "center" }}>
+                <Skeleton h={34} w={34} r={17} />
+                <div className="grow col gap-6">
+                  <Skeleton h={14} w="45%" />
+                  <Skeleton h={11} w="30%" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && error && (
+          <ErrorView error={error} onRetry={refetchAll} />
+        )}
+
+        {!loading && !error && nothingAtAll && (
           <EmptyState
             emoji="📍"
             title="No one can see your location"
@@ -99,7 +138,7 @@ export default function LocationSettings() {
           />
         )}
 
-        {pending.length > 0 && (
+        {!loading && !error && pending.length > 0 && (
           <div>
             <div className="profile-eyebrow row gap-6" style={{ alignItems: "center" }}>
               <MapPin size={13} color="var(--brand-600)" /> Requests
@@ -134,7 +173,7 @@ export default function LocationSettings() {
           </div>
         )}
 
-        {active.length > 0 && (
+        {!loading && !error && active.length > 0 && (
           <div>
             <div className="profile-eyebrow row gap-6" style={{ alignItems: "center" }}>
               <Eye size={13} color="var(--green-500)" /> Currently sharing with
@@ -173,7 +212,7 @@ export default function LocationSettings() {
           </div>
         )}
 
-        {history.length > 0 && (
+        {!loading && !error && history.length > 0 && (
           <div>
             <div className="profile-eyebrow row gap-6" style={{ alignItems: "center" }}>
               <FileText size={13} color="var(--ink-500)" /> History

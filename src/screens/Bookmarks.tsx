@@ -6,7 +6,7 @@ import { communityService } from "@/services/engagement/communityService";
 import { useQuery } from "@/hooks/useApi";
 import { BusinessCardWide, ProviderCard, RequestCard, CommunityCard } from "@/components/cards";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { UserCheck, Star } from "@/components/Icons";
 import type { Business, Provider, RequestPost } from "@/types";
 import { useI18n } from "@/lib/i18n";
@@ -38,32 +38,26 @@ export default function Bookmarks() {
   const reqIds = Array.from(new Set(bookmarks.filter((m) => m.type.toUpperCase() === "REQUEST").map((m) => m.id)));
   const followUserKeys = follows.filter((f) => f.type.toUpperCase() === "USER");
 
-  const { data: bizData, loading: bizLoading } = useQuery(async () => {
+  const { data: bizData, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(async () => {
     if (bizIds.length === 0) return [];
-    return businessService.byIds(bizIds).catch(() => []);
+    return businessService.byIds(bizIds);
   }, [bizIds.join(",")], `bookmarks:biz-by-id:${user.id}:${bizIds.join(",")}`);
 
-  const { data: provData, loading: provLoading } = useQuery(async () => {
+  const { data: provData, loading: provLoading, error: provError, refetch: refetchProv } = useQuery(async () => {
     if (provIds.length === 0) return [];
-    return providerService.byIds(provIds).catch(() => []);
+    return providerService.byIds(provIds);
   }, [provIds.join(",")], `bookmarks:prov-by-id:${user.id}:${provIds.join(",")}`);
 
-  const { data: reqData, loading: reqLoading } = useQuery(async () => {
+  const { data: reqData, loading: reqLoading, error: reqError, refetch: refetchReq } = useQuery(async () => {
     if (reqIds.length === 0) return [];
-    const rows = await Promise.all(reqIds.map((id) => requestService.get(id).catch(() => undefined)));
+    const rows = await Promise.all(reqIds.map((id) => requestService.get(id)));
     return rows.filter((r): r is RequestPost => !!r);
   }, [reqIds.join(",")], `bookmarks:req-by-id:${user.id}:${reqIds.join(",")}`);
 
-  const { data: usersData, loading: usersLoading } = useQuery(async () => {
+  const { data: usersData, loading: usersLoading, error: usersError, refetch: refetchUsers } = useQuery(async () => {
     if (followUserKeys.length === 0) return [];
     const profiles = await Promise.all(
-      followUserKeys.map(async (k) => {
-        try {
-          return await userService.publicProfile(k.id);
-        } catch {
-          return undefined;
-        }
-      })
+      followUserKeys.map((k) => userService.publicProfile(k.id))
     );
     return profiles.filter(Boolean);
   }, [followUserKeys.length], `bookmarks:followed-users:${user.id}:${followUserKeys.length}`);
@@ -84,7 +78,7 @@ export default function Bookmarks() {
   // callers anywhere — nothing in the app could show them back.
   // Server-backed, unlike the other tabs: saves live in post_saves, not in the
   // client-side `bookmarks` store, so there are no ids to fetch by.
-  const { data: savedPostsData, loading: postsLoading } = useQuery(
+  const { data: savedPostsData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery(
     () => (user.id ? communityService.savedPosts() : Promise.resolve([])),
     [user.id],
     user.id ? `saved-posts:${user.id}` : undefined
@@ -99,7 +93,6 @@ export default function Bookmarks() {
     FOLLOWING: followBiz.length + followProv.length + followUsers.length,
   };
 
-  const loading = bizLoading || provLoading || reqLoading || usersLoading || postsLoading;
 
   return (
     <div className="screen">
@@ -137,82 +130,139 @@ export default function Bookmarks() {
       </div>
 
       <div className="screen-scroll page-pad col gap-14" style={{ paddingTop: 14 }}>
-        {loading ? (
-          <ListSkeleton count={3} />
-        ) : (
-          <>
-            {tab === "BUSINESS" &&
-              (savedBiz.length ? savedBiz.map((b) => <BusinessCardWide key={b.id} b={b} />) : <Empty nav={nav} />)}
-            {tab === "PROVIDER" &&
-              (savedProv.length ? savedProv.map((p) => <ProviderCard key={p.id} p={p} />) : <Empty nav={nav} />)}
-            {tab === "REQUEST" &&
-              (savedReq.length ? savedReq.map((r) => <RequestCard key={r.id} r={r} />) : <Empty nav={nav} />)}
-            {tab === "POST" &&
-              (savedPosts.length ? savedPosts.map((p) => <CommunityCard key={p.id} post={p} />) : <Empty nav={nav} />)}
-            {tab === "FOLLOWING" &&
-              (counts.FOLLOWING > 0 ? (
-                <>
-                  {followUsers.map((u: any) => (
-                    <div
-                      key={u.id}
-                      className="card row space-between center-v"
-                      style={{ padding: 14, borderRadius: 16, cursor: "pointer" }}
-                      onClick={() => nav(`/u/${u.id}`)}
-                    >
-                      <div className="row gap-12 center-v">
-                        <SafeImg
-                          src={u.avatar}
-                          variant="avatar"
-                          style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
-                        />
-                        <div>
-                          <div className="bold small">{u.name}</div>
-                          <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                            <Star size={11} fill="var(--amber-500)" stroke="none" /> {u.ratingAvg} • 📍 {u.area || t("member_word")}
-                          </div>
-                        </div>
+        {tab === "BUSINESS" && (
+          bizLoading ? (
+            <ListSkeleton count={3} />
+          ) : bizError ? (
+            <ErrorView error={bizError} onRetry={refetchBiz} />
+          ) : savedBiz.length ? (
+            savedBiz.map((b) => <BusinessCardWide key={b.id} b={b} />)
+          ) : (
+            <Empty nav={nav} />
+          )
+        )}
+
+        {tab === "PROVIDER" && (
+          provLoading ? (
+            <ListSkeleton count={3} />
+          ) : provError ? (
+            <ErrorView error={provError} onRetry={refetchProv} />
+          ) : savedProv.length ? (
+            savedProv.map((p) => <ProviderCard key={p.id} p={p} />)
+          ) : (
+            <Empty nav={nav} />
+          )
+        )}
+
+        {tab === "REQUEST" && (
+          reqLoading ? (
+            <ListSkeleton count={3} />
+          ) : reqError ? (
+            <ErrorView error={reqError} onRetry={refetchReq} />
+          ) : savedReq.length ? (
+            savedReq.map((r) => <RequestCard key={r.id} r={r} />)
+          ) : (
+            <Empty nav={nav} />
+          )
+        )}
+
+        {tab === "POST" && (
+          postsLoading ? (
+            <ListSkeleton count={3} />
+          ) : postsError ? (
+            <ErrorView error={postsError} onRetry={refetchPosts} />
+          ) : savedPosts.length ? (
+            savedPosts.map((p) => <CommunityCard key={p.id} post={p} />)
+          ) : (
+            <Empty nav={nav} />
+          )
+        )}
+
+        {tab === "FOLLOWING" && (
+          (usersLoading || bizLoading || provLoading) ? (
+            <ListSkeleton count={3} />
+          ) : (usersError || bizError || provError) ? (
+            <ErrorView
+              error={usersError || bizError || provError!}
+              onRetry={() => {
+                if (usersError) refetchUsers();
+                if (bizError) refetchBiz();
+                if (provError) refetchProv();
+              }}
+            />
+          ) : counts.FOLLOWING > 0 ? (
+            <>
+              {followUsers.map((u: any) => (
+                <div
+                  key={u.id}
+                  className="card row space-between center-v"
+                  style={{ padding: 14, borderRadius: 16 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => nav(`/u/${u.id}`)}
+                    className="row gap-12 center-v"
+                    style={{
+                      background: "none",
+                      border: 0,
+                      padding: 0,
+                      textAlign: "left",
+                      cursor: "pointer",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                    aria-label={`View ${u.name}'s profile`}
+                  >
+                    <SafeImg
+                      src={u.avatar}
+                      variant="avatar"
+                      style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                    />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="bold small ellipsis">{u.name}</div>
+                      <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                        <Star size={11} fill="var(--amber-500)" stroke="none" /> {u.ratingAvg} • 📍 {u.area || t("member_word")}
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-sm row gap-4 center"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFollow("USER", u.id, u.name);
-                        }}
-                        style={{
-                          borderRadius: 999,
-                          padding: "6px 12px",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          background: "var(--brand-100)",
-                          color: "var(--brand-700)",
-                          border: "none",
-                        }}
-                      >
-                        <UserCheck size={14} /> {t("following")}
-                      </button>
                     </div>
-                  ))}
-                  {followProv.map((p) => (
-                    <ProviderCard key={p.id} p={p} />
-                  ))}
-                  {followBiz.map((b) => (
-                    <BusinessCardWide key={b.id} b={b} />
-                  ))}
-                </>
-              ) : (
-                <EmptyState
-                  emoji="➕"
-                  title={t("not_following_anyone")}
-                  text={t("not_following_desc")}
-                  action={
-                    <button className="btn btn-ghost btn-sm" onClick={() => nav("/explore")}>
-                      {t("find_some")}
-                    </button>
-                  }
-                />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm row gap-4 center"
+                    onClick={() => toggleFollow("USER", u.id, u.name)}
+                    style={{
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: "var(--brand-100)",
+                      color: "var(--brand-700)",
+                      border: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <UserCheck size={14} /> {t("following")}
+                  </button>
+                </div>
               ))}
-          </>
+              {followProv.map((p) => (
+                <ProviderCard key={p.id} p={p} />
+              ))}
+              {followBiz.map((b) => (
+                <BusinessCardWide key={b.id} b={b} />
+              ))}
+            </>
+          ) : (
+            <EmptyState
+              emoji="➕"
+              title={t("not_following_anyone")}
+              text={t("not_following_desc")}
+              action={
+                <button className="btn btn-ghost btn-sm" onClick={() => nav("/explore")}>
+                  {t("find_some")}
+                </button>
+              }
+            />
+          )
         )}
       </div>
     </div>

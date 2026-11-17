@@ -11,6 +11,8 @@ import ManageNav from "./ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import type { Review } from "@/types";
 import { errorMessage } from "@/lib/errorMessage";
+import { SelectableChip } from "@/components/ui/SelectableChip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function ReviewsManager() {
   const { id = "" } = useParams();
@@ -44,10 +46,10 @@ export default function ReviewsManager() {
     <div className="screen with-nav">
       <AppBar title="Reviews" subtitle={filter ? `${avg}★ • ${list.length} of ${reviews.length} ${noun}` : `${avg}★ • ${reviews.length} ${noun}`} />
       <div className="screen-scroll">
-        <div className="hscroll" style={{ paddingTop: 12 }}>
-          <button className={`chip ${filter === null ? "active" : ""}`} onClick={() => setFilter(null)}>All</button>
+        <div className="hscroll" style={{ paddingTop: 12 }} role="radiogroup" aria-label="Filter reviews by star rating">
+          <SelectableChip role="radio" selected={filter === null} onClick={() => setFilter(null)}>All</SelectableChip>
           {[5, 4, 3, 2, 1].map((s) => (
-            <button key={s} className={`chip ${filter === s ? "active" : ""}`} onClick={() => setFilter(s)}>{s} ★</button>
+            <SelectableChip key={s} role="radio" selected={filter === s} onClick={() => setFilter(s)}>{s} ★</SelectableChip>
           ))}
         </div>
         {loading && <ListSkeleton count={3} />}
@@ -80,6 +82,7 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
   const [reply, setReply] = useState(r.ownerReply || "");
   const [posting, setPosting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [confirmDeleteReply, setConfirmDeleteReply] = useState(false);
 
   async function postReply() {
     setPosting(true);
@@ -100,7 +103,6 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
   }
 
   async function clearReply() {
-    if (!confirm("Remove your reply to this review?")) return;
     try {
       if (isProvider) {
         await providerService.replyToReview(r.id, "");
@@ -145,7 +147,7 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
               <button
                 className="tiny semi muted row gap-4 center-v"
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                onClick={clearReply}
+                onClick={() => setConfirmDeleteReply(true)}
               >
                 <Trash2 size={12} /> Delete
               </button>
@@ -179,6 +181,20 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmDeleteReply}
+        onClose={() => setConfirmDeleteReply(false)}
+        onConfirm={async () => {
+          setConfirmDeleteReply(false);
+          await clearReply();
+        }}
+        title="Remove reply?"
+        description="Your reply to this customer review will be deleted."
+        confirmLabel="Remove reply"
+        cancelLabel="Keep reply"
+        destructive
+      />
 
       {reporting && (
         <ReportSheet

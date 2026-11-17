@@ -65,6 +65,8 @@ export function SearchBar({
   // Outside-tap dismiss closes the panel without clearing the query — reset
   // when the debounced query changes so a new keystroke reopens results.
   const [panelDismissed, setPanelDismissed] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchAttempt, setSearchAttempt] = useState(0);
 
   // Same 300ms debounce convention as the full Search screen — a keystroke
   // must not fire a Supabase query AND a geocode lookup on every character.
@@ -83,39 +85,67 @@ export function SearchBar({
       setAreaResults([]);
       setShopResults([]);
       setSearching(false);
+      setSearchError(null);
       return;
     }
     setSearching(true);
-    Promise.all([
+    setSearchError(null);
+
+    Promise.allSettled([
       forwardGeocode(debounced),
       discoveryService.search(debounced, { lat: centerLat, lng: centerLng }),
     ])
-      .then(([areas, shops]) => {
+      .then(([geoSettled, discSettled]) => {
         if (!active) return;
-        setAreaResults(areas.slice(0, 4));
-        const combined: ShopResult[] = [
-          ...shops.businesses.data
-            .filter((b) => b.lat != null && b.lng != null)
-            .map((b): ShopResult => ({
-              kind: "business", id: b.id, name: b.name,
-              sub: b.subCategory || b.categoryName || "Shop",
-              lat: b.lat!, lng: b.lng!, distanceKm: b.distanceKm,
-            })),
-          ...shops.providers.data
-            .filter((p) => p.lat != null && p.lng != null)
-            .map((p): ShopResult => ({
-              kind: "provider", id: p.id, name: p.displayName,
-              sub: p.categoryName || "Provider",
-              lat: p.lat!, lng: p.lng!, distanceKm: p.distanceKm,
-            })),
-        ]
-          .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
-          .slice(0, 5);
-        setShopResults(combined);
+        let hasAnySuccess = false;
+
+        if (geoSettled.status === "fulfilled") {
+          hasAnySuccess = true;
+          setAreaResults(geoSettled.value.slice(0, 4));
+        } else {
+          setAreaResults([]);
+        }
+
+        if (discSettled.status === "fulfilled") {
+          hasAnySuccess = true;
+          const shops = discSettled.value;
+          const combined: ShopResult[] = [
+            ...shops.businesses.data
+              .filter((b) => b.lat != null && b.lng != null)
+              .map((b): ShopResult => ({
+                kind: "business", id: b.id, name: b.name,
+                sub: b.subCategory || b.categoryName || "Shop",
+                lat: b.lat!, lng: b.lng!, distanceKm: b.distanceKm,
+              })),
+            ...shops.providers.data
+              .filter((p) => p.lat != null && p.lng != null)
+              .map((p): ShopResult => ({
+                kind: "provider", id: p.id, name: p.displayName,
+                sub: p.categoryName || "Provider",
+                lat: p.lat!, lng: p.lng!, distanceKm: p.distanceKm,
+              })),
+          ]
+            .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+            .slice(0, 5);
+          setShopResults(combined);
+        } else {
+          setShopResults([]);
+        }
+
+        if (!hasAnySuccess) {
+          setSearchError("Could not load search results");
+        }
       })
-      .finally(() => { if (active) setSearching(false); });
+      .catch((err) => {
+        if (!active) return;
+        setSearchError(err?.message || "Could not load search results");
+      })
+      .finally(() => {
+        if (active) setSearching(false);
+      });
+
     return () => { active = false; };
-  }, [debounced, centerLat, centerLng]);
+  }, [debounced, centerLat, centerLng, searchAttempt, t]);
 
   function clear() {
     setQuery("");
@@ -123,6 +153,7 @@ export function SearchBar({
     setAreaResults([]);
     setShopResults([]);
     setPanelDismissed(false);
+    setSearchError(null);
   }
 
   function dismissPanel() {
@@ -140,11 +171,25 @@ export function SearchBar({
   }
 
   const hasResults = areaResults.length > 0 || shopResults.length > 0;
-  // The panel shows once there's something to show OR once a search is
-  // actually in flight for a long-enough query — otherwise "Searching…" below
-  // could never render, since it lived inside the same hasResults gate as the
-  // results it's meant to appear before.
-  const showPanel = !panelDismissed && (hasResults || (searching && debounced.length >= MIN_QUERY_LEN));
+  const isSearchSettled = !searching && debounced.length >= MIN_QUERY_LEN;
+  const showZeroResults = isSearchSettled && !hasResults && !searchError;
+  const showError = isSearchSettled && !hasResults && searchError !== null;
+
+  // The panel shows once there's something to show, search is in flight,
+  // or a settled search returned error or zero-results.
+  const showPanel = !panelDismissed && (hasResults || (searching && debounced.length >= MIN_QUERY_LEN) || showZeroResults || showError);
+
+  useEffect(() => {
+    if (!showPanel) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        dismissPanel();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showPanel]);
 
   useEffect(() => {
     onResultsVisibleChange?.(showPanel);
@@ -153,9 +198,11 @@ export function SearchBar({
   return (
     <div className="map-screen__search">
       <button
+        type="button"
         className="icon-btn map-glass-panel"
         style={{ flexShrink: 0 }}
         onClick={() => nav(-1)}
+        aria-label={t("back_word")}
       >
         <ArrowLeft size={20} />
       </button>
@@ -212,6 +259,8 @@ export function SearchBar({
                 query (same pattern as MapFilterStrip's popover dismiss). */}
             <div
               onClick={dismissPanel}
+              role="presentation"
+              aria-hidden="true"
               style={{ position: "fixed", inset: 0, zIndex: 1009 }}
             />
             <div className="map-glass-panel" style={{
@@ -266,6 +315,31 @@ export function SearchBar({
 
               {searching && !hasResults && (
                 <div className="tiny muted" style={{ padding: "12px 16px" }}>{t("map_searching")}</div>
+              )}
+
+              {showError && (
+                <div style={{ padding: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "var(--red-600)", marginBottom: 8 }}>{searchError}</div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setSearchAttempt((c) => c + 1)}
+                    style={{ minHeight: 36, padding: "4px 14px" }}
+                  >
+                    {t("retry") || "Retry"}
+                  </button>
+                </div>
+              )}
+
+              {showZeroResults && (
+                <div style={{ padding: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "var(--ink-700)", fontWeight: 500 }}>
+                    {t("search_no_results") || `No results for "${debounced}"`}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 4 }}>
+                    {t("search_no_results_hint") || "Try checking the spelling or searching a different area"}
+                  </div>
+                </div>
               )}
             </div>
           </>

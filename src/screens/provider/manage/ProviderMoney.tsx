@@ -25,7 +25,7 @@ export default function ProviderMoney() {
   const { t } = useI18n();
 
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
-  const { data: analytics, loading: analyticsLoading } = useQueryWithRealtime(
+  const { data: analytics, loading: analyticsLoading, error: analyticsError, refetch: refetchAnalytics } = useQueryWithRealtime(
     () => providerService.analytics(id),
     "settlements",
     [id],
@@ -34,14 +34,14 @@ export default function ProviderMoney() {
   );
   // The ledger counts booking payments as well as settlements, so it has to follow appointments too — subscribing
   // only to settlements left a cash payment recorded on a job invisible here until a manual refresh (MONEY-6).
-  const { data: ledger, refetch: refetchLedger } = useQueryWithRealtime(
+  const { data: ledger, loading: ledgerLoading, error: ledgerError, refetch: refetchLedger } = useQueryWithRealtime(
     () => providerService.earningsLedger(id),
     "settlements",
     [id],
     undefined,
     `provider:${id}:earnings-ledger`
   );
-  const { data: aptsData, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
+  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
     "appointments",
     [id],
@@ -204,8 +204,13 @@ export default function ProviderMoney() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Earnings summary */}
-        {analyticsLoading ? (
+        {analyticsLoading && !analytics ? (
           <Skeleton h={92} mb={0} />
+        ) : analyticsError && !analytics ? (
+          <div className="card row between center-v" style={{ padding: 14 }}>
+            <span className="small muted">Couldn't load earnings summary</span>
+            <button className="btn btn-outline btn-sm" onClick={() => refetchAnalytics()}>Retry</button>
+          </div>
         ) : (
           <div className="card row" style={{ padding: 16, justifyContent: "space-around" }}>
             <div className="col center" style={{ gap: 4 }}>
@@ -216,7 +221,9 @@ export default function ProviderMoney() {
             <div style={{ width: 1, height: 36, background: "var(--line)" }} />
             <div className="col center" style={{ gap: 4 }}>
               <Calendar size={20} color="var(--green-500)" />
-              <span className="bold h2" style={{ color: "var(--ink-900)" }}>{inr(thisWeek)}</span>
+              <span className="bold h2" style={{ color: "var(--ink-900)" }} aria-live="polite">
+                {ledgerError ? "Unavailable" : ledgerLoading && !ledger ? "Loading…" : inr(thisWeek)}
+              </span>
               <span className="tiny muted">{t("pmon_this_week")}</span>
             </div>
             <div style={{ width: 1, height: 36, background: "var(--line)" }} />
@@ -229,6 +236,19 @@ export default function ProviderMoney() {
         )}
 
         {/* Payment claims awaiting your confirmation */}
+        {aptsLoading && !aptsData && (
+          <div className="col gap-10">
+            <Skeleton h={84} r={14} mb={0} />
+          </div>
+        )}
+
+        {aptsError && !aptsData && (
+          <div className="card row between center-v" style={{ padding: "10px 14px", background: "var(--red-50)", border: "1px solid var(--red-200)", borderRadius: 12 }}>
+            <span className="tiny semi" style={{ color: "var(--red-700)" }}>Couldn't load appointment payment claims.</span>
+            <button className="btn btn-outline btn-xs" style={{ minHeight: 32 }} onClick={() => refetchApts()}>Retry</button>
+          </div>
+        )}
+
         {claimsToConfirm.length > 0 && (
           <div>
             <div className="small semi muted" style={{ marginBottom: 8 }}>Confirm payments ({claimsToConfirm.length})</div>
@@ -380,7 +400,14 @@ export default function ProviderMoney() {
         {/* Earnings ledger */}
         <div>
           <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Star size={14} /> {t("pmon_earnings_history")}</div>
-          {(ledger ?? []).length === 0 ? (
+          {ledgerLoading && !ledger ? (
+            <Skeleton h={80} r={14} mb={0} />
+          ) : ledgerError && !ledger ? (
+            <div className="card row between center-v" style={{ padding: 14 }}>
+              <span className="small muted">Couldn't load settlements history</span>
+              <button className="btn btn-outline btn-sm" onClick={() => refetchLedger()}>Retry</button>
+            </div>
+          ) : (ledger ?? []).length === 0 ? (
             <div className="card col center" style={{ padding: 24, gap: 6 }}>
               <span style={{ fontSize: 28 }}>🧾</span>
               <span className="tiny muted">{t("pmon_no_settlements")}</span>

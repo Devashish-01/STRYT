@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { socialService, communityService } from "@/services";
 import { PostSummaryRow } from "@/components/cards";
 import { useQuery } from "@/hooks/useApi";
@@ -28,7 +28,7 @@ export default function MyActivity() {
   const bizId = activeContext.type === "business" ? activeContext.id : null;
   const provId = activeContext.type === "provider" ? activeContext.id : null;
 
-  const { data: storyData, loading: storiesLoading, refetch: refetchStories } = useQuery<Story[]>(() => {
+  const { data: storyData, loading: storiesLoading, error: storiesError, refetch: refetchStories } = useQuery<Story[]>(() => {
     if (bizId) return socialService.activeFor("business", bizId);
     if (provId) return socialService.activeFor("provider", provId);
     // Customer: what is live now (newest first), then saved Highlights, without repeats.
@@ -38,7 +38,7 @@ export default function MyActivity() {
     });
   }, [bizId, provId, user.id]);
 
-  const { data: postData, loading: postsLoading } = useQuery<CommunityPost[]>(() => {
+  const { data: postData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery<CommunityPost[]>(() => {
     if (bizId) return communityService.byAuthorRef("business", bizId);
     if (provId) return communityService.byAuthorRef("provider", provId);
     return communityService.byAuthor(user.id);
@@ -64,7 +64,11 @@ export default function MyActivity() {
 
       <div className="screen-scroll page-pad" style={{ paddingTop: 14, paddingBottom: 24 }}>
         {tab === "stories" && (
-          storiesLoading ? <ListSkeleton count={2} /> : stories.length === 0 ? (
+          storiesLoading ? (
+            <ListSkeleton count={2} />
+          ) : storiesError ? (
+            <ErrorView error={storiesError} onRetry={refetchStories} />
+          ) : stories.length === 0 ? (
             <EmptyState
               emoji="📸"
               title={t("myact_stories_empty_title")}
@@ -91,7 +95,11 @@ export default function MyActivity() {
         )}
 
         {tab === "posts" && (
-          postsLoading ? <ListSkeleton count={3} /> : posts.length === 0 ? (
+          postsLoading ? (
+            <ListSkeleton count={3} />
+          ) : postsError ? (
+            <ErrorView error={postsError} onRetry={refetchPosts} />
+          ) : posts.length === 0 ? (
             <EmptyState emoji="🏘️" title={t("myact_posts_empty_title")} text={t("myact_posts_empty_text")} />
           ) : (
             <div className="col gap-12">

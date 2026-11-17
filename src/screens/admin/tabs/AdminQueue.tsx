@@ -2,7 +2,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common";
 import { adminService } from "@/services/core/adminService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Check, X, Store, Briefcase, Tag, Mountains } from "@/components/Icons";
 import PlaceRequestForm from "@/screens/places/PlaceRequestForm";
 import { useApp } from "@/store";
@@ -11,25 +11,44 @@ import type { QueueType } from "../types";
 export function AdminQueue() {
   const [type, setType] = useState<QueueType>("business");
   const queueTable = type === "business" ? "businesses" : type === "provider" ? "providers" : type === "place" ? "places" : "categories";
-  const { data, loading, refetch } = useQueryWithRealtime<any[]>(() => adminService.queue(type) as any, queueTable, [type], "status=eq.PENDING");
+  const { data, loading, error, refetch } = useQueryWithRealtime<any[]>(() => adminService.queue(type) as any, queueTable, [type], "status=eq.PENDING");
   const { showToast } = useApp();
   const [done, setDone] = useState<string[]>([]);
+  const [pendingIds, setPendingIds] = useState<string[]>([]);
   const [addingPlace, setAddingPlace] = useState(false);
 
   const tabs: [QueueType, string][] = [["business", "Shops"], ["provider", "Providers"], ["place", "Places"], ["category", "Categories"]];
 
   async function act(item: any, approve: boolean) {
-    if (approve) await adminService.approve(item.kind, item.id);
-    else await adminService.reject(item.kind, item.id, "Did not meet guidelines");
-    setDone((d) => [...d, item.id]);
-    showToast(approve ? "Approved ✓" : "Rejected");
+    if (pendingIds.includes(item.id)) return;
+    setPendingIds((prev) => [...prev, item.id]);
+    try {
+      if (approve) await adminService.approve(item.kind, item.id);
+      else await adminService.reject(item.kind, item.id, "Did not meet guidelines");
+      setDone((d) => [...d, item.id]);
+      showToast(approve ? "Approved ✓" : "Rejected");
+    } catch (err: any) {
+      showToast(err?.message || "Action failed — try again");
+    } finally {
+      setPendingIds((prev) => prev.filter((id) => id !== item.id));
+    }
   }
 
   return (
     <>
       <div className="row between center-v" style={{ paddingTop: 12 }}>
-        <div className="hscroll grow">
-          {tabs.map(([t, label]) => <button key={t} className={`chip ${type === t ? "active" : ""}`} onClick={() => setType(t)}>{label}</button>)}
+        <div className="hscroll grow" role="tablist" aria-label="Review queue categories">
+          {tabs.map(([t, label]) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={type === t}
+              className={`chip ${type === t ? "active chip--selected" : ""}`}
+              onClick={() => { setType(t); setDone([]); }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         {type === "place" && (
           <button className="btn btn-sm btn-outline" style={{ flexShrink: 0, marginLeft: 8 }} onClick={() => setAddingPlace(true)}>
@@ -48,11 +67,17 @@ export function AdminQueue() {
         </div>
       )}
       {loading && <ListSkeleton count={3} />}
-      {data && (
+      {!loading && error && (
+        <div className="page-pad">
+          <ErrorView error={error} onRetry={refetch} />
+        </div>
+      )}
+      {!loading && !error && data && (
         <div className="page-pad col gap-12">
           {data.filter((i) => !done.includes(i.id)).length === 0 && <EmptyState emoji="✅" title="Queue clear" text="Nothing pending review." />}
           {data.filter((i) => !done.includes(i.id)).map((item) => {
             const Icon = type === "business" ? Store : type === "provider" ? Briefcase : type === "place" ? Mountains : Tag;
+            const isBusy = pendingIds.includes(item.id);
             return (
               <div key={item.id} className="card">
                 <div className="row gap-12">
@@ -83,8 +108,20 @@ export function AdminQueue() {
                 )}
 
                 <div className="row gap-8" style={{ marginTop: 12 }}>
-                  <button className="btn btn-outline grow btn-sm" onClick={() => act(item, false)}><X size={15} /> Reject</button>
-                  <button className="btn btn-green grow btn-sm" onClick={() => act(item, true)}><Check size={15} /> Approve</button>
+                  <button
+                    className="btn btn-outline grow btn-sm"
+                    disabled={isBusy}
+                    onClick={() => act(item, false)}
+                  >
+                    <X size={15} /> {isBusy ? "Rejecting..." : "Reject"}
+                  </button>
+                  <button
+                    className="btn btn-green grow btn-sm"
+                    disabled={isBusy}
+                    onClick={() => act(item, true)}
+                  >
+                    <Check size={15} /> {isBusy ? "Approving..." : "Approve"}
+                  </button>
                 </div>
               </div>
             );

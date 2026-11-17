@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -17,6 +17,30 @@ import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { contextHomePath } from "@/lib/contextHome";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { notificationService } from "@/services";
+
+function isNavItemActive(itemTo: string, exact: boolean | undefined, pathname: string, search: string): boolean {
+  const [targetPath, targetSearch] = itemTo.split("?");
+  if (targetSearch) {
+    const targetParams = new URLSearchParams(targetSearch);
+    const currentParams = new URLSearchParams(search);
+    if (pathname !== targetPath) return false;
+    for (const [key, val] of targetParams.entries()) {
+      if (currentParams.get(key) !== val) return false;
+    }
+    return true;
+  }
+
+  if (targetPath === "/community-hub") {
+    if (search.includes("view=deals")) return false;
+    return pathname === "/community-hub";
+  }
+
+  if (exact) {
+    return pathname === targetPath;
+  }
+
+  return pathname.startsWith(targetPath);
+}
 
 export default function DesktopSidebar() {
   const nav = useNavigate();
@@ -196,20 +220,21 @@ export default function DesktopSidebar() {
       )}
 
       {/* Navigation List */}
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Main Navigation">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
+          const isActive = isNavItemActive(item.to, item.exact, loc.pathname, loc.search);
           return (
-            <button
+            <NavLink
               key={item.to}
+              to={item.to}
               className={`sidebar-nav-item ${isActive ? "active" : ""}`}
-              onClick={() => nav(item.to)}
+              aria-current={isActive ? "page" : undefined}
             >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
               <span className="grow text-left">{item.label}</span>
               {item.badge ? <span className="count-badge sidebar-badge">{item.badge}</span> : null}
-            </button>
+            </NavLink>
           );
         })}
       </nav>

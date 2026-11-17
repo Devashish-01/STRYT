@@ -8,6 +8,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { PortfolioItem } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function ProviderPortfolio() {
   const { id = "" } = useParams();
@@ -167,31 +168,22 @@ export default function ProviderPortfolio() {
         </div>
       </div>
 
-      {confirmDeleteItem && (
-        <div className="overlay" onClick={() => setConfirmDeleteItem(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 6 }}>Delete work sample?</h3>
-            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
-              This photo will be permanently removed from your portfolio gallery.
-            </p>
-            <div className="col gap-8">
-              <button
-                className="btn btn-block"
-                style={{ background: "var(--red-500)", color: "var(--white)" }}
-                onClick={() => {
-                  const it = confirmDeleteItem;
-                  setConfirmDeleteItem(null);
-                  deleteItem(it.id);
-                }}
-              >
-                Yes, delete sample
-              </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={Boolean(confirmDeleteItem)}
+        onClose={() => setConfirmDeleteItem(null)}
+        onConfirm={() => {
+          if (confirmDeleteItem) {
+            const it = confirmDeleteItem;
+            setConfirmDeleteItem(null);
+            deleteItem(it.id);
+          }
+        }}
+        title="Delete work sample?"
+        description="This photo will be permanently removed from your portfolio gallery."
+        confirmLabel="Yes, delete sample"
+        cancelLabel="Cancel"
+        destructive
+      />
 
       <ProviderManageNav pid={id} />
     </div>

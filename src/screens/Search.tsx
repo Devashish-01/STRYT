@@ -4,6 +4,7 @@ import { Search as SearchIcon, X, TrendingUp, Clock, Bell } from "@/components/I
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
+import { SelectableChip } from "@/components/ui/SelectableChip";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
@@ -43,6 +44,7 @@ export default function Search() {
   }, [debounced]);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [openOnly, setOpenOnly] = useState(false);
+  const [removingSavedId, setRemovingSavedId] = useState<string | null>(null);
   const { user, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
 
@@ -170,6 +172,20 @@ export default function Search() {
     try { localStorage.removeItem(RECENT_KEY); } catch {}
   }
 
+  async function handleRemoveSavedSearch(id: string) {
+    if (removingSavedId) return;
+    setRemovingSavedId(id);
+    try {
+      await discoveryService.removeSavedSearch(id);
+      showToast(t("search_alert_removed") || "Alert removed");
+      refetchSaved();
+    } catch (e) {
+      showToast(errorMessage(e, t("search_alert_update_failed") || "Failed to remove alert"));
+    } finally {
+      setRemovingSavedId(null);
+    }
+  }
+
   async function toggleSaveSearch() {
     if (!debounced) return;
     try {
@@ -260,13 +276,17 @@ export default function Search() {
                 </div>
                 <div className="col gap-8">
                   {saved.map((s) => (
-                    <div key={s.id} className="row between card card-condensed" style={{ padding: "10px 12px" }}>
-                      <button className="small semi" style={{ textAlign: "left" }} onClick={() => setQ(s.query)}>{s.query}</button>
+                    <div key={s.id} className="row between card card-condensed center-v" style={{ padding: "8px 12px" }}>
+                      <button className="small semi grow" style={{ textAlign: "left", background: "none", border: 0, padding: 0 }} onClick={() => setQ(s.query)}>{s.query}</button>
                       <button
+                        type="button"
+                        className="icon-btn-sm"
+                        style={{ minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", opacity: removingSavedId === s.id ? 0.5 : 1 }}
+                        disabled={removingSavedId === s.id}
                         aria-label={t("search_remove_alert_aria")}
-                        onClick={async () => { await discoveryService.removeSavedSearch(s.id); refetchSaved(); }}
+                        onClick={() => handleRemoveSavedSearch(s.id)}
                       >
-                        <X size={15} color="var(--ink-400)" />
+                        <X size={16} color="var(--ink-400)" />
                       </button>
                     </div>
                   ))}
@@ -314,18 +334,33 @@ export default function Search() {
               </div>
             )}
             <div className="row between align-center wrap gap-8">
-              <div className="row gap-8 align-center">
-                <span className="tiny muted">{total === 1 ? t("search_result_one") : tf("search_results_count", { count: total })}</span>
-                <button
-                  className={`chip ${openOnly ? "active" : ""}`}
-                  style={{ padding: "4px 10px", fontSize: 12, height: "auto", cursor: "pointer" }}
-                  onClick={() => setOpenOnly((prev) => !prev)}
-                >
-                  🟢 {t("search_filter_open_now")}
-                </button>
+              <div className="row gap-10 align-center">
+                <span className="small semi" style={{ color: "var(--ink-900)" }}>
+                  {total === 1 ? t("search_result_one") : tf("search_results_count", { count: total })}
+                </span>
+                <SelectableChip
+                  role="checkbox"
+                  label={`🟢 ${t("search_filter_open_now")}`}
+                  selected={openOnly}
+                  onSelect={() => setOpenOnly((prev) => !prev)}
+                  size="sm"
+                />
               </div>
-              <button className="tiny semi row gap-4" style={{ color: isSaved ? "var(--brand-700)" : "var(--ink-500)", alignItems: "center" }} onClick={toggleSaveSearch}>
-                <Bell size={13} weight={isSaved ? "fill" : "regular"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm row gap-6"
+                style={{
+                  minHeight: 44,
+                  padding: "0 12px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: isSaved ? "var(--brand-700)" : "var(--ink-700)",
+                }}
+                onClick={toggleSaveSearch}
+                aria-label={isSaved ? t("search_alert_on") : t("search_get_alerts")}
+              >
+                <Bell size={16} weight={isSaved ? "fill" : "regular"} />
+                <span>{isSaved ? t("search_alert_on") : t("search_get_alerts")}</span>
               </button>
             </div>
             {provResults.map((p) => <ProviderCard key={p.id} p={p} entranceClass={extraProvIds.has(p.id) ? "queue-row-enter" : "fade-up"} />)}

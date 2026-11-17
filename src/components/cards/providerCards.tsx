@@ -151,7 +151,7 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
         <Rating value={p.ratingAvg} size={11} />
         <div className="row gap-4 center-v" style={{ marginTop: 1 }}>
           <span className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</span>
-          <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 9, padding: "1px 5px" }}>
+          <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11, padding: "2px 6px" }}>
             {evalRes.isOpenNow ? "Available" : "Offline"}
           </span>
         </div>

@@ -4,7 +4,7 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { Star } from "@/components/Icons";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 
 const quickTags = ["On time", "Great quality", "Polite", "Fair price", "Would recommend", "Quick response"];
@@ -12,7 +12,7 @@ const quickTags = ["On time", "Great quality", "Polite", "Fair price", "Would re
 export default function RateScreen() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: a, loading } = useQuery(() => requestService.getAgreement(id), [id], `agreement:${id}`);
+  const { data: a, loading, error, refetch } = useQuery(() => requestService.getAgreement(id), [id], `agreement:${id}`);
   const { showToast, user } = useApp();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -28,6 +28,17 @@ export default function RateScreen() {
         <div className="page-pad col center gap-12" style={{ paddingTop: 24 }}>
           <Skeleton h={80} w={80} r={40} />
           <Skeleton h={20} w="60%" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="screen">
+        <AppBar title="Rate & review" />
+        <div className="page-pad" style={{ paddingTop: 24 }}>
+          <ErrorView error={error} onRetry={refetch} />
         </div>
       </div>
     );

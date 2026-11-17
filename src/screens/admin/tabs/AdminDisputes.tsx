@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/common";
 import { adminService } from "@/services/core/adminService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Check, X, Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
@@ -9,7 +9,7 @@ import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminDisputes() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQueryWithRealtime<any[]>(async () => {
+  const { data, loading, error, refetch } = useQueryWithRealtime<any[]>(async () => {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("agreements")
@@ -35,6 +35,7 @@ export function AdminDisputes() {
   }
 
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  if (error) return <div className="page-pad" style={{ paddingTop: 12 }}><ErrorView error={error} onRetry={refetch} /></div>;
   const items = data ?? [];
 
   return (

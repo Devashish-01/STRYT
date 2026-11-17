@@ -12,6 +12,8 @@ import ManageNav from "./ManageNav";
 import type { BulkDeal, GroupBuyToken } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** Business console: create/edit wholesale offers, and validate group-buy
  *  claim passes at handover. */
@@ -229,35 +231,19 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
       {/* Previously an instant, un-confirmed delete — the FK cascade wipes the
           whole pledge roster with no warning, and (until 20260913) no notice
           to anyone who'd already paid a deposit into it. */}
-      {confirmOpen && (
-        <div className="overlay" onClick={() => !busy && setConfirmOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <div className="row gap-10" style={{ alignItems: "flex-start", marginBottom: 10 }}>
-              <AlertTriangle size={20} color="var(--red-600)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div>
-                <h3 className="bold h2" style={{ marginBottom: 4 }}>Delete "{deal.title}"?</h3>
-                <p className="small muted">
-                  {hasPledges
-                    ? `${deal.pledgedQuantity} unit${deal.pledgedQuantity === 1 ? "" : "s"} pledged into this campaign. Anyone who already paid a deposit will be notified, but it isn't refunded automatically — sort that out with them directly. This can't be undone.`
-                    : "This can't be undone."}
-                </p>
-              </div>
-            </div>
-            <button
-              className="btn btn-block"
-              style={{ height: 48, background: "var(--red-500)", color: "var(--surface)", fontWeight: 700 }}
-              disabled={busy}
-              onClick={remove}
-            >
-              {busy ? "Deleting…" : "Delete permanently"}
-            </button>
-            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => !busy && setConfirmOpen(false)}
+        onConfirm={remove}
+        title={`Delete "${deal.title}"?`}
+        description={hasPledges
+          ? `${deal.pledgedQuantity} unit${deal.pledgedQuantity === 1 ? "" : "s"} pledged into this campaign. Anyone who already paid a deposit will be notified, but it isn't refunded automatically — sort that out with them directly. This can't be undone.`
+          : "This can't be undone."}
+        confirmLabel={busy ? "Deleting…" : "Delete permanently"}
+        cancelLabel="Cancel"
+        destructive
+        busy={busy}
+      />
     </div>
   );
 }
@@ -295,44 +281,36 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
   }
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", animation: "fadeIn .2s" }}
-      onClick={onClose}
+    <AccessibleSheet
+      isOpen={true}
+      onClose={onClose}
+      title={t("bdm_edit_campaign")}
+      variant="bottom-sheet"
     >
-      <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
-          <div className="bold" style={{ fontSize: 18 }}>{t("bdm_edit_campaign")}</div>
-          <button className="icon-btn" onClick={onClose}><X size={20} /></button>
+      <div className="col gap-14">
+        <div>
+          <label htmlFor="bulkdealsmanager-title" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("bdm_title_label")}</label>
+          <input id="bulkdealsmanager-title" className="input" placeholder={t("bdm_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
         </div>
 
-        <div className="col gap-14">
-          <div>
-            <label htmlFor="bulkdealsmanager-title" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("bdm_title_label")}</label>
-            <input id="bulkdealsmanager-title" className="input" placeholder={t("bdm_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
-          </div>
-
-          <div>
-            <label htmlFor="bulkdealsmanager-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_description")}</label>
-            <textarea id="bulkdealsmanager-description-optional" className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
-          </div>
-
-          <div>
-            <label htmlFor="bulkdealsmanager-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_available_quota")}</label>
-            <input id="bulkdealsmanager-available-quota-optional" className="input" inputMode="numeric" placeholder={t("ccp_total_units")} value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
-          </div>
-
-          <div className="tiny muted" style={{ lineHeight: 1.5 }}>
-            Price, volume tiers, deposit and the closing deadline are locked once a campaign is live — open it from the list to extend the deadline instead.
-          </div>
-
-          <button className="btn btn-primary btn-block" style={{ height: 48, fontSize: 15, fontWeight: 700 }} disabled={busy} onClick={save}>
-            {busy ? "Saving…" : "Save changes"}
-          </button>
+        <div>
+          <label htmlFor="bulkdealsmanager-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_description")}</label>
+          <textarea id="bulkdealsmanager-description-optional" className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
         </div>
+
+        <div>
+          <label htmlFor="bulkdealsmanager-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_available_quota")}</label>
+          <input id="bulkdealsmanager-available-quota-optional" className="input" inputMode="numeric" placeholder={t("ccp_total_units")} value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+        </div>
+
+        <div className="tiny muted" style={{ lineHeight: 1.5 }}>
+          Price, volume tiers, deposit and the closing deadline are locked once a campaign is live — open it from the list to extend the deadline instead.
+        </div>
+
+        <button className="btn btn-primary btn-block" style={{ height: 48, fontSize: 15, fontWeight: 700 }} disabled={busy} onClick={save}>
+          {busy ? "Saving…" : "Save changes"}
+        </button>
       </div>
-    </div>
+    </AccessibleSheet>
   );
 }

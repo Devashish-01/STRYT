@@ -22,6 +22,7 @@ export default function NotificationSettings() {
     const saved = localStorage.getItem("settings_radius");
     return saved ? Number(saved) : (user.notificationRadiusKm || 5);
   });
+  const [savingRadius, setSavingRadius] = useState(false);
   const [silent, setSilent] = useState(user.notifSilent === true);
   const [quiet, setQuiet] = useState(user.notifQuietHours === true);
   const [newBiz, setNewBiz] = useState(user.notifNewBusiness !== false);
@@ -43,11 +44,22 @@ export default function NotificationSettings() {
   useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
     if (!user.id || radius === user.notificationRadiusKm) return;
-    const timer = setTimeout(() => {
-      void userService.update({ notificationRadiusKm: radius }).catch(() => {});
+    const timer = setTimeout(async () => {
+      setSavingRadius(true);
+      try {
+        await userService.update({ notificationRadiusKm: radius });
+        showToast(`Notification radius set to ${radius} km`);
+      } catch {
+        const revertVal = user.notificationRadiusKm || 5;
+        setRadius(revertVal);
+        localStorage.setItem("settings_radius", String(revertVal));
+        showToast("Couldn't save notification radius — reverted");
+      } finally {
+        setSavingRadius(false);
+      }
     }, 400);
     return () => clearTimeout(timer);
-  }, [radius, user.id, user.notificationRadiusKm]);
+  }, [radius, user.id, user.notificationRadiusKm, showToast]);
 
   /** Optimistic + revert + toast, per DESIGN_PRINCIPLES §6. These write to the
    *  DB (not just localStorage as they used to) because send-push reads them
@@ -79,7 +91,7 @@ export default function NotificationSettings() {
           onChange={setRadius}
           accentColor="var(--brand-600)"
           label="Notification radius"
-          description="How far away you want to receive alerts and discover things."
+          description={savingRadius ? "Saving radius preference…" : "How far away you want to receive alerts and discover things."}
         />
 
         <SettingsSection title="What you're told about">

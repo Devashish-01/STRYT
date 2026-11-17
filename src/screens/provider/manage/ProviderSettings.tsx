@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
 import { providerService, bustProviderGetCache, profileControlService, userService } from "@/services";
-import { ErrorView } from "@/components/states";
+import { ErrorView, Skeleton } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import ProviderManageNav from "./ProviderManageNav";
 import { invalidateQueryCache } from "@/hooks/useApi";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -26,21 +27,23 @@ export default function ProviderSettings() {
   const [matched, setMatched] = useState(user.notifNearbyRequests !== false);
   useEffect(() => { setMatched(user.notifNearbyRequests !== false); }, [user.notifNearbyRequests]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<any>(null);
   const [ownerEnabled, setOwnerEnabled] = useState(true);
+  const [savingOwnerEnabled, setSavingOwnerEnabled] = useState(false);
   const [accepting, setAccepting] = useState(true);
+  const [savingAccepting, setSavingAccepting] = useState(false);
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const [locPublic, setLocPublic] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [serviceRadiusKm, setServiceRadiusKm] = useState(10);
   const [pkgKey, setPkgKey] = useState<BusinessPackageKey>("generic");
   const [packagePicking, setPackagePicking] = useState(false);
   const [bookingsOn, setBookingsOn] = useState(true);
+  const [savingBookingsOn, setSavingBookingsOn] = useState(false);
 
-  function persist(patch: Record<string, unknown>) {
-    void providerService.update(id, patch as any).catch(() => showToast(t("cpd_save_failed")));
-  }
   function persistMatched(v: boolean) {
     setMatched(v);
     userService.update({ notifNearbyRequests: v } as any)
@@ -57,8 +60,58 @@ export default function ProviderSettings() {
     finally { setSavingEmail(false); }
   }
 
-  useEffect(() => {
+  async function toggleShowPhone(v: boolean) {
+    const prev = showPhone;
+    setShowPhone(v);
+    setSavingPrivacy(true);
+    try {
+      await providerService.update(id, { showPhonePublicly: v } as any);
+      bustProviderGetCache(id);
+      showToast(v ? "Phone number visible publicly" : "Phone number hidden from profile");
+    } catch {
+      setShowPhone(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
+
+  async function toggleShowEmail(v: boolean) {
+    const prev = showEmail;
+    setShowEmail(v);
+    setSavingPrivacy(true);
+    try {
+      await providerService.update(id, { showEmailPublicly: v } as any);
+      bustProviderGetCache(id);
+      showToast(v ? "Email address visible publicly" : "Email hidden from profile");
+    } catch {
+      setShowEmail(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
+
+  async function toggleLocPublic(v: boolean) {
+    const prev = locPublic;
+    setLocPublic(v);
+    setSavingPrivacy(true);
+    try {
+      await providerService.update(id, { locationPublic: v } as any);
+      bustProviderGetCache(id);
+      showToast(v ? "Exact location visible publicly" : "Exact location hidden from profile");
+    } catch {
+      setLocPublic(prev);
+      showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
+
+  const fetchSettings = useCallback(() => {
     if (!id) return;
+    setLoading(true);
+    setLoadError(null);
     providerService.get(id)
       .then((prov) => {
         if (prov) {
@@ -71,17 +124,19 @@ export default function ProviderSettings() {
           setServiceRadiusKm(prov.serviceRadiusKm ?? 10);
           const resolved = resolvePackage(prov);
           setPkgKey(resolved);
-          // bookingsEnabled null means "inherit the resolved package's own
-          // default" — resolve it once here rather than a toggle with an
-          // ambiguous third state.
           setBookingsOn(prov.bookingsEnabled ?? BUSINESS_PACKAGES[resolved].bookingsDefault);
         }
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        setLoadError(err || { code: "UNKNOWN", message: "Couldn't load provider settings." });
         setLoading(false);
       });
   }, [id]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   if (!id) {
     return (
@@ -92,26 +147,60 @@ export default function ProviderSettings() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title={t("settings")} />
+        <div className="page-pad" style={{ marginTop: 20 }}>
+          <ErrorView error={loadError} onRetry={fetchSettings} />
+        </div>
+        <ProviderManageNav pid={id} />
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title={t("settings")} />
+        <div className="page-pad col gap-12" style={{ marginTop: 20 }}>
+          <Skeleton h={80} r={14} mb={0} />
+          <Skeleton h={140} r={14} mb={0} />
+          <Skeleton h={100} r={14} mb={0} />
+        </div>
+        <ProviderManageNav pid={id} />
+      </div>
+    );
+  }
+
   async function handleToggleVisibility(v: boolean) {
+    const prev = ownerEnabled;
     setOwnerEnabled(v);
+    setSavingOwnerEnabled(true);
     try {
       await profileControlService.setEnabled("PROVIDER", id, v);
       showToast(v ? "Provider profile is now visible" : "Provider profile hidden from discovery");
     } catch (err) {
-      setOwnerEnabled(!v);
+      setOwnerEnabled(prev);
       showToast(errorMessage(err, "Failed to update visibility"));
+    } finally {
+      setSavingOwnerEnabled(false);
     }
   }
 
   async function toggleAccepting(v: boolean) {
+    const prev = accepting;
     setAccepting(v);
+    setSavingAccepting(true);
     try {
       await providerService.update(id, { isOpenNow: v });
       showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
     } catch (err) {
-      setAccepting(!v);
+      setAccepting(prev);
       showToast(errorMessage(err, "Couldn't save — try again"));
+    } finally {
+      setSavingAccepting(false);
     }
   }
 
@@ -132,14 +221,18 @@ export default function ProviderSettings() {
   }
 
   async function toggleBookingsEnabled(v: boolean) {
+    const prev = bookingsOn;
     setBookingsOn(v);
+    setSavingBookingsOn(true);
     try {
       await providerService.update(id, { bookingsEnabled: v } as any);
       showToast(v ? "Bookings are on for this page" : "Bookings are off — your page shows your catalogue only, no booking button");
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
     } catch {
-      setBookingsOn(!v);
+      setBookingsOn(prev);
       showToast(t("cpd_save_failed"));
+    } finally {
+      setSavingBookingsOn(false);
     }
   }
 
@@ -161,7 +254,12 @@ export default function ProviderSettings() {
 
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
         <SettingsSection title={t("notifications")}>
-          <SettingsToggleRow label={t("bset_new_leads")} on={leads} onChange={setLeads} />
+          <SettingsToggleRow
+            label={t("bset_new_leads")}
+            hint="Saved on this device. Live push notifications for new leads coming soon."
+            on={leads}
+            onChange={setLeads}
+          />
           <SettingsToggleRow
             label={t("pset_matching_skills")}
             hint={t("bset_matching_requests_hint")}
@@ -184,6 +282,7 @@ export default function ProviderSettings() {
             label={t("bset_take_bookings")}
             hint={bookingsOn ? "Your page shows a booking button" : "No booking button — catalogue only"}
             on={bookingsOn}
+            disabled={savingBookingsOn}
             onChange={toggleBookingsEnabled}
           />
         </SettingsSection>
@@ -193,6 +292,7 @@ export default function ProviderSettings() {
             label={t("bset_accepting")}
             hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
             on={accepting}
+            disabled={savingAccepting}
             onChange={toggleAccepting}
           />
         </SettingsSection>
@@ -218,48 +318,45 @@ export default function ProviderSettings() {
               <button className="btn btn-outline btn-sm" disabled={savingEmail} onClick={saveEmail}>{savingEmail ? "…" : "Save"}</button>
             </div>
           </div>
-          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
-          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
-          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
+          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} disabled={savingPrivacy} onChange={toggleShowPhone} />
+          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} disabled={savingPrivacy} onChange={toggleShowEmail} />
+          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} disabled={savingPrivacy} onChange={toggleLocPublic} />
         </SettingsSection>
 
         <SettingsSection title={t("bset_visibility")}>
-          <SettingsToggleRow label={t("pset_show_profile")} on={ownerEnabled} onChange={handleToggleVisibility} />
+          <SettingsToggleRow label={t("pset_show_profile")} on={ownerEnabled} disabled={savingOwnerEnabled} onChange={handleToggleVisibility} />
         </SettingsSection>
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>{t("pset_exit_provider")}</button>
 
-        {packagePicking && (
-          <div className="overlay" onClick={() => setPackagePicking(false)}>
-            <div className="sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>{t("bset_choose_page_type")}</h3>
-              <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
-                Controls your page's layout, CTA wording, and the owner-side catalogue form.
-              </p>
-              <div className="col gap-8">
-                {PACKAGE_KEYS.map((key) => {
-                  const p = BUSINESS_PACKAGES[key];
-                  const active = pkgKey === key;
-                  return (
-                    <button
-                      key={key}
-                      className="card row gap-10"
-                      style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
-                      onClick={() => savePackage(key)}
-                    >
-                      <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
-                      <span className="grow" style={{ minWidth: 0 }}>
-                        <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
-                        <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        <AccessibleSheet
+          isOpen={packagePicking}
+          onClose={() => setPackagePicking(false)}
+          title={t("bset_choose_page_type")}
+          description="Controls your page's layout, CTA wording, and the owner-side catalogue form."
+          variant="bottom-sheet"
+        >
+          <div className="col gap-8">
+            {PACKAGE_KEYS.map((key) => {
+              const p = BUSINESS_PACKAGES[key];
+              const active = pkgKey === key;
+              return (
+                <button
+                  key={key}
+                  className="card row gap-10"
+                  style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
+                  onClick={() => savePackage(key)}
+                >
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
+                    <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </AccessibleSheet>
       </div>
       <ProviderManageNav pid={id} />
     </div>

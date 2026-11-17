@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, Mountains, Trophy, Binoculars, MapPin, ChevronDown } from "@/components/Icons";
+import { Camera, Mountains, Trophy, Binoculars, MapPin, ChevronDown, X } from "@/components/Icons";
 import { placesService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
+import { SelectableChip } from "@/components/ui/SelectableChip";
 import type { PlaceCategory, PlaceDifficulty } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
@@ -117,25 +118,28 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
         <input id="placerequestform-name" className="input" placeholder={t("prf_name_placeholder")} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
       </div>
 
-      <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("category")}</label>
-        <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="tiny semi muted" style={{ display: "block", marginBottom: 6, padding: 0 }}>
+          {t("category")}
+        </legend>
+        <div role="radiogroup" aria-label={t("category")} className="row gap-8" style={{ flexWrap: "wrap" }}>
           {CATEGORIES.map((c) => {
             const Icon = c.icon;
             const active = category === c.id;
             return (
-              <button
+              <SelectableChip
                 key={c.id}
-                className="chip row gap-6 center-v"
-                style={active ? { background: "var(--brand-100)", color: "var(--brand-700)", border: "1.5px solid var(--brand-300)" } : undefined}
-                onClick={() => setCategory(c.id)}
-              >
-                <Icon size={14} /> {c.label}
-              </button>
+                role="radio"
+                selected={active}
+                onSelect={() => setCategory(c.id)}
+                icon={Icon}
+                label={c.label}
+                size="sm"
+              />
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
       <div>
         <label htmlFor="placerequestform-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_description")}</label>
@@ -164,7 +168,29 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
         {photoPreview ? (
           <div style={{ position: "relative", width: 120, height: 90 }}>
             <img src={photoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 }} />
-            <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 26, height: 26, background: "var(--surface)", boxShadow: "var(--shadow-sm)" }} onClick={() => { setPhoto(null); setPhotoPreview(null); }}>×</button>
+            <button
+              type="button"
+              className="icon-btn"
+              style={{
+                position: "absolute",
+                top: -10,
+                right: -10,
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: "var(--surface)",
+                boxShadow: "var(--shadow-md)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid var(--ink-200)",
+                cursor: "pointer",
+              }}
+              onClick={() => { setPhoto(null); setPhotoPreview(null); }}
+              aria-label={t("remove_photo_label")}
+            >
+              <X size={18} color="var(--ink-700)" />
+            </button>
           </div>
         ) : (
           <label className="row gap-8 center-v" style={{ width: "fit-content", padding: "10px 14px", borderRadius: 12, border: "1.5px dashed var(--ink-300)", cursor: "pointer" }}>
@@ -218,21 +244,23 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
               </div>
             </div>
 
-            <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_difficulty")}</label>
-              <div className="row gap-8">
+            <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+              <legend className="tiny semi muted" style={{ display: "block", marginBottom: 6, padding: 0 }}>
+                {t("prf_difficulty")}
+              </legend>
+              <div role="radiogroup" aria-label={t("prf_difficulty")} className="row gap-8" style={{ flexWrap: "wrap" }}>
                 {DIFFICULTIES.map((d) => (
-                  <button
+                  <SelectableChip
                     key={d.id}
-                    className="chip"
-                    style={difficulty === d.id ? { background: "var(--brand-100)", color: "var(--brand-700)", border: "1.5px solid var(--brand-300)" } : undefined}
-                    onClick={() => setDifficulty(difficulty === d.id ? null : d.id)}
-                  >
-                    {d.label}
-                  </button>
+                    role="radio"
+                    selected={difficulty === d.id}
+                    onSelect={() => setDifficulty(difficulty === d.id ? null : d.id)}
+                    label={d.label}
+                    size="sm"
+                  />
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div>
               <label htmlFor="placerequestform-how-to-reach" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_how_to_reach")}</label>

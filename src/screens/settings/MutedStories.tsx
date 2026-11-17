@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { businessService, providerService, socialService } from "@/services";
 import { getSupabase } from "@/lib/supabaseClient";
 import { aliasName } from "@/lib/publicName";
@@ -47,14 +47,17 @@ export default function MutedStories() {
   const { t, tf } = useI18n();
   const { showToast } = useApp();
   const [rows, setRows] = useState<MutedRow[] | null>(null);
+  const [error, setError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(false);
+    setRows(null);
     try {
       const keys = [...(await socialService.myStoryMutes())];
       setRows(await describe(keys, { user: t("muted_fallback_user"), business: t("muted_fallback_shop"), provider: t("muted_fallback_provider") }));
     } catch {
-      setRows([]);
+      setError(true);
       showToast(t("muted_load_failed"));
     }
   }, [t, showToast]);
@@ -78,7 +81,12 @@ export default function MutedStories() {
     <div className="screen screen-boxed">
       <AppBar title={t("muted_title")} subtitle={t("muted_sub")} />
       <div className="screen-scroll page-pad" style={{ paddingTop: 14, paddingBottom: 24 }}>
-        {rows === null ? (
+        {error ? (
+          <ErrorView
+            error={{ code: "UNKNOWN", message: t("muted_load_failed") } as any}
+            onRetry={() => void load()}
+          />
+        ) : rows === null ? (
           <ListSkeleton count={3} />
         ) : rows.length === 0 ? (
           <EmptyState emoji="🔔" title={t("muted_empty_title")} text={t("muted_empty_text")} />

@@ -10,6 +10,8 @@ import MiniMap from "@/components/MiniMap";
 import LocationPicker from "@/components/LocationPicker";
 import { Camera, MapPin, X } from "@/components/Icons";
 import ManageNav from "./ManageNav";
+import { SelectableChip } from "@/components/ui/SelectableChip";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 
 export default function ProfileEditor() {
@@ -213,20 +215,41 @@ export default function ProfileEditor() {
           </div>
         </div>
 
-        <div className="field"><label>Business name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="field"><label>Description</label><textarea className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
         <div className="field">
-          <label>Category</label>
-          <div className="row wrap gap-8">
+          <label htmlFor="biz-profile-name">Business name</label>
+          <input id="biz-profile-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="biz-profile-desc">Description</label>
+          <textarea id="biz-profile-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </div>
+        <div className="field">
+          <label id="biz-profile-category-label">Category</label>
+          <div className="row wrap gap-8" role="radiogroup" aria-labelledby="biz-profile-category-label">
             {cats.map((c) => (
-              <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(c.id)}>{c.icon} {c.name}</button>
+              <SelectableChip
+                key={c.id}
+                role="radio"
+                selected={cat === c.id}
+                onSelect={() => setCat(c.id)}
+                label={<>{c.icon} {c.name}</>}
+              />
             ))}
           </div>
         </div>
-        <div className="field"><label>Address</label><textarea className="input" style={{ minHeight: 64 }} value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+        <div className="field">
+          <label htmlFor="biz-profile-address">Address</label>
+          <textarea id="biz-profile-address" className="input" style={{ minHeight: 64 }} value={address} onChange={(e) => setAddress(e.target.value)} />
+        </div>
         <div className="row gap-10">
-          <div className="field grow"><label>City</label><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></div>
-          <div className="field grow"><label>Pincode</label><input className="input" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))} /></div>
+          <div className="field grow">
+            <label htmlFor="biz-profile-city">City</label>
+            <input id="biz-profile-city" className="input" value={city} onChange={(e) => setCity(e.target.value)} />
+          </div>
+          <div className="field grow">
+            <label htmlFor="biz-profile-pincode">Pincode</label>
+            <input id="biz-profile-pincode" className="input" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))} />
+          </div>
         </div>
 
         {/* Business location — map pin, changed only via the full-map picker
@@ -253,8 +276,14 @@ export default function ProfileEditor() {
           </span>
         </div>
 
-        <div className="field"><label>Phone</label><input className="input" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-        <div className="field"><label>WhatsApp</label><input className="input" inputMode="numeric" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} /></div>
+        <div className="field">
+          <label htmlFor="biz-profile-phone">Phone</label>
+          <input id="biz-profile-phone" className="input" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="biz-profile-whatsapp">WhatsApp</label>
+          <input id="biz-profile-whatsapp" className="input" inputMode="numeric" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+        </div>
         <div className="field">
           <RadiusSelector
             value={broadcastRadius}
@@ -270,50 +299,32 @@ export default function ProfileEditor() {
         <button className="btn btn-primary btn-block" disabled={saving || !valid} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
 
-      {locModalOpen && (
-        <div className="overlay" style={{ zIndex: 1100 }} onClick={() => setLocModalOpen(false)}>
-          <div
-            className="sheet"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "var(--surface)", maxHeight: "95vh", display: "flex", flexDirection: "column", borderRadius: "24px 24px 0 0", padding: "20px 16px calc(24px + var(--safe-area-bottom))" }}
-          >
-            <div className="sheet-grab" style={{ background: "var(--ink-200)" }} />
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <div className="row gap-8">
-                <MapPin size={20} color="var(--brand-700)" />
-                <h3 className="bold h2">Set business location</h3>
-              </div>
-              <button
-                onClick={() => setLocModalOpen(false)}
-                style={{ background: "var(--ink-100)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-700)" }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <p className="tiny muted" style={{ marginBottom: 12, lineHeight: 1.5 }}>
-              Tap the map or drag the pin to your shop's exact spot. This is submitted for admin review — your live location won't change until it's approved.
-            </p>
-            <LocationPicker
-              lat={pickLat}
-              lng={pickLng}
-              storedLat={b?.lat ?? undefined}
-              storedLng={b?.lng ?? undefined}
-              pinColor="var(--orange-500)"
-              height={320}
-              onChange={(newLat, newLng) => { setPickLat(newLat); setPickLng(newLng); }}
-              onError={(msg) => showToast(msg)}
-            />
-            <button
-              className="btn btn-primary btn-block"
-              style={{ marginTop: 14 }}
-              disabled={requestingLoc || pickLat == null || pickLng == null}
-              onClick={submitLocationChange}
-            >
-              {requestingLoc ? "Submitting…" : "Submit for review"}
-            </button>
-          </div>
-        </div>
-      )}
+      <AccessibleSheet
+        isOpen={locModalOpen}
+        onClose={() => setLocModalOpen(false)}
+        title="Set business location"
+        description="Tap the map or drag the pin to your shop's exact spot. This is submitted for admin review — your live location won't change until it's approved."
+        variant="bottom-sheet"
+      >
+        <LocationPicker
+          lat={pickLat}
+          lng={pickLng}
+          storedLat={b?.lat ?? undefined}
+          storedLng={b?.lng ?? undefined}
+          pinColor="var(--orange-500)"
+          height={320}
+          onChange={(newLat, newLng) => { setPickLat(newLat); setPickLng(newLng); }}
+          onError={(msg) => showToast(msg)}
+        />
+        <button
+          className="btn btn-primary btn-block"
+          style={{ marginTop: 14 }}
+          disabled={requestingLoc || pickLat == null || pickLng == null}
+          onClick={submitLocationChange}
+        >
+          {requestingLoc ? "Submitting…" : "Submit for review"}
+        </button>
+      </AccessibleSheet>
       <ManageNav bizId={id} />
     </div>
   );

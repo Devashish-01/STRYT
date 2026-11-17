@@ -2,14 +2,14 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common";
 import { appealService, type AccountAppeal } from "@/services/core/appealService";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Check, X, Store, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
 import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminAppeals() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => appealService.pending(), [], "admin:appeals-pending");
+  const { data, loading, error, refetch } = useQuery(() => appealService.pending(), [], "admin:appeals-pending");
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
@@ -27,6 +27,7 @@ export function AdminAppeals() {
   }
 
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  if (error) return <div className="page-pad" style={{ paddingTop: 12 }}><ErrorView error={error} onRetry={refetch} /></div>;
   const items = data ?? [];
 
   return (

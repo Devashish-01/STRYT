@@ -9,9 +9,9 @@ import { ListSkeleton } from "@/components/states";
 export default function ManageHub() {
   const nav = useNavigate();
   const { ownedBusinessIds, ownedProviderId, roles, attemptSwitchContext } = useApp();
-  const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
-  const { data: myProviders, loading: provLoading } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
-  const { data: mySessions } = useQuery(() => businessAccessService.mySessions(), [ownedBusinessIds.join(",")], "manage-hub:my-sessions");
+  const { data: myBiz, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
+  const { data: myProviders, loading: provLoading, error: provError, refetch: refetchProv } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
+  const { data: mySessions, error: sessError, refetch: refetchSessions } = useQuery(() => businessAccessService.mySessions(), [ownedBusinessIds.join(",")], "manage-hub:my-sessions");
 
   const businesses = myBiz ?? [];
   // Businesses someone else owns but this user manages. Without these, a team member opening "Manage all spaces"
@@ -29,6 +29,12 @@ export default function ManageHub() {
           <div className="small semi muted" style={{ marginBottom: 8 }}>Businesses</div>
           <div className="col gap-12">
             {bizLoading && <ListSkeleton count={1} />}
+            {bizError && !myBiz && (
+              <div className="card col center gap-8" style={{ padding: 18 }}>
+                <span className="small muted">Couldn't load your businesses</span>
+                <button className="btn btn-outline btn-sm" onClick={() => refetchBiz()}>Retry</button>
+              </div>
+            )}
             {businesses.map((b) => {
               const bid = b.id;
               return (
@@ -69,8 +75,8 @@ export default function ManageHub() {
               );
             })}
             {/* Up to 5 businesses per owner (trg_enforce_business_owner_limit,
-                a DB trigger) — hide "Add a business" once at the cap. */}
-            {!bizLoading && businesses.length < 5 && (
+                a DB trigger) — hide "Add a business" once at the cap or on error. */}
+            {!bizLoading && !bizError && businesses.length < 5 && (
               <button className="card row gap-12 center" style={{ padding: 16, border: "1.5px dashed var(--ink-300)" }} onClick={() => nav("/onboard/business")}>
                 <Plus size={20} color="var(--orange-500)" /> <span className="semi small">Add a business</span>
               </button>
@@ -114,6 +120,11 @@ export default function ManageHub() {
           <div className="small semi muted" style={{ marginBottom: 8 }}>Provider profile</div>
           {provLoading ? (
             <ListSkeleton count={1} />
+          ) : provError && !myProviders ? (
+            <div className="card col center gap-8" style={{ padding: 18 }}>
+              <span className="small muted">Couldn't load your provider profile</span>
+              <button className="btn btn-outline btn-sm" onClick={() => refetchProv()}>Retry</button>
+            </div>
           ) : ownedProviderId && roles.includes("provider") && provider ? (
             <div className="card">
               <div className="row gap-12">

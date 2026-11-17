@@ -18,6 +18,8 @@ import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { consoleFor } from "@/lib/consoleSteps";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { inr } from "@/lib/format";
+import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -344,22 +346,22 @@ export default function QueueManager() {
   function paymentRow(t: Token) {
     if (t.paymentStatus === "PAID") {
       return (
-        <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>
-          ₹ {t.paymentMethod === "UPI" ? "UPI paid" : "Cash paid"}{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+        <span className="badge badge-green" style={{ fontSize: 11, padding: "3px 8px" }}>
+          {t.paymentMethod === "UPI" ? "UPI paid" : "Cash paid"}{t.paymentAmount ? ` · ${inr(t.paymentAmount)}` : ""}
         </span>
       );
     }
     if (t.paymentStatus === "PENDING_CONFIRM") {
       return (
         <div className="row gap-6 center-v" style={{ marginTop: 6, padding: "6px 8px", borderRadius: 8, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
-          <AlertCircle size={13} color="var(--amber-700)" style={{ flexShrink: 0 }} />
+          <AlertCircle size={15} color="var(--amber-700)" style={{ flexShrink: 0 }} />
           <span className="tiny semi" style={{ color: "var(--amber-700)", flex: 1 }}>
-            Claims {t.paymentMethod ?? ""} payment{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+            Claims {t.paymentMethod ?? ""} payment{t.paymentAmount ? ` · ${inr(t.paymentAmount)}` : ""}
           </span>
-          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--green-500)", color: "var(--white)", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
+          <button className="btn btn-sm" style={{ minHeight: 44, padding: "8px 14px", background: "var(--green-500)", color: "var(--white)", borderRadius: 8 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
             Confirm
           </button>
-          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--red-600)", color: "var(--white)", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => rejectPayment(t)}>
+          <button className="btn btn-sm" style={{ minHeight: 44, padding: "8px 14px", background: "var(--red-600)", color: "var(--white)", borderRadius: 8 }} disabled={verifying === t.id} onClick={() => rejectPayment(t)}>
             Reject
           </button>
         </div>
@@ -416,54 +418,56 @@ export default function QueueManager() {
 
         <div className="card">
           <div className="row between small semi" style={{ alignItems: "center" }}>
-            <span>{qt("qm_avg_service_time")}</span>
-                <div className="row gap-4" style={{ alignItems: "center" }}>
-                  <input
-                    type="number"
-                    min={1}
-                    value={inputValue}
-                    onChange={(e) => {
-                      setInputValue(e.target.value);
-                      const parsed = parseInt(e.target.value, 10);
-                      if (!isNaN(parsed) && parsed >= 1) setAvgTime(parsed);
-                    }}
-                    onFocus={() => { isInputFocused.current = true; }}
-                    onBlur={() => {
-                      isInputFocused.current = false;
-                      let val = parseInt(inputValue, 10);
-                      if (isNaN(val) || val < 1) val = 8;
-                      setInputValue(val.toString());
-                      setAvgTime(val);
-                      saveAvgTime(val);
-                    }}
-                    onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                    style={{ width: 72, textAlign: "right", border: "1.5px solid var(--line)", borderRadius: "8px", padding: "6px 8px", fontSize: "14px", fontWeight: "700", background: "var(--bg)", color: "var(--brand-700)", outline: "none" }}
-                  />
-                  <span className="muted" style={{ fontSize: "14px" }}>min</span>
-                </div>
-              </div>
+            <label id="qm-avg-time-label" htmlFor="qm-avg-time-num">{qt("qm_avg_service_time")}</label>
+            <div className="row gap-4" style={{ alignItems: "center" }}>
               <input
-                type="range"
-                min={2}
-                max={Math.max(120, avgTime)}
-                value={avgTime}
-                // onChange fires continuously while dragging (React's onChange
-                // for a range input is the native 'input' event) — only
-                // update the live display here. The actual write is
-                // committed once on release/key-up, same as the number
-                // input above saves on blur rather than per keystroke.
+                id="qm-avg-time-num"
+                type="number"
+                min={1}
+                aria-labelledby="qm-avg-time-label"
+                aria-describedby="qm-avg-time-hint"
+                value={inputValue}
                 onChange={(e) => {
-                  const val = Number(e.target.value);
+                  setInputValue(e.target.value);
+                  const parsed = parseInt(e.target.value, 10);
+                  if (!isNaN(parsed) && parsed >= 1) setAvgTime(parsed);
+                }}
+                onFocus={() => { isInputFocused.current = true; }}
+                onBlur={() => {
+                  isInputFocused.current = false;
+                  let val = parseInt(inputValue, 10);
+                  if (isNaN(val) || val < 1) val = 8;
                   setInputValue(val.toString());
                   setAvgTime(val);
+                  saveAvgTime(val);
                 }}
-                onMouseUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
-                onKeyUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
-                style={{ width: "100%", accentColor: "var(--brand-500)", marginTop: 12 }}
+                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                style={{ width: 72, textAlign: "right", border: "1.5px solid var(--line)", borderRadius: "8px", padding: "6px 8px", fontSize: "14px", fontWeight: "700", background: "var(--bg)", color: "var(--brand-700)", outline: "none" }}
               />
-              <div className="tiny muted" style={{ marginTop: 4 }}>{qt("qm_avg_hint")}</div>
+              <span className="muted" style={{ fontSize: "14px" }}>min</span>
             </div>
+          </div>
+          <input
+            id="qm-avg-time-range"
+            type="range"
+            min={2}
+            max={Math.max(120, avgTime)}
+            value={avgTime}
+            aria-labelledby="qm-avg-time-label"
+            aria-describedby="qm-avg-time-hint"
+            aria-label={`${qt("qm_avg_service_time")} range`}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setInputValue(val.toString());
+              setAvgTime(val);
+            }}
+            onMouseUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
+            onTouchEnd={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
+            onKeyUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
+            style={{ width: "100%", accentColor: "var(--brand-500)", marginTop: 12 }}
+          />
+          <div id="qm-avg-time-hint" className="tiny muted" style={{ marginTop: 4 }}>{qt("qm_avg_hint")}</div>
+        </div>
 
             {/* Summary strip */}
             <div className="row gap-10">
@@ -499,21 +503,21 @@ export default function QueueManager() {
                         <div className="tiny muted row gap-4 center-v"><Users size={11} /> {t.partySize} · {arrived ? arrivedAgoLabel(t.arrivedAt as string) : "called"}</div>
                       </div>
                       {arrived ? (
-                        <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
+                        <button className="btn btn-green btn-sm" style={{ minHeight: 44, padding: "8px 14px" }} onClick={() => serveToken(t, "called")}>
                           <Check size={15} /> Done
                         </button>
                       ) : (
-                        <button className="btn btn-primary btn-sm" style={{ padding: "6px 12px" }} onClick={() => markArrived(t)}>
+                        <button className="btn btn-primary btn-sm" style={{ minHeight: 44, padding: "8px 14px" }} onClick={() => markArrived(t)}>
                           <MapPin size={15} /> Arrived
                         </button>
                       )}
                       {t.customerUserId && (
-                        <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--brand-600)" }} aria-label={qtf("qm_message_person", { name: t.name })} title={qt("bapt_message_customer")} onClick={() => messageUser(t.customerUserId!)}>
-                          <MessageCircle size={15} />
+                        <button className="icon-btn" style={{ width: 44, height: 44, minWidth: 44, minHeight: 44, color: "var(--brand-600)" }} aria-label={qtf("qm_message_person", { name: t.name })} title={qt("bapt_message_customer")} onClick={() => messageUser(t.customerUserId!)}>
+                          <MessageCircle size={16} />
                         </button>
                       )}
-                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title={qt("qm_remove_no_show")} aria-label={qtf("qm_remove_person_no_show", { name: t.name })} onClick={() => removeToken(t)}>
-                        <X size={15} />
+                      <button className="icon-btn" style={{ width: 44, height: 44, minWidth: 44, minHeight: 44, color: "var(--red-600)" }} title={qt("qm_remove_no_show")} aria-label={qtf("qm_remove_person_no_show", { name: t.name })} onClick={() => removeToken(t)}>
+                        <X size={16} />
                       </button>
                     </div>
                     {t.paymentStatus === "PENDING_CONFIRM" && paymentRow(t)}
@@ -554,17 +558,19 @@ export default function QueueManager() {
                   <div className="row gap-6 center-v">
                     <button
                       className="icon-btn"
-                      style={{ width: 34, height: 34, color: "var(--brand-600)" }}
+                      style={{ width: 44, height: 44, minWidth: 44, minHeight: 44, color: "var(--brand-600)" }}
                       title={qt("qm_call_customer")}
+                      aria-label={qt("qm_call_customer")}
                       disabled={calling}
                       onClick={() => callToken(t)}
                     >
-                      <Play size={15} />
+                      <Play size={16} />
                     </button>
                     <button
                       className="icon-btn"
-                      style={{ width: 34, height: 34, color: "var(--green-500)" }}
+                      style={{ width: 44, height: 44, minWidth: 44, minHeight: 44, color: "var(--green-500)" }}
                       title={qt("qm_mark_served")}
+                      aria-label={qt("qm_mark_served")}
                       onClick={() => serveToken(t, "waiting")}
                     >
                       <Check size={16} />
@@ -591,7 +597,7 @@ export default function QueueManager() {
                       </div>
                       {t.paymentStatus === "PAID" && paymentRow(t)}
                       {(!t.paymentStatus || t.paymentStatus === "UNPAID" || t.paymentStatus === "REJECTED") && (
-                        <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "3px 8px", color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={nudging === t.id} onClick={() => nudgePayment(t)}>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 12, padding: "8px 12px", minHeight: 44, color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={nudging === t.id} onClick={() => nudgePayment(t)}>
                           🔔 {nudging === t.id ? "Sending…" : "Request payment"}
                         </button>
                       )}
@@ -631,17 +637,17 @@ export default function QueueManager() {
                   </span>
                 </div>
                 {t.paymentStatus === "PAID" && (
-                  <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
-                    ₹ {t.paymentMethod === "UPI" ? "UPI paid" : "Paid"}{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+                  <span className="badge badge-green" style={{ fontSize: 11, padding: "2px 7px", alignSelf: "flex-start" }}>
+                    {t.paymentMethod === "UPI" ? "UPI paid" : "Paid"}{t.paymentAmount ? ` · ${inr(t.paymentAmount)}` : ""}
                   </span>
                 )}
                 {t.paymentStatus === "PENDING_CONFIRM" && (
-                  <span className="badge badge-amber" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
-                    Payment pending{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+                  <span className="badge badge-amber" style={{ fontSize: 11, padding: "2px 7px", alignSelf: "flex-start" }}>
+                    Payment pending{t.paymentAmount ? ` · ${inr(t.paymentAmount)}` : ""}
                   </span>
                 )}
                 {t.paymentStatus === "REJECTED" && (
-                  <span className="badge badge-red" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
+                  <span className="badge badge-red" style={{ fontSize: 11, padding: "2px 7px", alignSelf: "flex-start" }}>
                     Payment declined
                   </span>
                 )}
@@ -650,48 +656,47 @@ export default function QueueManager() {
           </div>
         )}
       </div>
-      {confirmClose && (
-        <div className="overlay" onClick={() => setConfirmClose(false)}>
-          <div className="sheet" role="dialog" aria-label={qt("qm_close_queue_q")} onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 8 }}>{qt("qm_close_queue_q")}</h3>
-            <p className="small muted" style={{ marginBottom: 16 }}>
-              {removedOnClose === 1 ? "1 customer" : `${removedOnClose} customers`} still in line will be removed and notified.
-              Customers who have arrived or have a payment in progress stay on your board.
-            </p>
-            <button className="btn btn-block" style={{ height: 48, background: "var(--red-600)", color: "var(--white)" }} onClick={toggleLive}>
-              Close queue and remove {removedOnClose}
-            </button>
-            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setConfirmClose(false)}>
-              Keep queue open
-            </button>
+      <AccessibleSheet
+        isOpen={confirmClose}
+        onClose={() => setConfirmClose(false)}
+        title={qt("qm_close_queue_q")}
+        variant="bottom-sheet"
+      >
+        <p className="small muted" style={{ marginBottom: 16 }}>
+          {removedOnClose === 1 ? "1 customer" : `${removedOnClose} customers`} still in line will be removed and notified.
+          Customers who have arrived or have a payment in progress stay on your board.
+        </p>
+        <button className="btn btn-block" style={{ height: 48, background: "var(--red-600)", color: "var(--white)" }} onClick={toggleLive}>
+          Close queue and remove {removedOnClose}
+        </button>
+        <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setConfirmClose(false)}>
+          Keep queue open
+        </button>
+      </AccessibleSheet>
+
+      <AccessibleSheet
+        isOpen={walkInOpen}
+        onClose={() => !addingWalkIn && setWalkInOpen(false)}
+        title={qt("qm_add_walkin")}
+        variant="bottom-sheet"
+      >
+        <div className="col gap-10">
+          <div>
+            <label htmlFor="queuemanager-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_name")}</label>
+            <input id="queuemanager-name" className="input" placeholder={qt("qm_name_placeholder")} value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
+          </div>
+          <div>
+            <label htmlFor="queuemanager-party-size" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_party_size")}</label>
+            <input id="queuemanager-party-size" className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
           </div>
         </div>
-      )}
-      {walkInOpen && (
-        <div className="overlay" onClick={() => !addingWalkIn && setWalkInOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 12 }}>{qt("qm_add_walkin")}</h3>
-            <div className="col gap-10">
-              <div>
-                <label htmlFor="queuemanager-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_name")}</label>
-                <input id="queuemanager-name" className="input" placeholder={qt("qm_name_placeholder")} value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
-              </div>
-              <div>
-                <label htmlFor="queuemanager-party-size" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_party_size")}</label>
-                <input id="queuemanager-party-size" className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
-              </div>
-            </div>
-            <button className="btn btn-primary btn-block" style={{ marginTop: 16, height: 48 }} disabled={addingWalkIn || !walkInName.trim()} onClick={addWalkIn}>
-              {addingWalkIn ? "Adding…" : "Add to queue"}
-            </button>
-            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setWalkInOpen(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+        <button className="btn btn-primary btn-block" style={{ marginTop: 16, height: 48 }} disabled={addingWalkIn || !walkInName.trim()} onClick={addWalkIn}>
+          {addingWalkIn ? "Adding…" : "Add to queue"}
+        </button>
+        <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setWalkInOpen(false)}>
+          Cancel
+        </button>
+      </AccessibleSheet>
       <ManageNav bizId={businessId} waitingCount={waiting.length} />
     </div>
   );

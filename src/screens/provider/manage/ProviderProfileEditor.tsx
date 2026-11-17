@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { X, Plus } from "@/components/Icons";
 import RadiusSelector from "@/components/RadiusSelector";
+import { SelectableChip } from "@/components/ui/SelectableChip";
 
 
 export default function ProviderProfileEditor() {
@@ -89,22 +90,38 @@ export default function ProviderProfileEditor() {
     <div className="screen">
       <AppBar title="Edit profile" subtitle={displayName || p?.displayName} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
-        <div className="field"><label>Display name</label><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} placeholder="What customers see" /></div>
-        <div className="field"><label>Short bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
+        <div className="field">
+          <label htmlFor="providerprofileeditor-display-name">Display name</label>
+          <input
+            id="providerprofileeditor-display-name"
+            className="input"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            maxLength={80}
+            placeholder="What customers see"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="providerprofileeditor-bio">Short bio</label>
+          <textarea
+            id="providerprofileeditor-bio"
+            className="input"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+          />
+        </div>
 
         <div className="field">
-          <label>Category</label>
-          <div className="row wrap gap-8">
+          <label id="provider-category-label">Category</label>
+          <div className="row wrap gap-8" role="radiogroup" aria-labelledby="provider-category-label">
             {cats.map((c) => (
-              <button
+              <SelectableChip
                 key={c.id}
-                type="button"
-                className={`chip ${cat === c.id ? "active" : ""}`}
-                style={cat === c.id ? { background: "var(--green-500)", borderColor: "var(--green-500)" } : undefined}
-                onClick={() => setCat(c.id)}
-              >
-                {c.icon} {c.name}
-              </button>
+                role="radio"
+                selected={cat === c.id}
+                onSelect={() => setCat(c.id)}
+                label={<>{c.icon} {c.name}</>}
+              />
             ))}
           </div>
         </div>
@@ -115,13 +132,35 @@ export default function ProviderProfileEditor() {
             {skills.map((s) => (
               <span key={s} className="chip active" style={{ paddingRight: 6 }}>
                 {s}
-                <button onClick={() => setSkills((p) => p.filter((x) => x !== s))} style={{ color: "#fff", marginLeft: 4 }}><X size={13} /></button>
+                <button
+                  type="button"
+                  aria-label={`Remove skill ${s}`}
+                  onClick={() => setSkills((p) => p.filter((x) => x !== s))}
+                  style={{ color: "#fff", marginLeft: 4, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center" }}
+                >
+                  <X size={13} />
+                </button>
               </span>
             ))}
           </div>
           <div className="row gap-8" style={{ marginTop: 8 }}>
-            <input className="input grow" placeholder="Add a skill" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} />
-            <button className="btn btn-ghost btn-sm" disabled={!newSkill.trim()} onClick={() => { setSkills((p) => [...p, newSkill.trim()]); setNewSkill(""); }}><Plus size={16} /></button>
+            <input
+              id="providerprofileeditor-new-skill"
+              aria-label="Add a skill"
+              className="input grow"
+              placeholder="Add a skill"
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              aria-label="Add skill"
+              disabled={!newSkill.trim()}
+              onClick={() => { setSkills((p) => [...p, newSkill.trim()]); setNewSkill(""); }}
+            >
+              <Plus size={16} />
+            </button>
           </div>
         </div>
 

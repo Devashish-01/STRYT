@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { emergencyService, type ContactUser } from "@/services/engagement/emergencyService";
@@ -88,10 +89,10 @@ export default function EmergencyContacts() {
     <div className="screen">
       <AppBar title="Emergency contacts" onBack={() => nav(-1)} />
 
-      <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="screen-scroll page-pad col gap-12 scroll-pad-end" style={{ paddingTop: 12 }}>
         <p className="tiny muted" style={{ lineHeight: 1.5 }}>
-          These people can follow your live location on a map — inside your chat with them —
-          whenever you choose to share it. Only people you've chatted with can be added.
+          These people can follow your live location on a map whenever you choose to share it.
+          You can add trusted friends or family by their mobile number, email, or username (they must have a STRYT account), or pick from people you've chatted with.
         </p>
 
         {loading ? (
@@ -178,7 +179,9 @@ export default function EmergencyContacts() {
               <ListSkeleton />
             ) : cands.length === 0 ? (
               <p className="tiny muted" style={{ padding: "8px 2px" }}>
-                {search.trim() ? "No matching contacts found." : "No one to add yet — start a chat with someone first, then add them here."}
+                {search.trim()
+                  ? "No matching chat contacts found."
+                  : "No recent chat contacts found. You can add someone directly above using their mobile number, email, or username."}
               </p>
             ) : (
               <div className="col gap-8">
@@ -204,32 +207,21 @@ export default function EmergencyContacts() {
       </div>
 
       {confirmRemove && (
-        <div className="overlay" onClick={() => setConfirmRemove(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 6 }}>Remove emergency contact?</h3>
-            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
-              <strong>{confirmRemove.name}</strong> will no longer be able to track your live location when shared.
-            </p>
-            <div className="col gap-8">
-              <button
-                className="btn btn-block"
-                style={{ background: "var(--red-500)", color: "var(--white)" }}
-                disabled={busyId === confirmRemove.id}
-                onClick={() => {
-                  const target = confirmRemove;
-                  setConfirmRemove(null);
-                  void remove(target.id);
-                }}
-              >
-                {busyId === confirmRemove.id ? "Removing…" : "Yes, remove contact"}
-              </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setConfirmRemove(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          isOpen={!!confirmRemove}
+          title="Remove emergency contact?"
+          description={`${confirmRemove.name} will no longer be able to track your live location when shared.`}
+          confirmLabel="Yes, remove contact"
+          cancelLabel="Cancel"
+          destructive
+          busy={busyId === confirmRemove.id}
+          onConfirm={async () => {
+            const target = confirmRemove;
+            setConfirmRemove(null);
+            await remove(target.id);
+          }}
+          onClose={() => setConfirmRemove(null)}
+        />
       )}
     </div>
   );

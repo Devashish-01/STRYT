@@ -212,6 +212,114 @@ export default function Profile() {
     </div>
   );
 
+  const ProfileStats = ({ isDesktop = false }: { isDesktop?: boolean }) => {
+    const stats = [
+      { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
+      { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
+      { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
+      { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
+    ] as const;
+
+    return (
+      <div className="card pf-stats" style={isDesktop ? { borderRadius: 20 } : undefined}>
+        {stats.map((s) => (
+          <button key={s.l} onClick={s.onClick} className="pf-stat">
+            <span className="pf-stat-num" style={isDesktop ? { fontSize: 24 } : undefined}>{s.n}</span>
+            <span className={isDesktop ? "small semi muted" : "tiny"}>{s.l}</span>
+            {"active" in s && s.active > 0 && <span className="pf-stat-dot" />}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const RightNowSection = ({ isDesktop = false }: { isDesktop?: boolean }) => {
+    if (activeQueues.length === 0 && activeAgreements.length === 0) return null;
+
+    const content = (
+      <>
+        <div className="profile-eyebrow">{t("prof_right_now")}</div>
+        <div className="col gap-10">
+          {activeQueues.map((q) => (
+            <LiveRow
+              key={q.tokenId}
+              icon={<Users size={19} />}
+              tint="var(--amber-100)"
+              accent="var(--amber-500)"
+              title={q.businessName}
+              chip={q.status === "CALLED" ? "Your turn" : `You're #${q.position}`}
+              chipClass="badge-amber"
+              sub={q.status === "CALLED" ? "Head in now" : `~${q.estWaitMin ?? 0} min wait · tap to view position`}
+              onClick={() => nav("/queues")}
+            />
+          ))}
+          {activeAgreements.map((a) => (
+            <LiveRow
+              key={a.id}
+              icon={<Handshake size={19} />}
+              tint="var(--green-100)"
+              accent="var(--green-500)"
+              title={a.requestTitle}
+              chip={a.status === "PENDING" ? "Confirm" : "In progress"}
+              chipClass="badge-green"
+              sub={`with ${a.responderUserId === user.id ? a.requesterName : a.responderName}`}
+              onClick={() => nav(`/agreement/${a.id}`)}
+            />
+          ))}
+        </div>
+      </>
+    );
+
+    if (isDesktop) {
+      return <div className="card" style={{ borderRadius: 20 }}>{content}</div>;
+    }
+    return <div className="page-pad" style={{ paddingBottom: 0 }}>{content}</div>;
+  };
+
+  const HighlightsSection = ({ isDesktop = false, title }: { isDesktop?: boolean; title?: string }) => {
+    if (highlights.length === 0) return null;
+
+    if (isDesktop) {
+      return (
+        <div className="card" style={{ padding: 20, borderRadius: 20 }}>
+          {title && <div className="profile-eyebrow">{title}</div>}
+          <div className="row gap-12" style={{ overflowX: "auto" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="pf-highlight" onClick={() => setViewingHighlight(i)}>
+                <div className="pf-highlight-ring">
+                  <SafeImg src={h.image} variant="photo" className="pf-highlight-img" />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center", color: "var(--ink-700)" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="hscroll" style={{ padding: "14px 16px 0" }}>
+        {highlights.map((h, i) => (
+          <button key={h.id} className="pf-highlight" onClick={() => setViewingHighlight(i)}>
+            <div className="pf-highlight-ring">
+              <SafeImg src={h.image} variant="photo" className="pf-highlight-img" />
+            </div>
+            <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const SettingsRow = () => (
+    <button className="pf-row" onClick={() => nav("/account")}>
+      <span className="pf-row-icon"><Settings size={19} /></span>
+      <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
+      <span className="tiny">{t("prof_settings_hint")}</span>
+      <ChevronRight size={18} color="var(--ink-300)" />
+    </button>
+  );
+
   // paddingBottom deliberately omitted below — see Home.tsx's identical fix:
   // the old shorthand `padding: 0` here overrode .with-nav's bottom clearance
   // for the fixed nav bar (inline styles always win over a class for the same
@@ -268,70 +376,14 @@ export default function Profile() {
 
           {/* Stats — on a real card so the dark block stays about identity. */}
           <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-            <div className="card pf-stats">
-              {([
-                { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
-                { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
-                { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
-                { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
-              ] as const).map((s) => (
-                <button key={s.l} onClick={s.onClick} className="pf-stat">
-                  <span className="pf-stat-num">{s.n}</span>
-                  <span className="tiny">{s.l}</span>
-                  {"active" in s && s.active > 0 && <span className="pf-stat-dot" />}
-                </button>
-              ))}
-            </div>
+            <ProfileStats />
           </div>
 
           {/* Highlights — your own story reel, so it belongs with identity. */}
-          {highlights.length > 0 && (
-            <div className="hscroll" style={{ padding: "14px 16px 0" }}>
-              {highlights.map((h, i) => (
-                <button key={h.id} className="pf-highlight" onClick={() => setViewingHighlight(i)}>
-                  <div className="pf-highlight-ring">
-                    <SafeImg src={h.image} variant="photo" className="pf-highlight-img" />
-                  </div>
-                  <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <HighlightsSection />
 
           {/* ── Right now ────────────────────────────────────────────────── */}
-          {(activeQueues.length > 0 || activeAgreements.length > 0) && (
-            <div className="page-pad" style={{ paddingBottom: 0 }}>
-              <div className="profile-eyebrow">{t("prof_right_now")}</div>
-              <div className="col gap-10">
-                {activeQueues.map((q) => (
-                  <LiveRow
-                    key={q.tokenId}
-                    icon={<Users size={19} />}
-                    tint="var(--amber-100)"
-                    accent="var(--amber-500)"
-                    title={q.businessName}
-                    chip={q.status === "CALLED" ? "Your turn" : `You're #${q.position}`}
-                    chipClass="badge-amber"
-                    sub={q.status === "CALLED" ? "Head in now" : `~${q.estWaitMin ?? 0} min wait · tap to view position`}
-                    onClick={() => nav("/queues")}
-                  />
-                ))}
-                {activeAgreements.map((a) => (
-                  <LiveRow
-                    key={a.id}
-                    icon={<Handshake size={19} />}
-                    tint="var(--green-100)"
-                    accent="var(--green-500)"
-                    title={a.requestTitle}
-                    chip={a.status === "PENDING" ? "Confirm" : "In progress"}
-                    chipClass="badge-green"
-                    sub={`with ${a.responderUserId === user.id ? a.requesterName : a.responderName}`}
-                    onClick={() => nav(`/agreement/${a.id}`)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          <RightNowSection />
 
           {/* ── Your activity ── */}
           <div className="page-pad" style={{ paddingBottom: 0 }}>
@@ -352,12 +404,7 @@ export default function Profile() {
 
           {/* Settings — quiet, and last. */}
           <div className="page-pad">
-            <button className="pf-row" onClick={() => nav("/account")}>
-              <span className="pf-row-icon"><Settings size={19} /></span>
-              <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
-              <span className="tiny">{t("prof_settings_hint")}</span>
-              <ChevronRight size={18} color="var(--ink-300)" />
-            </button>
+            <SettingsRow />
           </div>
 
           <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>
@@ -454,72 +501,13 @@ export default function Profile() {
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             
             {/* Stats strip */}
-            <div className="card pf-stats" style={{ borderRadius: 20 }}>
-              {([
-                { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
-                { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
-                { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
-                { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
-              ] as const).map((s) => (
-                <button key={s.l} onClick={s.onClick} className="pf-stat">
-                  <span className="pf-stat-num" style={{ fontSize: 24 }}>{s.n}</span>
-                  <span className="small semi muted">{s.l}</span>
-                  {"active" in s && s.active > 0 && <span className="pf-stat-dot" />}
-                </button>
-              ))}
-            </div>
+            <ProfileStats isDesktop />
 
             {/* Right now — same live rows as mobile, one shared vocabulary. */}
-            {(activeQueues.length > 0 || activeAgreements.length > 0) && (
-              <div className="card" style={{ borderRadius: 20 }}>
-                <div className="profile-eyebrow">{t("prof_right_now")}</div>
-                <div className="col gap-10">
-                  {activeQueues.map((q) => (
-                    <LiveRow
-                      key={q.tokenId}
-                      icon={<Users size={19} />}
-                      tint="var(--amber-100)"
-                      accent="var(--amber-500)"
-                      title={q.businessName}
-                      chip={q.status === "CALLED" ? "Your turn" : `You're #${q.position}`}
-                      chipClass="badge-amber"
-                      sub={q.status === "CALLED" ? "Head in now" : `~${q.estWaitMin ?? 0} min wait · tap to view position`}
-                      onClick={() => nav("/queues")}
-                    />
-                  ))}
-                  {activeAgreements.map((a) => (
-                    <LiveRow
-                      key={a.id}
-                      icon={<Handshake size={19} />}
-                      tint="var(--green-100)"
-                      accent="var(--green-500)"
-                      title={a.requestTitle}
-                      chip={a.status === "PENDING" ? "Confirm" : "In progress"}
-                      chipClass="badge-green"
-                      sub={`with ${a.responderUserId === user.id ? a.requesterName : a.responderName}`}
-                      onClick={() => nav(`/agreement/${a.id}`)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            <RightNowSection isDesktop />
 
             {/* Highlights */}
-            {highlights.length > 0 && (
-              <div className="card" style={{ padding: 20, borderRadius: 20 }}>
-                <div className="profile-eyebrow">{t("prof_my_highlights")}</div>
-                <div className="row gap-12" style={{ overflowX: "auto" }}>
-                  {highlights.map((h, i) => (
-                    <button key={h.id} className="pf-highlight" onClick={() => setViewingHighlight(i)}>
-                      <div className="pf-highlight-ring">
-                        <SafeImg src={h.image} variant="photo" className="pf-highlight-img" />
-                      </div>
-                      <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center", color: "var(--ink-700)" }}>{h.caption || "Highlight"}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <HighlightsSection isDesktop title={t("prof_my_highlights")} />
 
             {/* Same two groups as mobile — one shared vocabulary across both. */}
             <div className="card" style={{ padding: 24, borderRadius: 20 }}>
@@ -551,12 +539,7 @@ export default function Profile() {
                   <ChevronRight size={18} color="var(--brand-300)" />
                 </button>
               )}
-              <button className="pf-row" onClick={() => nav("/account")}>
-                <span className="pf-row-icon"><Settings size={19} /></span>
-                <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
-                <span className="tiny">{t("prof_settings_hint")}</span>
-                <ChevronRight size={18} color="var(--ink-300)" />
-              </button>
+              <SettingsRow />
             </div>
 
             <p className="tiny muted" style={{ textAlign: "center", padding: "12px 0 20px" }}>

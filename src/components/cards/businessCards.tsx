@@ -38,8 +38,8 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
               <span className="bold ellipsis" style={{ fontSize: 15.5, letterSpacing: "-0.1px" }}>{b.name}</span>
               {b.isVerified && <BadgeCheck size={15} color="var(--brand-600)" fill="var(--brand-100)" />}
               {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
-              {b.isNew && <span className="badge badge-new" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>NEW</span>}
-              {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>{t("card_promoted_badge")}</span>}
+              {b.isNew && <span className="badge badge-new" style={{ fontSize: 11, padding: "2px 7px", flexShrink: 0 }}>NEW</span>}
+              {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 11, padding: "2px 7px", flexShrink: 0 }}>{t("card_promoted_badge")}</span>}
             </div>
             <div className="row gap-6 center-v" style={{ flexShrink: 0 }}>
               <Rating value={b.ratingAvg} />
@@ -69,13 +69,13 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
               {b.subCategory}{!b.offerText && b.priceForTwo ? ` • ${inr(b.priceForTwo)} for two` : ""}
             </span>
             {b.offerText && (
-              <span className="badge badge-amber ellipsis" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0, maxWidth: "50%" }}>🔥 {b.offerText}</span>
+              <span className="badge badge-amber ellipsis" style={{ fontSize: 11, padding: "2px 7px", flexShrink: 0, maxWidth: "50%" }}>🔥 {b.offerText}</span>
             )}
           </div>
           <div className="row gap-8 tiny muted" style={{ marginTop: 7 }}>
             <span className="row gap-4"><MapPin size={12} /> {distanceLabel(b.distanceKm)}</span>
             {b.deliveryTime && <span className="row gap-4"><Clock size={12} /> {b.deliveryTime}</span>}
-            <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 10, padding: "1px 6px", marginLeft: "auto" }}>
+            <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11, padding: "2px 7px", marginLeft: "auto" }}>
               {evalRes.isOpenNow ? "Open" : "Closed"}
             </span>
           </div>
@@ -132,8 +132,8 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
         )}
         {(b.isNew || b.isBoosted) && (
           <div className="card-badge-stack" style={{ top: 8, left: 8, gap: "var(--space-xxs)" }}>
-            {b.isNew && <span className="badge badge-new" style={{ fontSize: 10 }}>NEW</span>}
-            {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 10 }}>{t("card_promoted_badge")}</span>}
+            {b.isNew && <span className="badge badge-new" style={{ fontSize: 11, padding: "2px 6px" }}>NEW</span>}
+            {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 11, padding: "2px 6px" }}>{t("card_promoted_badge")}</span>}
           </div>
         )}
       </div>
@@ -145,7 +145,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
           <Rating value={b.ratingAvg} size={11} />
           <span className="tiny muted ellipsis">{distanceLabel(b.distanceKm)}</span>
         </div>
-        <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+        <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11, padding: "2px 6px" }}>
           {evalRes.isOpenNow ? "Open" : "Closed"}
         </span>
       </div>
