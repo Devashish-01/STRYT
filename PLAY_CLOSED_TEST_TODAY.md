@@ -1,6 +1,6 @@
 # STRYT Play closed test: owner checklist
 
-**Prepared 17 November 2026; updated for the next closed-test build.** App `in.stryt.app`. The first uploaded AAB was **1.0.77** (version code **113**). Use the newest AAB linked below for the next release, and confirm its version code in Play Console. Tick each box as you finish it. Console labels may vary slightly; use the closest named page.
+**Prepared 17 November 2026; updated 18 November for the one-phone video.** App `in.stryt.app`. The first uploaded AAB was **1.0.77** (version code **113**). Use the newest AAB linked below for the next release, and confirm its version code in Play Console. Tick each box as you finish it. Console labels may vary slightly; use the closest named page.
 
 ## The two links to keep open
 
@@ -28,22 +28,22 @@ Use [App access — exact reviewer instructions](archive/docs/launch/play-consol
 | Delivery partner: Suresh Kumar | `+91 9333333333` | `333333` | Delivery account, On duty, Assigned order |
 
 - [ ] In **Firebase project `zetax-52843` → Authentication → Sign-in method → Phone → Phone numbers for testing**, confirm all three exact number/code pairs. Enable Phone sign-in if the Console shows it disabled. Do not use real SMS or share personal OTPs in the video.
-- [ ] Have **two Android phones** available. Install the current release build on both. Before the first Play upload, the APK attached to [the same GitHub release](https://github.com/Devashish-01/STRYT/releases/tag/android-latest) is suitable for recording; after Play signing is configured, install through Play for the final sign-in test. Check that the three demo accounts sign in. If a code fails, fix Firebase test-number setup before recording or filing App access.
-- [ ] Phone B: sign in as **Rajesh**. Long-press Profile, choose **Sharma General Store**, open **Orders**. Confirm the shop is open, delivery is enabled, and items are in stock.
-- [ ] Phone A: sign in as **Priya**. Add at least **₹100** of items from Sharma General Store. Choose **Home delivery**, enter a complete address, and check that the map pin is within the shop's **5 km** radius. Place a **cash-on-delivery** demo order.
-- [ ] Phone B: accept the order, mark it packed, assign it to **`suresh_k`**, then open **Orders → Deliveries → Live board**.
-- [ ] Phone A: sign out of Priya, sign in as **Suresh**, long-press Profile and choose **Delivery**. Turn **On duty** and find the order under **Assigned**. Prepare the order shortly before filming; an untouched accepted order can expire after about three hours.
+- [ ] Use **one Android phone**. Install the current release build. Check that all three demo accounts sign in. If a code fails, fix Firebase test-number setup before recording or filing App access.
+- [ ] In the STRYT app, sign in as **Priya**. Add at least **₹100** of items from Sharma General Store. Choose **Home delivery**, enter a complete address, and check that the map pin is within the shop's **5 km** radius. Place a **cash-on-delivery** demo order.
+- [ ] Sign out of Priya and sign in as **Rajesh**. Long-press Profile, choose **Sharma General Store**, open **Orders**, accept the order, mark it packed, and assign it to **`suresh_k`**.
+- [ ] Sign out of Rajesh and sign in as **Suresh**. Long-press Profile, choose **Delivery**, turn **On duty** on, and find the order under **Assigned**. Prepare the order shortly before filming; an untouched accepted order can expire after about three hours.
+- [ ] In **Chrome on the same phone**, sign in as Rajesh at `https://stryt.in` and open **Orders → Deliveries → Live board**. Confirm it loads before filming. Switch back to the STRYT app, still signed in as Suresh.
 
 ## 3. Record the background-location evidence video
 
-The Play declaration names **delivery tracking as one representative feature**. My People stays in the app and is disclosed in App access, the in-app dialog, and the privacy policy. Follow the [detailed two-phone checklist](archive/docs/launch/play-console/DELIVERY_VIDEO_TWO_PHONE_CHECKLIST.md) and [shot script](archive/docs/launch/play-console/BACKGROUND_LOCATION_VIDEO_SCRIPT.md).
+The Play declaration names **delivery tracking as one representative feature**. My People stays in the app and is disclosed in App access, the in-app dialog, and the privacy policy. Follow the [one-phone checklist](archive/docs/launch/play-console/DELIVERY_VIDEO_ONE_PHONE_CHECKLIST.md). Use the [two-phone checklist](archive/docs/launch/play-console/DELIVERY_VIDEO_TWO_PHONE_CHECKLIST.md) if the Chrome owner view does not work.
 
-- [ ] On Phone A, reset STRYT's location permission to **Don't allow** so both the disclosure and Android prompt can be seen. Hide personal notifications. Start screen recording in portrait orientation.
+- [ ] Reset the installed STRYT app's location permission to **Don't allow** so both the disclosure and Android prompt can be seen. Hide personal notifications. Start screen recording in portrait orientation.
 - [ ] Show Suresh opening the assigned order and tapping **Picked up from shop → Start delivery**.
 - [ ] Hold the in-app disclosure on screen long enough to read the background-location explanation. Tap **Continue** and show Android's permission prompt. On Android 11+, show the route through STRYT's app-location settings to **Allow all the time** when the app asks for it.
-- [ ] Show the persistent **STRYT Live Tracking** notification. Background or lock Phone A while the delivery remains active.
-- [ ] Record Phone B's **Live board** with Suresh's current position updating while Phone A is in the background. If it does not update, investigate before submitting the video.
-- [ ] Make one short final video from the two recordings, ideally **about 30 seconds**; keep enough time to prove the feature works. Hide fixed codes, real phone numbers, personal notifications, and unrelated data. Do not include a separate My People demonstration in this declaration video.
+- [ ] Show the persistent **STRYT Live Tracking** notification. Press Home so the app is in the background, then open Rajesh's Live board in Chrome. Keep Suresh signed in to the installed app.
+- [ ] Record the **Live board** with Suresh's current position updating while STRYT is in the background. If it does not update, investigate before submitting the video.
+- [ ] Make one short final video, ideally **about 30 seconds**; keep enough time to prove the feature works. Hide fixed codes, real phone numbers, personal notifications, and unrelated data. Do not include a separate My People demonstration in this declaration video.
 - [ ] Upload to YouTube as **Unlisted** (or use a reviewer-accessible Google Drive video link). Open the link in a signed-out/incognito browser and confirm it plays without requesting access. Save the URL for the declaration form.
 
 [Google's background-location guidance](https://support.google.com/googleplay/android-developer/answer/9799150?hl=en) asks for **one** declared feature, its prominent disclosure, runtime prompt, and a short Android demonstration. The location permission remains in the app because delivery and My People use it.

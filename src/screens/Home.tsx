@@ -17,7 +17,6 @@ import { buildParentMap, rankByInterests } from "@/lib/interestRank";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import { mostUrgentPledge, needsDeposit } from "@/lib/bulkFeed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
-import HomeWordmark from "@/components/HomeWordmark";
 import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
 import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
@@ -578,7 +577,7 @@ export default function Home() {
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
           <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v" style={{ marginBottom: 12 }}>
-            <HomeWordmark glow={theme.lampGlow} onClick={() => nav("/home")} />
+            <BrandHome color="var(--white)" glow={theme.lampGlow} />
             <div className="row gap-8">
               <button
                 className="icon-btn"
@@ -887,7 +886,7 @@ export default function Home() {
           <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
           <div>
             <span style={{ color: "var(--white)", display: "inline-flex", marginBottom: 6 }}>
-              <HomeWordmark glow={theme.lampGlow} onClick={() => nav("/home")} />
+              <BrandLockup glow={theme.lampGlow} size={19} onClick={() => nav("/home")} />
             </span>
             <span className="tiny" style={{ color: "var(--white)", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
