@@ -174,10 +174,20 @@ export const authService = {
     if (!idToken) throw new OtpError("otp_err_generic");
 
     // Bridge the Firebase ID token to a Supabase session via the edge function.
-    const { data: edgeData, error: edgeErr } = await sb.functions.invoke("firebase-phone-auth", {
-      body: { idToken },
-    });
+    let edgeData, edgeErr;
+    try {
+      const res = await sb.functions.invoke("firebase-phone-auth", {
+        body: { idToken },
+      });
+      edgeData = res.data;
+      edgeErr = res.error;
+    } catch (invokeErr) {
+      void (isNativePlatform() ? nativeFinishPhoneSignIn() : firebaseFinishPhoneSignIn());
+      throw invokeErr;
+    }
     if (edgeErr || !edgeData?.session) {
+      void (isNativePlatform() ? nativeFinishPhoneSignIn() : firebaseFinishPhoneSignIn());
+      console.warn("verifyOtp (bridge edge function) failed:", edgeErr, edgeData);
       const failure = await edgeFailure(edgeErr, edgeData);
       track(EVENTS.OTP_FAILED, { step: "bridge", error_code: failure.key });
       throw failure;

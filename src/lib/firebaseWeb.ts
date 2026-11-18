@@ -280,6 +280,11 @@ export async function firebaseSilentRefresh(): Promise<boolean> {
     const user = (await getFirebaseAuth()).currentUser;
     if (!user) return false;
 
+    // Supabase signInWithIdToken only accepts Google OAuth ID tokens on this bridge.
+    // Never attempt to bridge phone auth sessions through Google id_token auth.
+    const isGoogle = user.providerData?.some((p) => p.providerId === "google.com");
+    if (!isGoogle) return false;
+
     // forceRefresh=true ensures we get a token valid for a full hour, not
     // a cached one that may itself be about to expire.
     const freshIdToken = await sdk.getIdToken(user, /* forceRefresh */ true);

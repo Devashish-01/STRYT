@@ -109,8 +109,6 @@ export async function initSentry(): Promise<void> {
       tracePropagationTargets: [
         "localhost",
         /^\//,
-        /^https:\/\/.*\.supabase\.co/,
-        ...(supabaseUrl ? [supabaseUrl] : []),
       ],
       beforeSend: (event) => scrubEvent(event as unknown as Record<string, unknown>) as never,
       beforeBreadcrumb: (crumb) => scrubValue(crumb) as never,

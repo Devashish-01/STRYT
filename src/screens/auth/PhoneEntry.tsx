@@ -150,7 +150,9 @@ export default function PhoneEntry() {
                 value={phone}
                 onChange={(e) => {
                   setErrorMsg("");
-                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                  let raw = e.target.value.replace(/\D/g, "");
+                  if (raw.length === 12 && raw.startsWith("91")) raw = raw.slice(2);
+                  setPhone(raw.slice(0, 10));
                 }}
                 maxLength={10}
                 disabled={loading}

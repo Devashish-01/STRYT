@@ -59,15 +59,26 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:4173",
 ]);
 
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  // Any localhost or 127.0.0.1 port (e.g. 5174, 5175, 3000)
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+  // Vercel deployment URLs (*.vercel.app)
+  if (/^https:\/\/[a-z0-9-]+(\.vercel\.app|\.stryt\.in)$/i.test(origin)) return true;
+  return false;
+}
+
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? "";
-  const allow = ALLOWED_ORIGINS.has(origin) ? origin : "https://stryt.in";
+  const allow = isAllowedOrigin(origin) ? origin : "https://stryt.in";
+  const reqHeaders = req.headers.get("Access-Control-Request-Headers");
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": reqHeaders || "authorization, x-client-info, apikey, content-type, baggage, sentry-trace",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
-    "Vary": "Origin",
+    "Vary": "Origin, Access-Control-Request-Headers",
   };
 }
 
