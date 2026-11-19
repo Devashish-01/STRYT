@@ -80,9 +80,23 @@ function Tracker({ userId }: { userId: string }) {
     () => items.filter((d) => !d.batchId && (d.status === "EN_ROUTE" || d.status === "ARRIVED")).map((d) => d.id),
     [items],
   );
+  const activeAppointmentIds = useMemo(
+    () =>
+      items
+        .filter(
+          (d) =>
+            d.appointmentId &&
+            (d.status === "EN_ROUTE" ||
+              d.status === "ARRIVED" ||
+              d.batchStatus === "ACCEPTED" ||
+              d.batchStatus === "IN_PROGRESS"),
+        )
+        .map((d) => d.appointmentId),
+    [items],
+  );
 
-  const targetsRef = useRef({ batchIds, soloIds });
-  targetsRef.current = { batchIds, soloIds };
+  const targetsRef = useRef({ batchIds, soloIds, activeAppointmentIds });
+  targetsRef.current = { batchIds, soloIds, activeAppointmentIds };
   const needsTracking = batchIds.length > 0 || soloIds.length > 0;
 
   const [disclosureOpen, setDisclosureOpen] = useState(false);
@@ -116,6 +130,19 @@ function Tracker({ userId }: { userId: string }) {
           recordFix(f);
           lastFixRef.current = Date.now();
           const targets = targetsRef.current;
+
+          // Realtime broadcast to subscribed customers (<200ms latency)
+          for (const apptId of targets.activeAppointmentIds) {
+            deliveryService.broadcastLivePosition(apptId, {
+              lat: f.lat,
+              lng: f.lng,
+              heading: f.heading,
+              accuracy: f.accuracy,
+              speed: (f as { speed?: number }).speed ?? null,
+              timestamp: Date.now(),
+            });
+          }
+
           let failed = false;
           const settle = (p: Promise<unknown>) => p.catch(() => { failed = true; });
           const sends: Promise<unknown>[] = [];

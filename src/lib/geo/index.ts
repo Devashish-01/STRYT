@@ -20,6 +20,7 @@ import { nominatimProvider } from "./nominatim";
 export type { GeocodingProvider, GeoPlace, ReverseHit } from "./types";
 export { mapboxProvider } from "./mapbox";
 export { nominatimProvider } from "./nominatim";
+export { getRoadRoute, type RoadRoute, type LatLng } from "./routing";
 
 /**
  * The primary geocoder. Falls back to Nominatim only when no Mapbox token is configured — a build

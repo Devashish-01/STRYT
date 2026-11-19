@@ -30,6 +30,19 @@ export function friendlyDeliveryError(e: unknown): unknown {
   return e;
 }
 
+/** Live position packet broadcast from rider to customers over Realtime WebSocket */
+export interface LiveRiderPosition {
+  lat: number;
+  lng: number;
+  heading?: number | null;
+  speed?: number | null;
+  accuracy?: number | null;
+  timestamp: number;
+}
+
+/** Active broadcast channels cached per appointment to reuse connections */
+const liveBroadcastChannels = new Map<string, any>();
+
 /** Where a delivery stands on leave-at-the-door proof. The photo is only present for the rider, or once delivered. */
 export interface DeliveryProofInfo {
   allowed: boolean;
@@ -862,5 +875,55 @@ export const deliveryService = {
       lat: r.lat ?? null,
       lng: r.lng ?? null,
     };
+  },
+
+  /**
+   * Broadcast high-frequency rider coordinates directly over Supabase Realtime WebSocket channel.
+   * Enables <200ms sub-second updates for customers watching live tracking.
+   */
+  broadcastLivePosition(appointmentId: string, position: LiveRiderPosition): void {
+    if (!appointmentId) return;
+    try {
+      const sb = getSupabase();
+      const topic = `delivery_track:${appointmentId}`;
+      let ch = liveBroadcastChannels.get(topic);
+      if (!ch) {
+        ch = sb.channel(topic);
+        ch.subscribe();
+        liveBroadcastChannels.set(topic, ch);
+      }
+      void ch.send({
+        type: "broadcast",
+        event: "pos",
+        payload: position,
+      });
+    } catch {
+      // Non-blocking: background fixes continue without throwing
+    }
+  },
+
+  /**
+   * Subscribe to live rider broadcast coordinates for an appointment.
+   * Returns an unsubscribe function.
+   */
+  subscribeLivePosition(appointmentId: string, onPosition: (pos: LiveRiderPosition) => void): () => void {
+    if (!appointmentId) return () => {};
+    try {
+      const sb = getSupabase();
+      const topic = `delivery_track:${appointmentId}`;
+      const ch = sb.channel(topic)
+        .on("broadcast", { event: "pos" }, (msg: { payload: LiveRiderPosition }) => {
+          if (msg?.payload && typeof msg.payload.lat === "number" && typeof msg.payload.lng === "number") {
+            onPosition(msg.payload);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        void sb.removeChannel(ch);
+      };
+    } catch {
+      return () => {};
+    }
   },
 };

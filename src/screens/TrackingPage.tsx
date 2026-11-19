@@ -154,8 +154,28 @@ export default function TrackingPage() {
     }
   }, [providerLat, providerLng, liveStatus, destLat, destLng, etaMinutes]);
 
-  // Live polling (fast 6-second ticks for active tracking)
   const finished = liveStatus === "DONE" || liveStatus === "DELIVERED" || liveStatus === "CANCELLED";
+
+  // Realtime WebSocket broadcast subscription (<200ms coordinates)
+  useEffect(() => {
+    if (!agreementId || finished) return;
+    const ch = anonSb
+      .channel(`delivery_track:${agreementId}`)
+      .on("broadcast", { event: "pos" }, (msg: any) => {
+        if (msg?.payload?.lat != null && msg?.payload?.lng != null) {
+          setProviderLat(msg.payload.lat);
+          setProviderLng(msg.payload.lng);
+          if (msg.payload.heading != null) setAgentHeading(msg.payload.heading);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      void anonSb.removeChannel(ch);
+    };
+  }, [agreementId, finished]);
+
+  // Live polling (fast 6-second ticks for active tracking fallback)
   useEffect(() => {
     if (!agreementId || !token || finished) return;
     const poll = setInterval(async () => {
@@ -281,6 +301,7 @@ export default function TrackingPage() {
           destAddress="Delivery Address"
           status={liveStatus}
           etaMinutes={etaMinutes}
+          bottomSheetOffsetPx={200}
           interactive={true}
         />
       </div>
