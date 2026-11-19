@@ -13,6 +13,7 @@ vi.mock("@/lib/i18n", () => ({
 vi.mock("@/hooks/useApi", () => ({ useQuery: () => ({ data: mocks.progress, refetch: vi.fn() }) }));
 vi.mock("@/services", () => ({ deliveryService: { myProgress: vi.fn(), createTrackingToken: vi.fn(), readyForRedelivery: vi.fn() } }));
 vi.mock("@/components/common", () => ({ SafeImg: () => null }));
+vi.mock("./DeliveryTrackingModal", () => ({ default: () => null }));
 
 import DeliveryTrackControl from "./DeliveryTrackControl";
 
@@ -109,6 +110,12 @@ describe("DeliveryTrackControl once a rider is involved", () => {
   it("says the rider is here when they arrive", () => {
     mocks.progress = delivery({ status: "ARRIVED", agentRevealed: true, agentName: "Suresh" });
     expect(render({ orderStatus: "ACCEPTED", readyAt: "x" })).toContain("trk_h_arrived");
+  });
+
+  it("renders the View Live Map Tracking button when en route or arrived", () => {
+    mocks.progress = delivery({ status: "EN_ROUTE", agentRevealed: true, agentName: "Suresh" });
+    const html = render({ orderStatus: "ACCEPTED", readyAt: "x" });
+    expect(html).toContain("dlv_trk_view_map");
   });
 
   it("marks a delivered order delivered, with every step ticked and no rider card or call buttons", () => {

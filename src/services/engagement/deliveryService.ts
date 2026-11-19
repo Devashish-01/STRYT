@@ -229,11 +229,22 @@ export interface CustomerDeliveryProgress {
   stopsBefore: number | null;
   cancelReason?: CancelReason | null;
   cancelNote?: string | null;
-  /** Minutes away, computed on the server from a fresh rider position (null when unknown). No coordinates are sent. */
+  /** Minutes away, computed on the server from a fresh rider position (null when unknown). */
   etaMinutes?: number | null;
   businessPhone?: string | null;
   /** The rider has collected the order from the shop. */
   pickedUp?: boolean;
+  agentLat?: number | null;
+  agentLng?: number | null;
+  agentHeading?: number | null;
+  agentPositionAt?: string | null;
+  storeLat?: number | null;
+  storeLng?: number | null;
+  storeName?: string | null;
+  storeAddress?: string | null;
+  destLat?: number | null;
+  destLng?: number | null;
+  destAddress?: string | null;
 }
 
 /** One delivery as the BUSINESS OWNER sees it — adds the agent's real identity
@@ -535,6 +546,17 @@ export const deliveryService = {
       etaMinutes: r.eta_minutes == null ? null : Number(r.eta_minutes),
       businessPhone: r.business_phone ?? null,
       pickedUp: !!r.picked_up,
+      agentLat: r.agent_lat ?? null,
+      agentLng: r.agent_lng ?? null,
+      agentHeading: r.agent_heading ?? null,
+      agentPositionAt: r.agent_position_at ?? null,
+      storeLat: r.store_lat ?? null,
+      storeLng: r.store_lng ?? null,
+      storeName: r.store_name ?? null,
+      storeAddress: r.store_address ?? null,
+      destLat: r.dest_lat ?? null,
+      destLng: r.dest_lng ?? null,
+      destAddress: r.dest_address ?? null,
     };
   },
 

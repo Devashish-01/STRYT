@@ -15,6 +15,8 @@ import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 import { haptics } from "@/lib/haptics";
 import { trackingUrl } from "@/lib/trackingLink";
+import DeliveryTrackingModal from "./DeliveryTrackingModal";
+import { Navigation } from "@/components/Icons";
 
 /**
  * Customer's view of their delivery, from the moment the order is placed to the knock at the door.
@@ -37,6 +39,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
   const { showToast } = useApp();
   const { t, tf } = useI18n();
   const [sharing, setSharing] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [readyBusy, setReadyBusy] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [popKey, setPopKey] = useState(0);
@@ -246,6 +249,19 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
             </div>
           )}
 
+          {/* Live Map CTA when delivery is underway */}
+          {(d?.status === "EN_ROUTE" || d?.status === "ARRIVED" || d?.agentLat) && !delivered && (
+            <button
+              type="button"
+              className="btn btn-delivery btn-sm row gap-6 center"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={() => setShowMapModal(true)}
+            >
+              <span>🛵</span>
+              <span>{t("dlv_trk_view_map") || "View Live Map Tracking"}</span>
+            </button>
+          )}
+
           {!delivered && (
             <div className="trk-actions">
               {d?.businessPhone && (
@@ -263,6 +279,14 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
 
         </div>
       </div>
+      <DeliveryTrackingModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        appointmentId={appointmentId}
+        progress={d ?? null}
+        orderStatus={orderStatus}
+        readyAt={readyAt}
+      />
     </>
   );
 }

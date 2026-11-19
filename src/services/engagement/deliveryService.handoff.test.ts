@@ -31,7 +31,26 @@ vi.mock("@/lib/supabaseClient", () => ({
     },
     rpc: async (name: string, args?: unknown) => {
       state.rpcCalls.push({ name, args });
-      if (name === "my_delivery_progress") return { data: [{ id: "d1", status: "ARRIVED", handoff_code: "123456", handoff_verified: false }], error: null };
+      if (name === "my_delivery_progress") {
+        return {
+          data: [{
+            id: "d1",
+            status: "ARRIVED",
+            handoff_code: "123456",
+            handoff_verified: false,
+            agent_lat: 18.5204,
+            agent_lng: 73.8567,
+            agent_heading: 90,
+            store_lat: 18.51,
+            store_lng: 73.84,
+            store_name: "Test Store",
+            dest_lat: 18.53,
+            dest_lng: 73.86,
+            dest_address: "123 MG Road",
+          }],
+          error: null,
+        };
+      }
       return { data: null, error: null };
     },
   }),
@@ -55,9 +74,14 @@ describe("delivery handoff code", () => {
     expect(d?.handoffVerified).toBe(false);
   });
 
-  it("the customer gets the code from my_delivery_progress()", async () => {
+  it("the customer gets the code and live tracking coordinates from my_delivery_progress()", async () => {
     const p = await deliveryService.myProgress("a1");
     expect(state.rpcCalls).toEqual([{ name: "my_delivery_progress", args: { p_appointment_id: "a1" } }]);
     expect(p?.handoffCode).toBe("123456");
+    expect(p?.agentLat).toBe(18.5204);
+    expect(p?.agentLng).toBe(73.8567);
+    expect(p?.agentHeading).toBe(90);
+    expect(p?.storeName).toBe("Test Store");
+    expect(p?.destAddress).toBe("123 MG Road");
   });
 });
