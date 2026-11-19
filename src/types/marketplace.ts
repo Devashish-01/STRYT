@@ -20,7 +20,8 @@ export type EntityStatus =
   | "PENDING"
   | "ACTIVE"
   | "REJECTED"
-  | "SUSPENDED";
+  | "SUSPENDED"
+  | "DELETED";
 
 export type VerificationStatus = "NONE" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
 

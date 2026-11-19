@@ -142,38 +142,64 @@ export function useQueryWithRealtime<T>(
     if (!hasSupabaseEnv) return;
 
     let active = true;
-    const sb = getSupabase();
-    const uniqueId = Math.random().toString(36).slice(2, 9);
-    let channelName = `rt:${tableName}:${uniqueId}`;
-    if (filter) channelName += `:${filter}`;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    // Fallback: even when realtime is healthy, poll at a slow cadence so the
+    // customer is never more than 30 s stale if they leave the tab and come back
+    // or if the subscription silently drops an event.
+    const fallbackPoll = setInterval(() => {
+      if (active && typeof document !== "undefined" && document.visibilityState !== "hidden") {
+        refetchRef.current();
+      }
+    }, 30_000);
 
-    const channel = sb
-      .channel(channelName)
-      .on(
-        "postgres_changes" as any,
-        {
-          event: "*",
-          schema: "public",
-          table: tableName,
-          ...(filter ? { filter } : {}),
-        },
-        () => {
-          if (active) refetchRef.current();
-        }
-      )
-      .subscribe((status) => {
-        // A silent failure here is exactly the "I must refresh to see changes"
-        // symptom: the channel never delivers events. Surface the non-OK states
-        // (usually the table isn't in the `supabase_realtime` publication, or
-        // Realtime is disabled for the project) instead of failing quietly.
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn(`[realtime] "${tableName}" subscription ${status} — check the supabase_realtime publication for this table.`);
-        }
-      });
+    const sb = getSupabase();
+    let currentChannel: ReturnType<typeof sb.channel> | null = null;
+
+    function subscribe() {
+      if (!active) return;
+      const uniqueId = Math.random().toString(36).slice(2, 9);
+      let channelName = `rt:${tableName}:${uniqueId}`;
+      if (filter) channelName += `:${filter}`;
+
+      const channel = sb
+        .channel(channelName)
+        .on(
+          "postgres_changes" as any,
+          {
+            event: "*",
+            schema: "public",
+            table: tableName,
+            ...(filter ? { filter } : {}),
+          },
+          () => {
+            if (active) refetchRef.current();
+          }
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            // A silent failure here is exactly the "I must refresh to see changes"
+            // symptom: the channel never delivers events. Log it, refetch once,
+            // and retry the subscription after a short back-off so the customer
+            // is not stuck until manual pull-to-refresh.
+            console.warn(`[realtime] "${tableName}" subscription ${status} — retrying in 5 s.`);
+            sb.removeChannel(channel);
+            if (currentChannel === channel) currentChannel = null;
+            if (active) {
+              refetchRef.current(); // immediate catch-up fetch
+              retryTimer = setTimeout(subscribe, 5_000);
+            }
+          }
+        });
+      currentChannel = channel;
+    }
+
+    subscribe();
 
     return () => {
       active = false;
-      sb.removeChannel(channel);
+      clearInterval(fallbackPoll);
+      if (retryTimer != null) clearTimeout(retryTimer);
+      if (currentChannel) sb.removeChannel(currentChannel);
     };
   }, [tableName, filter]);
 

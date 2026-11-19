@@ -889,14 +889,23 @@ export const deliveryService = {
       let ch = liveBroadcastChannels.get(topic);
       if (!ch) {
         ch = sb.channel(topic);
-        ch.subscribe();
+        ch.subscribe((status: string) => {
+          if (status === "SUBSCRIBED") {
+            void ch.send({
+              type: "broadcast",
+              event: "pos",
+              payload: position,
+            });
+          }
+        });
         liveBroadcastChannels.set(topic, ch);
+      } else {
+        void ch.send({
+          type: "broadcast",
+          event: "pos",
+          payload: position,
+        });
       }
-      void ch.send({
-        type: "broadcast",
-        event: "pos",
-        payload: position,
-      });
     } catch {
       // Non-blocking: background fixes continue without throwing
     }

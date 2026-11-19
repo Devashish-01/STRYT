@@ -23,10 +23,9 @@ const ROOT = path.join(__dirname, "..");
 const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
 const APPLY_LOG_PATH = path.join(ROOT, "supabase", "APPLY_LOG.md");
 
-// All migrations up to 20261008 are applied to production (see supabase/APPLY_LOG.md rows 60-71). The marker had stopped at
-// 20260964, so --all judged 14 already-applied, since-locked-down migrations (20260980-20260997) as new and failed CI on them.
-// Applied files are immutable, so the fix belongs here, not in them.
-export const LATEST_APPLIED_MIGRATION = "20261008_stories_complete.sql";
+// All migrations up to 20261019 are applied to production (see supabase/APPLY_LOG.md rows 60-76).
+// Applied files are immutable, so the boundary marker belongs here, not in them.
+export const LATEST_APPLIED_MIGRATION = "20261019_shop_login_sessions.sql";
 
 export const PII_TABLES = new Set([
   "users",

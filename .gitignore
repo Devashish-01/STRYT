@@ -68,3 +68,6 @@ tools/
 
 # Moved out of the repo root (docs, store assets, scratch, generated reports). Downloaded skills stay untracked.
 /archive/skills/
+/archive/output/
+shots/
+skills-lock.json

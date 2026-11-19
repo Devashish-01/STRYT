@@ -26,7 +26,7 @@ export default function DeliveryTrackingModal({
   isOpen,
   onClose,
   appointmentId,
-  progress: d,
+  progress,
   orderStatus = "ACCEPTED",
   readyAt,
 }: DeliveryTrackingModalProps) {
@@ -34,6 +34,13 @@ export default function DeliveryTrackingModal({
   const { showToast } = useApp();
   const [sharing, setSharing] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Local live progress so modal stays updated even when open full-screen
+  const [liveProgress, setLiveProgress] = useState<CustomerDeliveryProgress | null>(progress);
+
+  useEffect(() => {
+    setLiveProgress(progress);
+  }, [progress]);
 
   // Sub-second Realtime WebSocket stream from rider
   const [livePos, setLivePos] = useState<LiveRiderPosition | null>(null);
@@ -46,8 +53,25 @@ export default function DeliveryTrackingModal({
     return unsub;
   }, [isOpen, appointmentId]);
 
+  // Active modal polling (every 5 seconds) to catch stage transitions (PICKED_UP, ARRIVED, DELIVERED)
+  const isFinished = liveProgress?.status === "DELIVERED" || liveProgress?.status === "CANCELLED";
+  useEffect(() => {
+    if (!isOpen || !appointmentId || isFinished) return;
+    const interval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const fresh = await deliveryService.myProgress(appointmentId);
+        if (fresh) setLiveProgress(fresh);
+      } catch {
+        // Offline / silent fail
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isOpen, appointmentId, isFinished]);
+
   if (!isOpen) return null;
 
+  const d = liveProgress;
   const stageIdx = orderStageIndex({ status: orderStatus, readyAt }, d ? { status: d.status, pickedUp: d.pickedUp } : null);
   const stage = stageIdx >= 0 ? ORDER_STAGES[stageIdx] : null;
   if (!stage) return null;

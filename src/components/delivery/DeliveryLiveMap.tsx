@@ -100,7 +100,21 @@ export default function DeliveryLiveMap({
 
     mapRef.current = map;
 
+    // Invalidate size once container layout stabilizes (modals, CSS transitions)
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 120);
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    if (mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -356,8 +370,8 @@ export default function DeliveryLiveMap({
     if (!mapRef.current) return;
     const bounds = L.latLngBounds([]);
 
-    const curRiderLat = animatedRider.lat ?? riderLat;
-    const curRiderLng = animatedRider.lng ?? riderLng;
+    const curRiderLat = riderLat;
+    const curRiderLng = riderLng;
 
     if (curRiderLat != null && curRiderLng != null) bounds.extend([curRiderLat, curRiderLng]);
     if (destLat != null && destLng != null) bounds.extend([destLat, destLng]);
@@ -371,15 +385,16 @@ export default function DeliveryLiveMap({
         paddingBottomRight: [40, bottomSheetOffsetPx + 40],
         maxZoom: 16,
       });
-      userPannedRef.current = false;
     }
-  }, [animatedRider.lat, animatedRider.lng, riderLat, riderLng, destLat, destLng, storeLat, storeLng, bottomSheetOffsetPx]);
+  }, [riderLat, riderLng, destLat, destLng, storeLat, storeLng, bottomSheetOffsetPx]);
 
+  const initialFitDone = useRef(false);
   useEffect(() => {
-    if (!userPannedRef.current) {
+    if (!userPannedRef.current && (!initialFitDone.current || riderLat != null)) {
       fitBounds();
+      initialFitDone.current = true;
     }
-  }, [fitBounds]);
+  }, [fitBounds, riderLat]);
 
   const handleRecenter = () => {
     userPannedRef.current = false;

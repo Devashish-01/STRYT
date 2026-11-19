@@ -8,6 +8,8 @@
 // counter-offer and agreement flow rather than duplicating it. See
 // types/requests.ts.
 
+import type { PaymentStatus } from "./console";
+
 export type FulfillmentType =
   | "ON_SITE_CAMP"
   | "CLINIC_VISIT"
@@ -130,7 +132,8 @@ export interface GroupBuyRedemptionStats {
   pending: number;
 }
 
-export type DepositStatus = "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED";
+/** Alias for PaymentStatus — shares the same UNPAID | PENDING_CONFIRM | PAID | REJECTED vocabulary. */
+export type DepositStatus = PaymentStatus;
 
 /** One pledger's row on a campaign — the business-side roster view.
  *  pledgerName is looked up via the users alias embed, same trust level as

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
 import { SafeImg } from "@/components/common";
@@ -43,11 +43,18 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
   const [readyBusy, setReadyBusy] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [popKey, setPopKey] = useState(0);
-  const { data: d, refetch } = useQuery(
+  const { data: d, refetch: _refetch } = useQuery(
     () => deliveryService.myProgress(appointmentId),
     [appointmentId],
     `delivery:my-progress:${appointmentId}`,
   );
+  // Stabilise the refetch reference so the polling effect below doesn't reset
+  // the 12-second interval on every re-render (refetch is a new arrow function
+  // each time useQuery renders, which would clear and restart the timer
+  // continuously without this ref).
+  const refetchRef = useRef(_refetch);
+  refetchRef.current = _refetch;
+  const refetch = useCallback(() => refetchRef.current(), []);
 
   // Keep the card current for as long as the order is live — including the long wait for a shop to accept, pack and send someone,
   // when there is no delivery row yet (the old version only started once one existed, so the customer saw nothing change until
@@ -55,12 +62,15 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
   // customer (they can't read that table), so this poll plus the notifications are what keep it live.
   const orderOver = orderStatus === "COMPLETED" || orderStatus === "CANCELLED" || orderStatus === "REJECTED" || orderStatus === "NO_SHOW";
   const finished = orderOver || d?.status === "DELIVERED";
+  const isEnRoute = d?.status === "EN_ROUTE" || d?.status === "ARRIVED";
+  const pollIntervalMs = isEnRoute ? 6000 : 12000;
+
   useEffect(() => {
     if (finished) return;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       refetch();
-    }, 12000);
+    }, pollIntervalMs);
 
     function onFocus() {
       refetch();
@@ -71,7 +81,7 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText, o
       clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [finished, refetch]);
+  }, [finished, pollIntervalMs, refetch]);
 
   const stageIdx = orderStageIndex({ status: orderStatus, readyAt }, d ? { status: d.status, pickedUp: d.pickedUp } : null);
   const stage = stageIdx >= 0 ? ORDER_STAGES[stageIdx] : null;

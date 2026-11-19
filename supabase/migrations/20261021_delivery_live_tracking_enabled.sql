@@ -99,7 +99,7 @@ begin
     b.lat,
     b.lng,
     b.name,
-    b.address,
+    b.address_line1,
     -- Customer destination info
     a.delivery_lat,
     a.delivery_lng,
@@ -205,12 +205,12 @@ as $function$
          end,
          true as is_delivery
   from public.tracking_tokens t
-  join lateral (
+  join public.appointments a on a.id = t.appointment_id
+  left join lateral (
     select d0.* from public.appointment_deliveries d0
      where d0.appointment_id = t.appointment_id
      order by d0.created_at desc limit 1
   ) d on true
-  join public.appointments a on a.id = d.appointment_id
   left join public.businesses b on b.id = a.target_id
   left join public.users u on u.id = d.agent_user_id
   left join public.delivery_batches batch on batch.id = d.batch_id
