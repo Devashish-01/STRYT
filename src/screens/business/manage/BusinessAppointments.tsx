@@ -41,6 +41,7 @@ import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import DeliveryOwnerPanels from "@/components/delivery/DeliveryOwnerPanels";
 import { deliveryService } from "@/services";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import { errorMessage } from "@/lib/errorMessage";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
@@ -49,6 +50,8 @@ export default function BusinessAppointments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const { t, tf } = useI18n();
+  const { isOwner, hasScope } = useBusinessAccess();
+  const canSeeMoney = isOwner || hasScope("money");
   const messageUser = useMessageUser();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
@@ -414,7 +417,7 @@ export default function BusinessAppointments() {
     const revenue = dayApts.filter((a) => a.paymentStatus === "PAID" && a.paymentAmount).reduce((s, a) => s + (a.paymentAmount || 0), 0);
     const lines = dayApts.map((a) => `${a.timeLabel} — ${a.customerName}${a.packageName ? ` (${a.packageName})` : ""}${a.isWalkIn ? " [walk-in]" : ""}`);
     const header = `📅 ${selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} — ${b?.name ?? "Bookings"}`;
-    const text = `${header}\n\n${lines.length ? lines.join("\n") : "No bookings"}${revenue ? `\n\n💰 Revenue: ₹${revenue}` : ""}`;
+    const text = `${header}\n\n${lines.length ? lines.join("\n") : "No bookings"}${canSeeMoney && revenue ? `\n\n💰 Revenue: ₹${revenue}` : ""}`;
     copyText(text).then((ok) => showToast(ok ? "Day summary copied — paste into WhatsApp" : "Couldn't copy"));
   }
 
@@ -783,7 +786,7 @@ export default function BusinessAppointments() {
                 <SummaryStat label={t("bapt_booked")} value={bookedCount} />
                 <SummaryStat label={t("pending")} value={pendingCount} />
                 <SummaryStat label={t("bapt_blocked")} value={blockedCount} />
-                {dayRevenue > 0 && <SummaryStat label={t("bapt_revenue")} value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
+                {canSeeMoney && dayRevenue > 0 && <SummaryStat label={t("bapt_revenue")} value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
                 <button className="icon-btn" style={{ marginLeft: "auto" }} title={t("bapt_copy_summary")} onClick={copyDaySummary}>
                   <Share2 size={15} />
                 </button>

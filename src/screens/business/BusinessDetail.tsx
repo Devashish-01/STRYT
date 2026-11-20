@@ -5,7 +5,9 @@ import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
   BadgeCheck, Star, Plus, Minus, MessageCircle, Flag,
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet, Calendar,
+  Package, Store,
 } from "@/components/Icons";
+import { resolveStorefrontActions } from "@/lib/storefrontActions";
 import { businessService, communityService, socialService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
@@ -192,6 +194,7 @@ export default function BusinessDetail() {
   // calls its catalogue, its CTA copy, its accent color, its layout.
   const bizThemeKey = resolvePackage(b);
   const bizTheme = BUSINESS_PACKAGES[bizThemeKey];
+  const sfActions = resolveStorefrontActions(b, t);
   // Structural "does this business take bookings at all" — null inherits the
   // resolved package's own default (most do; pharmacy/shop typically don't).
   // Distinct from b.isOpenNow, which is a TEMPORARY pause and still renders
@@ -503,10 +506,32 @@ export default function BusinessDetail() {
                 <button
                   className="btn grow btn-sm biz-book-cta"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
-                  onClick={() => nav(`/business/${b.id}/manage/appointments`)}
+                  onClick={() => nav(sfActions.ownerManagementPath)}
                 >
-                  <Clock size={16} /> {t("view_appointments")}
+                  {sfActions.isCommerce ? <Package size={16} /> : <Clock size={16} />} {sfActions.ownerManagementLabel}
                 </button>
+              ) : sfActions.isCommerce ? (
+                b.isOpenNow === false ? (
+                  <button className="btn grow btn-sm biz-book-cta" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
+                    <Store size={16} /> {sfActions.closedLabel}
+                  </button>
+                ) : (
+                  <button
+                    className="btn grow btn-sm biz-book-cta"
+                    style={{ background: "var(--biz-accent-soft)", color: "var(--biz-accent-strong)", border: "1px solid var(--brand-200)" }}
+                    onClick={() => {
+                      if (cartCount > 0) {
+                        setCartSheet(true);
+                      } else {
+                        setTab("catalog");
+                        const catEl = document.getElementById("biz-catalog-section");
+                        if (catEl) catEl.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                  >
+                    <Store size={16} /> {sfActions.primaryCtaLabel}
+                  </button>
+                )
               ) : !bookingsOn ? null : b.isOpenNow === false ? (
                 <button className="btn grow btn-sm biz-book-cta" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
                   <Clock size={16} /> {bizTheme.bookingClosedLabel}
@@ -665,7 +690,7 @@ export default function BusinessDetail() {
 
         {/* Tab content */}
         {tab === "catalog" && (
-          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
+          <div id="biz-catalog-section" className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             {b.catalog.length === 0 && (
               <div className="col center" style={{ padding: "32px 0", gap: 8 }}>
                 <span style={{ fontSize: 32 }}>🛒</span>

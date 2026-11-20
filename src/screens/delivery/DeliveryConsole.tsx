@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DeliveryLiveMap from "@/components/delivery/DeliveryLiveMap";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { RASTER_TILES } from "@/lib/mapTiles";
@@ -790,6 +791,7 @@ function ActionControls({
         <HandoffCodeInput value={code} onChange={setCode} disabled={verifying} />
         <button
           className="btn btn-primary btn-block"
+          style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }}
           disabled={verifying || code.length < 6}
           onClick={async () => { setVerifying(true); const ok = await onVerify(current, code); setVerifying(false); if (ok) setCode(""); }}
         >
@@ -812,11 +814,11 @@ function ActionControls({
       <div className="col gap-8">
         <div className="row gap-8">
           {showNav && shopRoutable && (
-            <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, minHeight: 48, padding: 0 }} aria-label={t("dlv_navigate_to_shop")} onClick={() => openNativeDirections(current.businessLat!, current.businessLng!)}>
-              <Navigation size={16} />
+            <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 56, minHeight: 56, padding: 0 }} aria-label={t("dlv_navigate_to_shop")} onClick={() => openNativeDirections(current.businessLat!, current.businessLng!)}>
+              <Navigation size={18} />
             </button>
           )}
-          <button className="btn btn-primary grow" disabled={busy || waitingForShop} onClick={() => onPickUp(current)}>
+          <button className="btn btn-primary grow" style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }} disabled={busy || waitingForShop} onClick={() => onPickUp(current)}>
             {busy ? "…" : waitingForShop ? t("dlv_wait_pack") : t("dlv_picked_up_btn")}
           </button>
         </div>
@@ -828,12 +830,12 @@ function ActionControls({
   if (current.status === "ARRIVED" && current.handoffVerified && owes) {
     return (
       <div className="col gap-8">
-        <button className="btn btn-green btn-block" disabled={busy} onClick={() => onCollect(current)}>
+        <button className="btn btn-green btn-block" style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }} disabled={busy} onClick={() => onCollect(current)}>
           {busy ? "…" : tf("dlv_collect_cash", { n: Math.round(current.amountDue) })}
         </button>
         <button
           className="btn btn-outline btn-block"
-          style={unpaidArmed ? { borderColor: "var(--red-500)", color: "var(--red-600)" } : undefined}
+          style={{ minHeight: 48, fontSize: 14, ...(unpaidArmed ? { borderColor: "var(--red-500)", color: "var(--red-600)" } : {}) }}
           disabled={busy}
           onClick={() => {
             if (!unpaidArmed) { haptics.warning(); setUnpaidArmed(true); return; }
@@ -850,22 +852,22 @@ function ActionControls({
   return (
     <div className="row gap-8">
       {showNav && onNavigate && (
-        <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, minHeight: 48, padding: 0 }} aria-label={t("dlv_c_navigate")} onClick={onNavigate}>
-          <Navigation size={16} />
+        <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 56, minHeight: 56, padding: 0 }} aria-label={t("dlv_c_navigate")} onClick={onNavigate}>
+          <Navigation size={18} />
         </button>
       )}
       {current.status === "ASSIGNED" && (
-        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "ON_THE_WAY", t("dlv_c_toast_on_way"))}>
+        <button className="btn btn-primary grow" style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }} disabled={busy} onClick={() => onAdvance(current, "ON_THE_WAY", t("dlv_c_toast_on_way"))}>
           {busy ? "…" : primaryLabel}
         </button>
       )}
       {current.status === "EN_ROUTE" && (
-        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "ARRIVED", t("dlv_c_toast_arrived"))}>
+        <button className="btn btn-primary grow" style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }} disabled={busy} onClick={() => onAdvance(current, "ARRIVED", t("dlv_c_toast_arrived"))}>
           {busy ? "…" : t("dlv_c_arrived_btn")}
         </button>
       )}
       {current.status === "ARRIVED" && current.handoffVerified && (
-        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "DONE", t("dlv_c_toast_delivered"))}>
+        <button className="btn btn-primary grow" style={{ minHeight: 56, fontSize: 16, fontWeight: 700 }} disabled={busy} onClick={() => onAdvance(current, "DONE", t("dlv_c_toast_delivered"))}>
           {busy ? "…" : t("dlv_c_mark_delivered")}
         </button>
       )}
@@ -943,18 +945,19 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
   return (
     <div className="col gap-12 queue-row-enter">
       {routePoints.length > 0 && (
-        <div style={{ height: 220, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
-          <MapContainer center={routePoints[0]} zoom={14} style={{ width: "100%", height: "100%" }} zoomControl={false} attributionControl={false}>
-            <TileLayer {...RASTER_TILES} />
-            {batch.lat != null && batch.lng != null && <Marker position={[batch.lat, batch.lng]} icon={makePinIcon("var(--delivery-600)")} />}
-            {current.deliveryLat != null && current.deliveryLng != null && (
-              <Marker position={[current.deliveryLat, current.deliveryLng]} icon={makePinIcon("var(--brand-600)")} />
-            )}
-            {remaining.filter((d) => d.deliveryLat != null && d.deliveryLng != null).map((d) => (
-              <Marker key={d.id} position={[d.deliveryLat!, d.deliveryLng!]} icon={makePinIcon("var(--ink-400)")} />
-            ))}
-            {routePoints.length > 1 && <Polyline positions={routePoints} pathOptions={{ color: "var(--delivery-600)", weight: 3, dashArray: "6 8" }} />}
-          </MapContainer>
+        <div style={{ height: 210, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", position: "relative" }}>
+          <DeliveryLiveMap
+            riderLat={lastKnownFix(60_000)?.lat ?? batch.lat ?? current.deliveryLat}
+            riderLng={lastKnownFix(60_000)?.lng ?? batch.lng ?? current.deliveryLng}
+            riderHeading={lastKnownFix(60_000)?.heading ?? 0}
+            riderName={t("dlv_trk_rider_title") || "You"}
+            destLat={current.deliveryLat}
+            destLng={current.deliveryLng}
+            destAddress={current.deliveryAddressLine || current.customerArea}
+            status={current.status}
+            bottomSheetOffsetPx={0}
+            interactive={true}
+          />
         </div>
       )}
 
@@ -1140,7 +1143,28 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
           </div>
         </div>
       ) : (
-        <RiderWhere d={d} onNavigate={openNativeDirections} />
+        <>
+          <RiderWhere d={d} onNavigate={openNativeDirections} />
+          {(d.businessLat != null || d.deliveryLat != null) && (
+            <div style={{ height: 210, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", position: "relative" }}>
+              <DeliveryLiveMap
+                riderLat={lastKnownFix(60_000)?.lat ?? (d.status === "ASSIGNED" && !d.pickedUpAt ? d.businessLat : d.deliveryLat)}
+                riderLng={lastKnownFix(60_000)?.lng ?? (d.status === "ASSIGNED" && !d.pickedUpAt ? d.businessLng : d.deliveryLng)}
+                riderHeading={lastKnownFix(60_000)?.heading ?? 0}
+                riderName={t("dlv_trk_rider_title") || "You"}
+                storeLat={d.businessLat}
+                storeLng={d.businessLng}
+                storeName={d.businessName}
+                destLat={d.deliveryLat}
+                destLng={d.deliveryLng}
+                destAddress={d.deliveryAddressLine || d.customerArea}
+                status={d.status}
+                bottomSheetOffsetPx={0}
+                interactive={true}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* The rider should know before arriving that cash is due at the door. */}

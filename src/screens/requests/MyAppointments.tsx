@@ -11,7 +11,7 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin, Package } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
@@ -34,6 +34,12 @@ import { errorMessage } from "@/lib/errorMessage";
 // delivered or cancelled — however late it runs (see isLiveOrder). One just delivered stays a few hours, in its "Delivered" state.
 function isUpcoming(a: AppointmentRecord): boolean {
   return isLiveOrder(a) || isRecentlyDelivered(a);
+}
+
+// Distinguishes commerce fulfillment (grocery, food, pharmacy order with items/delivery)
+// from scheduled calendar/time-slot bookings (salon, doctor consultation, tutor).
+function isOrderActivity(a: AppointmentRecord): boolean {
+  return a.fulfillmentType === "DELIVERY" || Boolean(a.items && a.items.length > 0) || isAutoOrderNote(a.notes, !!a.items?.length);
 }
 
 // Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
@@ -126,11 +132,12 @@ interface RebookTarget {
   targetPackageKey: BusinessPackageKey;
 }
 
-export default function MyAppointments() {
+export default function MyAppointments({ initialSwimlane = "ALL" }: { initialSwimlane?: "ALL" | "ORDERS" | "SERVICES" }) {
   const nav = useNavigate();
   const { user, showToast } = useApp();
   const { t, tf, lang } = useI18n();
   const [tab, setTab] = useState<"UPCOMING" | "PAST">("UPCOMING");
+  const [swimlane, setSwimlane] = useState<"ALL" | "ORDERS" | "SERVICES">(initialSwimlane);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [rebook, setRebook] = useState<RebookTarget | null>(null);
@@ -151,7 +158,7 @@ export default function MyAppointments() {
     user.id ? `customer_user_id=eq.${user.id}` : undefined
   );
 
-  const { upcomingList, pastList } = useMemo(() => {
+  const { upcomingList, pastList, ordersUpcomingCount, servicesUpcomingCount } = useMemo(() => {
     const all = data ?? [];
     // Upcoming = strictly future live bookings (slot is ahead of now, status PENDING or ACCEPTED).
     // Chronological order: earliest upcoming appointment first.
@@ -173,11 +180,19 @@ export default function MyAppointments() {
       .filter((a) => !isUpcoming(a) && !dismissedIds.has(a.id))
       .sort((a, b) => new Date(b.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-    return {
-      upcomingList: upcoming,
-      pastList: past,
+    const filterBySwimlane = (items: AppointmentRecord[]) => {
+      if (swimlane === "ORDERS") return items.filter(isOrderActivity);
+      if (swimlane === "SERVICES") return items.filter((a) => !isOrderActivity(a));
+      return items;
     };
-  }, [data, dismissedIds]);
+
+    return {
+      upcomingList: filterBySwimlane(upcoming),
+      pastList: filterBySwimlane(past),
+      ordersUpcomingCount: upcoming.filter((a) => isLiveOrder(a) && isOrderActivity(a)).length,
+      servicesUpcomingCount: upcoming.filter((a) => isLiveOrder(a) && !isOrderActivity(a)).length,
+    };
+  }, [data, dismissedIds, swimlane]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
   // The tab's number counts what is still in progress, not a delivery kept on the list for its "Delivered" moment.
   const upcomingCount = upcomingList.filter((a) => isLiveOrder(a)).length;
@@ -313,8 +328,18 @@ export default function MyAppointments() {
           "go find who you want to book with" — Explore is the honest target,
           not a form. */}
       <AppBar
-        title={t("my_appointments_title")}
-        subtitle={t("my_appointments_subtitle")}
+        title={
+          swimlane === "ORDERS"
+            ? t("orders_and_deliveries")
+            : swimlane === "SERVICES"
+            ? t("bookings_and_services")
+            : t("my_activity_title")
+        }
+        subtitle={
+          swimlane === "ORDERS"
+            ? "Track retail & food deliveries"
+            : t("my_appointments_subtitle")
+        }
         right={
           <button className="icon-btn" onClick={() => nav("/explore")} aria-label={t("book_new_appointment")} title={t("book_an_appointment")}>
             <Plus size={20} />
@@ -322,8 +347,21 @@ export default function MyAppointments() {
         }
       />
 
+      {/* Dual Swimlane Category Filter (Orders vs Services) */}
+      <div className="hscroll gap-8" style={{ paddingTop: 10, paddingBottom: 2 }}>
+        <button className={`chip ${swimlane === "ALL" ? "active" : ""}`} onClick={() => setSwimlane("ALL")}>
+          {t("all_activity")}
+        </button>
+        <button className={`chip ${swimlane === "ORDERS" ? "active" : ""}`} onClick={() => setSwimlane("ORDERS")}>
+          🛍️ {t("orders_and_deliveries")}{ordersUpcomingCount > 0 ? ` (${ordersUpcomingCount})` : ""}
+        </button>
+        <button className={`chip ${swimlane === "SERVICES" ? "active" : ""}`} onClick={() => setSwimlane("SERVICES")}>
+          📅 {t("bookings_and_services")}{servicesUpcomingCount > 0 ? ` (${servicesUpcomingCount})` : ""}
+        </button>
+      </div>
+
       {/* Upcoming / Past tabs */}
-      <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
+      <div className="hscroll" style={{ paddingTop: 6, paddingBottom: 6 }}>
         <button className={`chip ${tab === "UPCOMING" ? "active" : ""}`} onClick={() => setTab("UPCOMING")}>
           {t("upcoming_tab")}{upcomingCount > 0 ? ` (${upcomingCount})` : ""}
         </button>
@@ -341,12 +379,12 @@ export default function MyAppointments() {
             {list.length === 0 ? (
               <EmptyState
                 illustration={<NoAppointmentsIllustration />}
-                emoji="📅"
-                title={tab === "UPCOMING" ? t("no_upcoming_appointments") : t("nothing_here_yet")}
-                text={tab === "UPCOMING" ? t("book_slot_shows_here") : t("past_bookings_appear_here")}
+                emoji={swimlane === "ORDERS" ? "🛍️" : "📅"}
+                title={tab === "UPCOMING" ? (swimlane === "ORDERS" ? "No active orders" : t("no_upcoming_appointments")) : t("nothing_here_yet")}
+                text={tab === "UPCOMING" ? (swimlane === "ORDERS" ? "Orders from shops and restaurants will appear here with live tracking." : t("book_slot_shows_here")) : t("past_bookings_appear_here")}
                 action={tab === "UPCOMING" ? (
                   <button className="btn btn-primary row gap-6 center" onClick={() => nav("/explore")}>
-                    <Store size={16} /> {t("find_place_to_book")}
+                    <Store size={16} /> {swimlane === "ORDERS" ? "Browse Shops & Food" : t("find_place_to_book")}
                   </button>
                 ) : undefined}
               />
@@ -356,17 +394,21 @@ export default function MyAppointments() {
                 const payable = isPayable(apt.status);
                 // Unpaid notification in Past tab so customers know payment is still due
                 const pastDueUnpaid = tab === "PAST" && isUnpaidActionable(apt);
+                const isOrder = isOrderActivity(apt);
                 return (
                   <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14, border: pastDueUnpaid ? "1px solid var(--amber-300)" : undefined }}>
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          <Calendar size={12} color="var(--brand-600)" />{" "}
-                          {apt.isAsap
-                            // "Today at ASAP" read as a glitch; an ASAP order is "ASAP · by 6:42 PM".
-                            ? `${t("dlv_asap_tag")} · ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                            : `${formatAppointmentDate(apt, lang, t)} at ${apt.timeLabel}`}
+                          {isOrder ? <Package size={12} color="var(--delivery-600)" /> : <Calendar size={12} color="var(--brand-600)" />}{" "}
+                          {isOrder
+                            ? (apt.isAsap
+                                ? `${t("dlv_asap_tag")} · by ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                                : `${formatAppointmentDate(apt, lang, t)} · Order Delivery/Pickup at ${apt.timeLabel}`)
+                            : (apt.isAsap
+                                ? `${t("dlv_asap_tag")} · ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                                : `${formatAppointmentDate(apt, lang, t)} at ${apt.timeLabel}`)}
                         </div>
                         {apt.isAsap && apt.status === "PENDING" && Date.now() - new Date(apt.createdAtISO).getTime() >= 15 * 60_000 && (
                           <div className="tiny semi" style={{ marginTop: 3, color: "var(--amber-700)", lineHeight: 1.4 }}>

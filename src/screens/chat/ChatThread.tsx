@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Phone, Image as ImageIcon, Check, DotsThree, Flag, Ban } from "@/components/Icons";
+import { ArrowLeft, Send, Phone, Image as ImageIcon, Check, DotsThree, Flag, Ban, Store } from "@/components/Icons";
+import PreSendAttributionBar, { type ChatReplyingPersona } from "@/components/chat/PreSendAttributionBar";
 import { chatService, inboxScopeFor, MESSAGE_PAGE_SIZE } from "@/services/engagement/chatService";
 import { uploadService } from "@/services";
 import { socialService } from "@/services/engagement/socialService";
@@ -35,7 +36,7 @@ export default function ChatThread() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { t } = useI18n();
-  const { user, setChatUnread, showToast } = useApp();
+  const { user, setChatUnread, showToast, ownedBusinessIds, ownedProviderId } = useApp();
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -51,6 +52,20 @@ export default function ChatThread() {
     `chat:conversations:${user.id}:`,
   );
   const conv: Conversation | undefined = (convs ?? []).find((c) => c.id === id);
+
+  const isReplyingAsBusiness = Boolean(conv?.subjectType === "business" && (conv.subjectOwnerId === user.id || ownedBusinessIds.includes(conv.subjectId ?? "")));
+  const isReplyingAsProvider = Boolean(conv?.subjectType === "provider" && (conv.subjectOwnerId === user.id || ownedProviderId === conv.subjectId));
+  const [replyingPersona, setReplyingPersona] = useState<ChatReplyingPersona>("personal");
+
+  useEffect(() => {
+    if (isReplyingAsBusiness) {
+      setReplyingPersona("business");
+    } else if (isReplyingAsProvider) {
+      setReplyingPersona("provider");
+    } else {
+      setReplyingPersona("personal");
+    }
+  }, [isReplyingAsBusiness, isReplyingAsProvider]);
 
   const { data: initial, loading } = useQuery(() => chatService.messages(id), [id], `chat:messages:${id}`);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -188,6 +203,13 @@ export default function ChatThread() {
     setBody("");
     setPendingImage(null);
 
+    const extraAttribution = replyingPersona !== "personal" ? {
+      senderRole: replyingPersona === "business" ? ("business_agent" as const) : ("provider" as const),
+      entityId: conv.subjectId ?? undefined,
+      entityName: conv.subjectName ?? undefined,
+      staffAlias: user.name || undefined,
+    } : undefined;
+
     const tempId = `optimistic-${Date.now()}`;
     const optimisticMsg: Message = {
       id: tempId,
@@ -196,11 +218,15 @@ export default function ChatThread() {
       body: text,
       imageUrl: image,
       createdAt: new Date().toISOString(),
+      senderRole: extraAttribution?.senderRole,
+      entityId: extraAttribution?.entityId,
+      entityName: extraAttribution?.entityName,
+      staffAlias: extraAttribution?.staffAlias,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      const msg = await chatService.send(id, text, conv, image);
+      const msg = await chatService.send(id, text, conv, image, extraAttribution);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
     } catch (e) {
       setBody(text); // restore input on failure
@@ -409,6 +435,18 @@ export default function ChatThread() {
                 marginTop: groupStart && !newDay ? 10 : 0,
               }}
             >
+              {!isMe && (msg.staffAlias || msg.entityName) && groupStart && (
+                <div className="tiny semi muted row gap-4 center-v" style={{ marginBottom: 2, paddingLeft: 4 }}>
+                  <Store size={11} color="var(--brand-600)" />
+                  <span>{msg.entityName || "Store"}</span>
+                  {msg.staffAlias && <span style={{ opacity: 0.75 }}>• {msg.staffAlias}</span>}
+                </div>
+              )}
+              {isMe && msg.staffAlias && groupStart && (
+                <div className="tiny semi muted row gap-4 center-v" style={{ marginBottom: 2, paddingRight: 4 }}>
+                  <span>Sent as {msg.entityName || "Store"} ({msg.staffAlias})</span>
+                </div>
+              )}
               {shareId ? (
                 <LiveLocationCard shareId={shareId} endedHint={(msg.meta?.status) === "ENDED"} />
               ) : (
@@ -524,6 +562,22 @@ export default function ChatThread() {
             gap: 8,
           }}
         >
+          {Boolean(conv?.subjectName && (isReplyingAsBusiness || isReplyingAsProvider)) && (
+            <PreSendAttributionBar
+              entityName={conv?.subjectName}
+              staffAlias={user.name || "Staff"}
+              persona={replyingPersona}
+              onTogglePersona={() =>
+                setReplyingPersona((p) =>
+                  p === "personal"
+                    ? isReplyingAsBusiness
+                      ? "business"
+                      : "provider"
+                    : "personal"
+                )
+              }
+            />
+          )}
           {pendingImage && (
             <div style={{ position: "relative", width: 64 }}>
               <img src={pendingImage} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover" }} />

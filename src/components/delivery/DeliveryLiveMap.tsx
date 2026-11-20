@@ -87,11 +87,12 @@ export default function DeliveryLiveMap({
       doubleClickZoom: interactive,
     }).setView([initialLat, initialLng], 15);
 
-    L.tileLayer(RASTER_TILES.url, {
+    const tileLayer = L.tileLayer(RASTER_TILES.url, {
       attribution: RASTER_TILES.attribution,
       maxZoom: RASTER_TILES.maxZoom,
       tileSize: RASTER_TILES.tileSize,
       zoomOffset: RASTER_TILES.zoomOffset,
+      className: "delivery-map-tiles",
     }).addTo(map);
 
     map.on("dragstart", () => {
@@ -172,24 +173,28 @@ export default function DeliveryLiveMap({
   useEffect(() => {
     if (!mapRef.current || storeLat == null || storeLng == null) return;
 
+    const safeStoreName = storeName || "Store";
     const storeIcon = L.divIcon({
       html: `
-        <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;background:var(--surface);border:2px solid var(--brand-600);box-shadow:0 3px 12px rgba(0,0,0,0.22);font-size:18px;">
-          🏬
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:#ffffff;border:2.5px solid var(--brand-600);box-shadow:0 4px 14px rgba(0,0,0,0.22);font-size:20px;">
+            🏬
+          </div>
+          <div style="margin-top:3px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);pointer-events:none;">
+            ${safeStoreName}
+          </div>
         </div>
       `,
       className: "",
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [40, 62],
+      iconAnchor: [20, 20],
     });
 
     if (storeMarkerRef.current) {
       storeMarkerRef.current.setLatLng([storeLat, storeLng]);
+      storeMarkerRef.current.setIcon(storeIcon);
     } else {
-      storeMarkerRef.current = L.marker([storeLat, storeLng], { icon: storeIcon }).addTo(mapRef.current);
-      if (storeName) {
-        storeMarkerRef.current.bindTooltip(storeName, { direction: "top", offset: [0, -20], permanent: false });
-      }
+      storeMarkerRef.current = L.marker([storeLat, storeLng], { icon: storeIcon, zIndexOffset: 900 }).addTo(mapRef.current);
     }
   }, [storeLat, storeLng, storeName]);
 
@@ -197,31 +202,31 @@ export default function DeliveryLiveMap({
   useEffect(() => {
     if (!mapRef.current || destLat == null || destLng == null) return;
 
+    const destLabel = t("dlv_trk_dest_tooltip") || "Doorstep";
     const destIcon = L.divIcon({
       html: `
-        <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--red-500);border:3px solid #ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.28);font-size:18px;color:#ffffff;">
-          🏠
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:var(--red-500);border:3px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.28);font-size:18px;color:#ffffff;">
+            🏠
+          </div>
+          <div style="margin-top:3px;white-space:nowrap;background:var(--red-600);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);pointer-events:none;">
+            ${destLabel}
+          </div>
         </div>
       `,
       className: "",
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [38, 60],
+      iconAnchor: [19, 19],
     });
 
     if (destMarkerRef.current) {
       destMarkerRef.current.setLatLng([destLat, destLng]);
+      destMarkerRef.current.setIcon(destIcon);
     } else {
-      destMarkerRef.current = L.marker([destLat, destLng], { icon: destIcon }).addTo(mapRef.current);
-      if (destAddress) {
-        destMarkerRef.current.bindTooltip(t("dlv_trk_dest_tooltip") || "Your Doorstep", {
-          direction: "top",
-          offset: [0, -20],
-          permanent: false,
-        });
-      }
+      destMarkerRef.current = L.marker([destLat, destLng], { icon: destIcon, zIndexOffset: 950 }).addTo(mapRef.current);
     }
 
-    // Doorstep arrival zone (30 meter radius ring)
+    // Doorstep arrival zone (35 meter radius ring)
     if (destCircleRef.current) {
       destCircleRef.current.setLatLng([destLat, destLng]);
     } else {
@@ -229,7 +234,7 @@ export default function DeliveryLiveMap({
         radius: 35,
         color: "var(--red-500)",
         weight: 1.5,
-        opacity: 0.6,
+        opacity: 0.65,
         fillColor: "var(--red-500)",
         fillOpacity: 0.08,
         dashArray: "4, 6",
@@ -253,25 +258,32 @@ export default function DeliveryLiveMap({
 
     // Headlight cone & pulse ripple (Zepto/Zomato style)
     const riderHtml = `
-      <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+      <div style="position:relative;width:60px;height:60px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
         <!-- Forward Headlight Beam Cone -->
-        <div style="position:absolute;top:50%;left:50%;width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:38px solid color-mix(in srgb, var(--brand-500) 35%, transparent);transform-origin:50% 0%;transform:translate(-50%, -100%) rotate(${heading}deg);filter:blur(2px);pointer-events:none;"></div>
+        <div style="position:absolute;top:50%;left:50%;width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:42px solid rgba(234, 88, 12, 0.38);transform-origin:50% 0%;transform:translate(-50%, -100%) rotate(${heading}deg);filter:blur(2px);pointer-events:none;"></div>
 
         <!-- Radar Pulse Circle -->
-        <div style="position:absolute;width:50px;height:50px;border-radius:50%;background:color-mix(in srgb, var(--brand-500) 25%, transparent);animation:dlv-radar-pulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+        <div style="position:absolute;width:52px;height:52px;border-radius:50%;background:rgba(234, 88, 12, 0.22);animation:dlv-radar-pulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
 
         <!-- Rider Scooter Vehicle Icon -->
-        <div style="position:relative;z-index:3;width:38px;height:38px;border-radius:50%;background:var(--brand-600);border:3px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.32);display:flex;align-items:center;justify-content:center;transform:rotate(${heading}deg);transition:transform 0.25s linear;">
-          <span style="font-size:19px;line-height:1;display:inline-block;transform:rotate(-${heading}deg);">🛵</span>
+        <div style="position:relative;z-index:3;width:40px;height:40px;border-radius:50%;background:#ea580c;border:3px solid #ffffff;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;transform:rotate(${heading}deg);transition:transform 0.25s linear;">
+          <span style="font-size:20px;line-height:1;display:inline-block;transform:rotate(-${heading}deg);">🛵</span>
         </div>
+
+        <!-- Rider Name Badge -->
+        ${riderName ? `
+          <div style="position:absolute;top:-22px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:4;">
+            ${riderName}
+          </div>
+        ` : ""}
       </div>
     `;
 
     const riderIcon = L.divIcon({
       html: riderHtml,
       className: "",
-      iconSize: [56, 56],
-      iconAnchor: [28, 28],
+      iconSize: [60, 60],
+      iconAnchor: [30, 30],
     });
 
     if (riderMarkerRef.current) {
@@ -282,10 +294,6 @@ export default function DeliveryLiveMap({
         icon: riderIcon,
         zIndexOffset: 1200,
       }).addTo(mapRef.current);
-
-      if (riderName) {
-        riderMarkerRef.current.bindTooltip(riderName, { direction: "top", offset: [0, -28], permanent: true });
-      }
     }
   }, [animatedRider.lat, animatedRider.lng, animatedRider.heading, riderName]);
 
@@ -344,19 +352,19 @@ export default function DeliveryLiveMap({
     } else {
       polylineCasingRef.current = L.polyline(points, {
         color: "#0f172a",
-        weight: 7,
-        opacity: 0.2,
+        weight: 8,
+        opacity: 0.22,
         lineCap: "round",
         lineJoin: "round",
       }).addTo(mapRef.current);
     }
 
-    // Foreground Route Line (vibrant brand-600)
+    // Foreground Route Line (vibrant delivery orange)
     if (polylineRef.current) {
       polylineRef.current.setLatLngs(points);
     } else {
       polylineRef.current = L.polyline(points, {
-        color: "var(--brand-600)",
+        color: "#ea580c",
         weight: 4.5,
         opacity: 0.95,
         lineCap: "round",
@@ -419,9 +427,12 @@ export default function DeliveryLiveMap({
       style={{ minHeight: 220, background: "var(--surface-muted)", ...style }}
     >
       <style>{`
+        .delivery-map-tiles {
+          filter: saturate(1.12) contrast(1.02);
+        }
         @keyframes dlv-radar-pulse {
           0% { transform: scale(0.85); opacity: 0.9; }
-          100% { transform: scale(1.85); opacity: 0; }
+          100% { transform: scale(2.0); opacity: 0; }
         }
       `}</style>
 

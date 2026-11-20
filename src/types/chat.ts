@@ -1,5 +1,7 @@
 // Direct messaging between two users, optionally about a listing.
 
+export type SenderRole = "customer" | "business_owner" | "business_agent" | "provider" | "rider";
+
 export interface Conversation {
   id: string;
   participantA: string;        // always the lexicographically smaller user ID
@@ -17,6 +19,10 @@ export interface Conversation {
   subjectName?: string | null;
   subjectAvatar?: string | null;
   subjectOwnerId?: string | null;
+  /** Shared team inbox entity ID (business/store ID) for multi-staff management */
+  teamEntityId?: string | null;
+  lastReplierId?: string | null;
+  lastRepliedAt?: string | null;
   // Client-enriched (already resolved to what THIS user should see):
   otherUser?: ChatCounterpart;
 }
@@ -55,4 +61,14 @@ export interface Message {
   kind?: string | null;
   /** Structured payload for non-text kinds — e.g. { share_id, status } for LIVE_LOCATION. */
   meta?: Record<string, any> | null;
+  /** Verified role of the sender */
+  senderRole?: SenderRole | null;
+  /** Entity ID (e.g. business/store id) when sending on behalf of a brand */
+  entityId?: string | null;
+  /** Public display name of the entity/store */
+  entityName?: string | null;
+  /** Avatar of the entity/store */
+  entityAvatar?: string | null;
+  /** Staff alias (e.g. "Priya") for team accountability */
+  staffAlias?: string | null;
 }

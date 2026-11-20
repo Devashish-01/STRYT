@@ -203,8 +203,8 @@ const KEYWORDS: { key: BusinessPackageKey; words: string[] }[] = [
   {
     key: "shop",
     words: [
-      "grocery", "kirana", "clothing", "footwear", "electronics", "mobile",
-      "book", "stationery", "pet shop", "retail shops",
+      "grocer", "kirana", "supermarket", "daily needs", "general store", "clothing", "footwear", "electronics", "mobile",
+      "book", "stationery", "pet shop", "retail shops", "retail",
     ],
   },
   {
@@ -411,8 +411,8 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     showCartStepper: true,
     catalogItemCta: { show: false, label: "" },
     bookingsDefault: false,
-    primaryCtaLabel: "Book appointment",
-    bookingClosedLabel: "Not accepting appointments right now",
+    primaryCtaLabel: "Order Medicines",
+    bookingClosedLabel: "Pharmacy closed right now",
     hoursLabel: "Store Hours",
     slotCapacityLabel: "Bookings at the same time",
     showSlotCapacitySection: false,
@@ -599,8 +599,8 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     showCartStepper: true,
     catalogItemCta: { show: false, label: "" },
     bookingsDefault: false,
-    primaryCtaLabel: "Book appointment",
-    bookingClosedLabel: "Not accepting appointments right now",
+    primaryCtaLabel: "Order Products",
+    bookingClosedLabel: "Store closed right now",
     hoursLabel: "Store Hours",
     slotCapacityLabel: "Bookings at the same time",
     showSlotCapacitySection: false,

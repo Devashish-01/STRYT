@@ -209,7 +209,14 @@ export const chatService = {
     conv: Conversation,
     imageUrl?: string,
     /** A structured message (e.g. a reply to a story): `kind` picks how the thread draws it, `meta` is its payload. */
-    extra?: { kind: string; meta: Record<string, unknown> },
+    extra?: {
+      kind?: string;
+      meta?: Record<string, unknown>;
+      senderRole?: string;
+      entityId?: string;
+      entityName?: string;
+      staffAlias?: string;
+    },
   ): Promise<Message> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -218,8 +225,15 @@ export const chatService = {
     const { data: msg, error: msgErr } = await sb
       .from("messages")
       .insert({
-        conversation_id: conversationId, sender_id: uid, body, image_url: imageUrl ?? null,
-        ...(extra ? { kind: extra.kind, meta: extra.meta as never } : {}),
+        conversation_id: conversationId,
+        sender_id: uid,
+        body,
+        image_url: imageUrl ?? null,
+        ...(extra?.kind ? { kind: extra.kind, meta: extra.meta as never } : {}),
+        ...(extra?.senderRole ? { sender_role: extra.senderRole } : {}),
+        ...(extra?.entityId ? { entity_id: extra.entityId } : {}),
+        ...(extra?.entityName ? { entity_name: extra.entityName } : {}),
+        ...(extra?.staffAlias ? { staff_alias: extra.staffAlias } : {}),
       })
       .select()
       .maybeSingle();
@@ -231,6 +245,9 @@ export const chatService = {
       last_message_at: new Date().toISOString(),
       last_message_preview: imageUrl ? "📷 Photo" : extra?.kind === "STORY_REPLY" ? `↩ ${body}`.slice(0, 80) : body.slice(0, 80),
       ...(isA ? { has_unread_b: true, has_unread_a: false } : { has_unread_a: true, has_unread_b: false }),
+      ...(extra?.entityId ? { team_entity_id: extra.entityId } : {}),
+      last_replier_id: uid,
+      last_replied_at: new Date().toISOString(),
     }).eq("id", conversationId);
 
     return toCamel<Message>(msg);

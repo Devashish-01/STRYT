@@ -1,6 +1,7 @@
 import { trackingUrl } from "@/lib/trackingLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { RASTER_TILES } from "@/lib/mapTiles";
@@ -186,6 +187,64 @@ export default function BusinessDeliveries() {
     ];
   }, [agentFilter, agentPoints, stopPoints]);
 
+  const storeMarkerIcon = useMemo(() => {
+    const sName = business?.name || "Store";
+    return L.divIcon({
+      html: `
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:#ffffff;border:2.5px solid var(--brand-600);box-shadow:0 4px 14px rgba(0,0,0,0.24);font-size:19px;">
+            🏬
+          </div>
+          <div style="margin-top:3px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);pointer-events:none;">
+            ${sName}
+          </div>
+        </div>
+      `,
+      className: "",
+      iconSize: [38, 58],
+      iconAnchor: [19, 19],
+    });
+  }, [business?.name]);
+
+  const getRiderIcon = (name: string) => {
+    return L.divIcon({
+      html: `
+        <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          <div style="position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(234, 88, 12, 0.25);animation:dlv-radar-pulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+          <div style="position:relative;z-index:3;width:38px;height:38px;border-radius:50%;background:#ea580c;border:3px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.32);display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:19px;line-height:1;">🛵</span>
+          </div>
+          <div style="position:absolute;top:-20px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:4;">
+            ${name}
+          </div>
+        </div>
+      `,
+      className: "",
+      iconSize: [56, 56],
+      iconAnchor: [28, 28],
+    });
+  };
+
+  const getStopIcon = (label: string, isFocused: boolean) => {
+    return L.divIcon({
+      html: `
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="display:flex;align-items:center;justify-content:center;width:${isFocused ? 36 : 30}px;height:${isFocused ? 36 : 30}px;border-radius:50%;background:${isFocused ? "var(--red-500)" : "#64748b"};border:2.5px solid #ffffff;box-shadow:0 3px 12px rgba(0,0,0,0.26);font-size:${isFocused ? 16 : 13}px;color:#ffffff;">
+            🏠
+          </div>
+          ${isFocused ? `
+            <div style="margin-top:2px;white-space:nowrap;background:var(--red-600);color:#ffffff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,0.2);pointer-events:none;">
+              ${label}
+            </div>
+          ` : ""}
+        </div>
+      `,
+      className: "",
+      iconSize: [36, 54],
+      iconAnchor: [18, 18],
+    });
+  };
+
   // Route itself had no flag check before this — only the dashboard tile/nav
   // link pointing here did (BusinessHub.tsx, ManageDashboard.tsx), so direct
   // URL entry stayed reachable with the feature off. Redirect rather than
@@ -216,9 +275,28 @@ export default function BusinessDeliveries() {
           <>
             {mapCenter && visible.length > 0 && (
               <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-                <div style={{ height: 240, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
+                <div style={{ position: "relative", height: 280, borderRadius: 20, overflow: "hidden", border: "1px solid var(--line)", boxShadow: "0 6px 20px rgba(0,0,0,0.08)" }}>
+                  <style>{`
+                    .delivery-map-tiles {
+                      filter: saturate(1.12) contrast(1.02);
+                    }
+                    @keyframes dlv-radar-pulse {
+                      0% { transform: scale(0.85); opacity: 0.9; }
+                      100% { transform: scale(2.0); opacity: 0; }
+                    }
+                  `}</style>
+                  {/* Floating Fleet Radar Status Pill */}
+                  <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 1000, pointerEvents: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20, background: "rgba(255,255,255,0.94)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", border: "1px solid var(--line)", backdropFilter: "blur(6px)" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green-500)", display: "inline-block", animation: "dlv-radar-pulse 2s infinite" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-900)" }}>
+                        {agentPoints.length > 0 ? `${agentPoints.length} Rider(s) Active · ${active.length} In Transit` : "Waiting for rider location…"}
+                      </span>
+                    </div>
+                  </div>
+
                   <MapContainer center={mapCenter} zoom={13} style={{ width: "100%", height: "100%" }} zoomControl={false} attributionControl={false}>
-                    <TileLayer {...RASTER_TILES} />
+                    <TileLayer {...RASTER_TILES} className="delivery-map-tiles" />
                     <MapController
                       center={mapCenter}
                       focusedCoords={
@@ -228,20 +306,27 @@ export default function BusinessDeliveries() {
                       }
                     />
                     {business?.lat && business?.lng && (
-                      <Marker position={[business.lat, business.lng]} icon={makePinIcon("var(--orange-500)")} />
+                      <Marker position={[business.lat, business.lng]} icon={storeMarkerIcon} zIndexOffset={900} />
                     )}
                     {agentPoints.map((a, i) => (
-                      <Marker key={`agent-${i}`} position={[a.lat, a.lng]} icon={makePinIcon("var(--delivery-600)")} />
+                      <Marker key={`agent-${i}`} position={[a.lat, a.lng]} icon={getRiderIcon(a.name)} zIndexOffset={1200} />
                     ))}
                     {stopPoints.map((s) => (
                       <Marker
                         key={s.id}
                         position={[s.deliveryLat!, s.deliveryLng!]}
-                        icon={makePinIcon(s.id === focusedId ? "var(--brand-600)" : "var(--ink-400)")}
+                        icon={getStopIcon(s.customerName || "Customer", s.id === focusedId)}
+                        zIndexOffset={s.id === focusedId ? 1100 : 800}
+                        eventHandlers={{
+                          click: () => setFocusedId(focusedId === s.id ? null : s.id),
+                        }}
                       />
                     ))}
                     {routeLine.length > 1 && (
-                      <Polyline positions={routeLine} pathOptions={{ color: "var(--delivery-600)", weight: 3, dashArray: "6 8" }} />
+                      <>
+                        <Polyline positions={routeLine} pathOptions={{ color: "#0f172a", weight: 7, opacity: 0.2 }} />
+                        <Polyline positions={routeLine} pathOptions={{ color: "#ea580c", weight: 4, opacity: 0.95 }} />
+                      </>
                     )}
                   </MapContainer>
                 </div>

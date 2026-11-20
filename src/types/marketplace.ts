@@ -25,6 +25,23 @@ export type EntityStatus =
 
 export type VerificationStatus = "NONE" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
 
+export type BusinessOperatingModel =
+  | "RETAIL_COMMERCE"
+  | "FOOD_DINING_TAKEAWAY"
+  | "SERVICE_APPOINTMENT"
+  | "HEALTHCARE_CONSULT"
+  | "FIELD_SERVICE_DISPATCH"
+  | "BATCH_OR_SESSION"
+  | "PROFESSIONAL_QUOTE"
+  | "RETAIL_SHOWROOM";
+
+export interface FulfillmentCapabilities {
+  delivery?: boolean;
+  pickup?: boolean;
+  appointments?: boolean;
+  queue?: boolean;
+}
+
 export interface Business {
   id: string;
   ownerUserId: string;
@@ -98,6 +115,10 @@ export interface Business {
   /** Optional ceiling across ALL services at one timestamp — stops per-service
    *  capacity overbooking a shared resource (3 chairs, 2 services). Null = off. */
   maxConcurrentBookings?: number | null;
+  /** Primary operating model (RETAIL_COMMERCE, FOOD_DINING_TAKEAWAY, SERVICE_APPOINTMENT, etc.) */
+  operatingModel?: BusinessOperatingModel;
+  /** Explicit fulfillment capabilities gating delivery, in-store pickup, appointments, and live queue. */
+  fulfillmentCapabilities?: FulfillmentCapabilities;
   offerText?: string;
   ownerEnabled?: boolean;
   deletedAt?: string | null;

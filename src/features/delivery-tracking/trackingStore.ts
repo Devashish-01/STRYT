@@ -24,7 +24,7 @@ export interface TrackingState {
 }
 
 let state: TrackingState = { status: "idle", lastFixAt: null, consoleOpen: false };
-let lastFix: { lat: number; lng: number; at: number } | null = null;
+let lastFix: { lat: number; lng: number; heading?: number; at: number } | null = null;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -52,13 +52,13 @@ export function useTrackingState(): TrackingState {
 }
 
 /** The most recent position the watcher produced, if it is recent enough to use instead of waiting for a new GPS read. */
-export function recordFix(f: { lat: number; lng: number }): void {
-  lastFix = { lat: f.lat, lng: f.lng, at: Date.now() };
+export function recordFix(f: { lat: number; lng: number; heading?: number }): void {
+  lastFix = { lat: f.lat, lng: f.lng, heading: f.heading, at: Date.now() };
 }
 
-export function lastKnownFix(maxAgeMs = 60_000): { lat: number; lng: number } | null {
+export function lastKnownFix(maxAgeMs = 60_000): { lat: number; lng: number; heading?: number } | null {
   if (!lastFix || Date.now() - lastFix.at > maxAgeMs) return null;
-  return { lat: lastFix.lat, lng: lastFix.lng };
+  return { lat: lastFix.lat, lng: lastFix.lng, heading: lastFix.heading };
 }
 
 /** Set by the runner so a banner anywhere can ask it to try again (re-prompt for location). */

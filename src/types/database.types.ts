@@ -1755,6 +1755,8 @@ export type Database = {
           last_message_preview: string | null
           last_read_at_a: string | null
           last_read_at_b: string | null
+          last_replied_at: string | null
+          last_replier_id: string | null
           participant_a: string
           participant_b: string
           subject_avatar: string | null
@@ -1762,6 +1764,7 @@ export type Database = {
           subject_name: string | null
           subject_owner_id: string | null
           subject_type: string | null
+          team_entity_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1772,6 +1775,8 @@ export type Database = {
           last_message_preview?: string | null
           last_read_at_a?: string | null
           last_read_at_b?: string | null
+          last_replied_at?: string | null
+          last_replier_id?: string | null
           participant_a: string
           participant_b: string
           subject_avatar?: string | null
@@ -1779,6 +1784,7 @@ export type Database = {
           subject_name?: string | null
           subject_owner_id?: string | null
           subject_type?: string | null
+          team_entity_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1789,6 +1795,8 @@ export type Database = {
           last_message_preview?: string | null
           last_read_at_a?: string | null
           last_read_at_b?: string | null
+          last_replied_at?: string | null
+          last_replier_id?: string | null
           participant_a?: string
           participant_b?: string
           subject_avatar?: string | null
@@ -1796,6 +1804,7 @@ export type Database = {
           subject_name?: string | null
           subject_owner_id?: string | null
           subject_type?: string | null
+          team_entity_id?: string | null
         }
         Relationships: [
           {
@@ -2649,31 +2658,46 @@ export type Database = {
           body: string
           conversation_id: string
           created_at: string | null
+          entity_avatar: string | null
+          entity_id: string | null
+          entity_name: string | null
           id: string
           image_url: string | null
           kind: string | null
           meta: Json | null
           sender_id: string
+          sender_role: string | null
+          staff_alias: string | null
         }
         Insert: {
           body: string
           conversation_id: string
           created_at?: string | null
+          entity_avatar?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
           id?: string
           image_url?: string | null
           kind?: string | null
           meta?: Json | null
           sender_id: string
+          sender_role?: string | null
+          staff_alias?: string | null
         }
         Update: {
           body?: string
           conversation_id?: string
           created_at?: string | null
+          entity_avatar?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
           id?: string
           image_url?: string | null
           kind?: string | null
           meta?: Json | null
           sender_id?: string
+          sender_role?: string | null
+          staff_alias?: string | null
         }
         Relationships: [
           {
