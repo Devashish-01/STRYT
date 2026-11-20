@@ -75,9 +75,13 @@ function isPayable(status: AppointmentRecord["status"]): boolean {
 }
 
 // Mirrors the server's own rule: appointment_transition allows a CUSTOMER
-// cancel only from PENDING/ACCEPTED, and reschedule_appointment refuses
-// anything outside that same pair. Anything else is a dead button.
+// cancel only from PENDING/ACCEPTED, and for delivery orders, once ACCEPTED
+// and in fulfillment, the database strictly blocks cancellation with
+// DELIVERY_IN_PROGRESS.
 function canCustomerModify(a: AppointmentRecord): boolean {
+  if (a.fulfillmentType === "DELIVERY" && a.status === "ACCEPTED") {
+    return false;
+  }
   return a.status === "PENDING" || a.status === "ACCEPTED";
 }
 
@@ -546,31 +550,33 @@ export default function MyAppointments({ initialSwimlane = "ALL" }: { initialSwi
 
                     {/* Actions */}
                     <div className="row gap-8" style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 2 }}>
-                      {tab === "UPCOMING" && canCustomerModify(apt) ? (
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-outline grow btn-sm row gap-4 center"
-                            style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
-                            disabled={busy}
-                            onClick={() => setCancelConfirm(apt)}
-                          >
-                            <XIcon size={14} /> {cancelling === apt.id ? t("cancelling_ellipsis") : t("cancel_action")}
-                          </button>
-                          {/* An "as soon as possible" order has no later slot to move to — cancel it and order again. */}
-                          {!apt.isAsap && (
+                      {tab === "UPCOMING" ? (
+                        canCustomerModify(apt) ? (
+                          <>
                             <button
                               type="button"
-                              // Tonal, not solid: "Pay" is the card's one primary action, and two solid purple buttons competed.
-                              className="btn grow btn-sm row gap-4 center"
-                              style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)", boxShadow: "none" }}
+                              className="btn btn-outline grow btn-sm row gap-4 center"
+                              style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
                               disabled={busy}
-                              onClick={() => openRebook(apt, "RESCHEDULE")}
+                              onClick={() => setCancelConfirm(apt)}
                             >
-                              <CalendarClock size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("reschedule_word")}
+                              <XIcon size={14} /> {cancelling === apt.id ? t("cancelling_ellipsis") : t("cancel_action")}
                             </button>
-                          )}
-                        </>
+                            {/* An "as soon as possible" order has no later slot to move to — cancel it and order again. */}
+                            {!apt.isAsap && (
+                              <button
+                                type="button"
+                                // Tonal, not solid: "Pay" is the card's one primary action, and two solid purple buttons competed.
+                                className="btn grow btn-sm row gap-4 center"
+                                style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)", boxShadow: "none" }}
+                                disabled={busy}
+                                onClick={() => openRebook(apt, "RESCHEDULE")}
+                              >
+                                <CalendarClock size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("reschedule_word")}
+                              </button>
+                            )}
+                          </>
+                        ) : null
                       ) : (
                         <button
                           type="button"

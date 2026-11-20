@@ -459,7 +459,7 @@ export default function Home() {
       title: o.targetName,
       stat: <LiveOrderHeadline apt={o} />,
       sub: <LiveOrderEta apt={o} />,
-      onClick: () => nav("/appointments"),
+      onClick: () => nav("/orders"),
     });
   }
   for (const q of activeQueues) {
