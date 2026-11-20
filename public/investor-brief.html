@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>STRYT | Investor Opportunity Brief | November 2026</title>
+<meta name="description" content="Evidence-led institutional investor brief for STRYT: The Operating System for Neighborhood Commerce. Verified market evidence, founder-proposed unit economics, and DPI-native scale architecture.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+:root {
+  /* STRYT Brand Colors */
+  --brand-50:  #f5f1ff;
+  --brand-100: #ede5ff;
+  --brand-150: #e4dcff;
+  --brand-200: #dcceff;
+  --brand-300: #c3a6ff;
+  --brand-400: #a575fb;
+  --brand-500: #8b47f5;
+  --brand-600: #7c2fe8;
+  --brand-700: #6b21cc;
+  --brand-800: #5b21b6;
+  --brand-900: #4c1d95;
+
+  /* STRYT Warm / Sunset Accents */
+  --accent-amber: #ff8400;
+  --accent-orange: #f26a00;
+  --accent-gold: #ffba2b;
+
+  /* STRYT Micro-logistics / Delivery Accent */
+  --delivery-50: #d5f2ee;
+  --delivery-100: #ccfbf1;
+  --delivery-500: #14b8a6;
+  --delivery-600: #0d9488;
+  --delivery-700: #0f766e;
+
+  /* Status Colors */
+  --green-50: #f0fdf4;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+  --amber-50: #fffbeb;
+  --amber-700: #b45309;
+  --amber-900: #78350f;
+  --red-50: #fff5f5;
+  --red-600: #dc2626;
+
+  /* Neutrals & Surfaces (Deep Purple Tinted Ink) */
+  --ink-900: #1a1530;
+  --ink-800: #2c2447;
+  --ink-700: #453a68;
+  --ink-600: #655583;
+  --ink-500: #8a78a3;
+  --ink-400: #b0a3c4;
+  --ink-200: #e8e1f0;
+  --ink-100: #f5f1fa;
+  --paper:   #f6f6fa;
+  --white:   #ffffff;
+  --line:    #e2e1f0;
+  --line-subtle: #edeaf5;
+  
+  --shadow-sm: 0 2px 5px rgba(26,21,48,0.04);
+  --shadow: 0 10px 30px rgba(26,21,48,0.06);
+  --shadow-brand: 0 12px 32px rgba(107,33,204,0.18);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  color: var(--ink-900);
+  line-height: 1.6;
+  font-size: 15px;
+}
+a { color: var(--brand-700); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Sticky Header */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.top-inner {
+  max-width: 1260px;
+  padding: 0 28px;
+  margin: auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.brand-logo-svg {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(107, 33, 204, 0.25);
+  display: block;
+}
+.brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.brand-name {
+  color: var(--ink-900);
+  font-size: 21px;
+  letter-spacing: 0.12em;
+  font-weight: 900;
+  line-height: 1;
+}
+.brand-sub {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--brand-600);
+  margin-top: 3px;
+}
+.topmeta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+}
+.pill {
+  border-radius: 99px;
+  border: 1px solid var(--brand-200);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  padding: 5px 12px;
+  font-weight: 750;
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+.btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: var(--ink-800);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: inherit;
+  transition: all 0.18s ease;
+}
+.btn:hover { background: var(--brand-50); border-color: var(--brand-200); color: var(--brand-800); }
+.btn.dark {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-900));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(107,33,204,0.25);
+}
+.btn.dark:hover {
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-800));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(107,33,204,0.32);
+}
+
+/* Page Wrapper */
+.wrap {
+  max-width: 1260px;
+  padding: 24px 28px 70px;
+  margin: auto;
+}
+
+/* Hero Section */
+.hero {
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 88% 18%, rgba(139, 71, 245, 0.42) 0%, transparent 50%),
+    radial-gradient(ellipse at 15% 85%, rgba(255, 132, 0, 0.20) 0%, transparent 45%),
+    linear-gradient(135deg, #120c24 0%, #1a1530 45%, #2a1c4b 100%);
+  padding: 56px 54px 44px;
+  min-height: 390px;
+  box-shadow: 0 16px 45px rgba(26,21,48,0.18);
+  border: 1px solid rgba(220, 206, 255, 0.15);
+}
+.hero:after {
+  content: "";
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border: 1px solid rgba(195, 166, 255, 0.16);
+  border-radius: 50%;
+  right: 50px;
+  top: 40px;
+  box-shadow: 0 0 0 55px rgba(195,166,255,0.03), 0 0 0 120px rgba(195,166,255,0.018);
+  pointer-events: none;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 850;
+  color: var(--brand-300);
+}
+.hero h1 {
+  font-size: clamp(34px, 4.8vw, 56px);
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+  max-width: 820px;
+  margin: 18px 0 16px;
+  font-weight: 850;
+  position: relative;
+  z-index: 1;
+}
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, #fff, var(--brand-200) 40%, var(--accent-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p {
+  font-size: 16.5px;
+  line-height: 1.62;
+  max-width: 720px;
+  color: #dfd7f2;
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 1;
+}
+.hero-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  position: relative;
+  z-index: 1;
+}
+.hero-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(220, 206, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: #ede5ff;
+  font-size: 12px;
+  font-weight: 650;
+  backdrop-filter: blur(8px);
+}
+.hero .big-watermark {
+  position: absolute;
+  right: 55px;
+  bottom: 25px;
+  color: rgba(255, 255, 255, 0.04);
+  font-size: 140px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.08em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Evidence Cards */
+.evidence {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 18px 0 26px;
+}
+.metric {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 20px;
+  min-height: 152px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(26,21,48,0.08);
+  border-color: var(--brand-200);
+}
+.metric .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-500);
+  font-weight: 780;
+}
+.metric .number {
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  font-weight: 880;
+  color: var(--brand-700);
+  margin: 6px 0 2px;
+  line-height: 1.1;
+}
+.metric .explain {
+  font-size: 12px;
+  color: var(--ink-600);
+  margin-top: 3px;
+  line-height: 1.45;
+  flex-grow: 1;
+}
+.metric a {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: var(--brand-600);
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Main Layout */
+.layout {
+  display: grid;
+  grid-template-columns: 215px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+}
+.contents {
+  position: sticky;
+  top: 92px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 10px;
+  box-shadow: var(--shadow-sm);
+}
+.contents p {
+  margin: 0 8px 10px;
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  color: var(--ink-400);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.contents a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--ink-700);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  transition: all 0.15s ease;
+}
+.contents a:hover {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  padding-left: 12px;
+}
+.contents .navnote {
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--brand-50);
+  margin: 12px 2px 2px;
+  padding: 10px;
+  border-radius: 9px;
+  color: var(--brand-800);
+  border: 1px solid var(--brand-150);
+}
+
+/* Document Sections */
+.doc { min-width: 0; }
+.sec {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 34px 38px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  scroll-margin-top: 86px;
+}
+.sec-head { margin-bottom: 22px; }
+.num {
+  display: inline-block;
+  color: var(--brand-600);
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  margin-bottom: 6px;
+}
+.sec h2 {
+  font-size: 25px;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+  color: var(--ink-900);
+  margin: 0 0 10px;
+}
+.sec h3 {
+  font-size: 16.5px;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--ink-900);
+}
+.intro {
+  max-width: 800px;
+  color: var(--ink-600);
+  margin: 0;
+  font-size: 14.5px;
+}
+.col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.col3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+.tile {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--ink-50);
+  border-left: 3px solid var(--brand-400);
+}
+.tile h3 { font-size: 14px; margin-bottom: 6px; }
+.tile p { font-size: 13px; color: var(--ink-600); margin: 0; }
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  border-radius: 99px;
+  padding: 3px 8px;
+  vertical-align: middle;
+}
+.verified { color: var(--green-700); background: var(--green-50); border: 1px solid #bbf7d0; }
+.founder { color: var(--brand-700); background: var(--brand-50); border: 1px solid var(--brand-200); }
+.hyp { color: var(--amber-900); background: var(--amber-50); border: 1px solid #fde68a; }
+
+.note {
+  border-left: 3px solid var(--brand-600);
+  background: var(--brand-50);
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--brand-900);
+  border-radius: 0 10px 10px 0;
+  margin-top: 18px;
+}
+.caution {
+  border-left-color: var(--accent-amber);
+  background: var(--amber-50);
+  color: var(--amber-900);
+}
+.small { font-size: 12px; color: var(--ink-500); }
+
+/* 4-Persona Unified Architecture */
+.workflow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 18px 0 18px;
+}
+.role {
+  padding: 20px 16px;
+  min-height: 165px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(170deg, var(--white), var(--brand-50));
+  position: relative;
+  transition: all 0.18s ease;
+}
+.role:hover {
+  border-color: var(--brand-300);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(107,33,204,0.08);
+}
+.role .circle {
+  height: 36px;
+  width: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.role.customer .circle { background: #ede5ff; color: var(--brand-700); }
+.role.merchant .circle { background: #ffe0f1; color: #c22a82; }
+.role.provider .circle { background: #fef3c7; color: var(--amber-700); }
+.role.rider .circle { background: var(--delivery-50); color: var(--delivery-700); }
+
+.role h3 { font-size: 14.5px; margin: 0 0 5px; color: var(--ink-900); }
+.role p { font-size: 12px; color: var(--ink-600); margin: 0; line-height: 1.45; }
+.flowbar {
+  text-align: center;
+  color: var(--brand-700);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin: 4px auto 16px;
+}
+.flowbar span {
+  border: 1px dashed var(--brand-300);
+  border-radius: 99px;
+  padding: 7px 16px;
+  background: var(--brand-50);
+}
+
+/* Steps */
+.steps { counter-reset: step; }
+.step {
+  display: flex;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.step:last-child { border-bottom: 0; }
+.dot {
+  border-radius: 50%;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  background: var(--brand-100);
+  color: var(--brand-800);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+.step strong { font-size: 14px; color: var(--ink-900); }
+.step p { margin: 3px 0 0; font-size: 12.8px; color: var(--ink-600); }
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 18px 0;
+  box-shadow: var(--shadow-sm);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+th {
+  background: var(--brand-50);
+  color: var(--brand-900);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+th, td {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line-subtle);
+  vertical-align: top;
+}
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 750; color: var(--ink-900); }
+tr:hover td { background: #faf9fd; }
+.highlight { color: var(--brand-700); font-weight: 800; }
+.subheading { margin-top: 26px !important; }
+
+/* Interactive Economics Simulator */
+.model {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 305px;
+  gap: 20px;
+  margin: 22px 0;
+}
+.model-controls {
+  background: #fbfaff;
+  border: 1px solid var(--brand-150);
+  border-radius: 14px;
+  padding: 22px;
+}
+.model-result {
+  background: linear-gradient(145deg, #18112e 0%, #1a1530 60%, #241940 100%);
+  color: white;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(26,21,48,0.22);
+  border: 1px solid rgba(195,166,255,0.2);
+}
+.control-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.control-head h3 { margin: 0; color: var(--ink-900); font-size: 15px; }
+.presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.presets button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  color: var(--ink-700);
+}
+.presets button[aria-pressed="true"] {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+  color: var(--brand-800);
+}
+.inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+.field label { color: var(--ink-700); font-size: 12px; font-weight: 700; }
+.field output { font-size: 12.5px; font-weight: 850; color: var(--brand-700); }
+.field input[type=range] {
+  grid-column: span 2;
+  width: 100%;
+  accent-color: var(--brand-600);
+  height: 6px;
+  cursor: pointer;
+}
+.model-result .eyebrow { color: var(--brand-300); }
+.sum {
+  font-size: 36px;
+  letter-spacing: -0.055em;
+  font-weight: 870;
+  color: #fff;
+  margin: 6px 0 4px;
+}
+.result-label { font-size: 12px; color: #c4b5e6; }
+.result-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(220, 206, 255, 0.15);
+  font-size: 12.5px;
+}
+.result-line b { color: #f5f1ff; }
+.result-line:first-of-type { margin-top: 18px; }
+.contrib {
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(195,166,255,0.22);
+}
+.contrib .sum { font-size: 26px; margin: 3px 0; color: #cbfbe2; }
+.disclosure {
+  color: #a395be;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 16px;
+}
+
+/* Roadmap & Narrative */
+.roadmap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+}
+.phase {
+  border-left: 4px solid var(--brand-500);
+  background: var(--brand-50);
+  border-radius: 0 11px 11px 0;
+  padding: 18px;
+  border-top: 1px solid var(--brand-150);
+  border-right: 1px solid var(--brand-150);
+  border-bottom: 1px solid var(--brand-150);
+}
+.phase span {
+  font-size: 10px;
+  color: var(--brand-700);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.phase h3 { margin: 6px 0; color: var(--ink-900); }
+.phase p { font-size: 12.5px; color: var(--ink-700); margin: 0; }
+
+.bigquote {
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+  padding: 24px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--brand-50), #fff);
+  color: var(--brand-900);
+  border: 1px solid var(--brand-200);
+  margin: 18px 0;
+}
+.sources {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.source {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 12px;
+  background: #fff;
+}
+.source strong { display: block; font-size: 12.5px; color: var(--ink-900); }
+.source a { word-break: break-word; font-size: 11px; }
+.source p { margin: 4px 0 0; color: var(--ink-600); font-size: 11px; }
+
+.ask {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px;
+  border: 1px dashed var(--brand-400);
+  border-radius: 14px;
+  background: var(--brand-50);
+}
+.ask .big {
+  font-size: 34px;
+  color: var(--brand-700);
+  font-weight: 900;
+  line-height: 1;
+}
+.ask p { margin: 4px 0 0; color: var(--ink-700); font-size: 13.5px; }
+
+.foot {
+  padding: 16px 12px;
+  color: var(--ink-500);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Responsive & Print */
+@media (max-width: 1050px) {
+  .layout { grid-template-columns: 1fr; }
+  .contents { display: none; }
+  .model { grid-template-columns: 1fr; }
+  .evidence { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 730px) {
+  .top-inner { padding: 12px 18px; }
+  .topmeta .date { display: none; }
+  .wrap { padding: 14px 14px 45px; }
+  .hero { padding: 36px 24px 30px; }
+  .hero h1 { font-size: 34px; }
+  .hero .big-watermark { display: none; }
+  .evidence { grid-template-columns: 1fr; }
+  .sec { padding: 24px 18px; }
+  .col2, .col3, .workflow, .roadmap, .sources { grid-template-columns: 1fr; }
+  .inputs { grid-template-columns: 1fr; }
+}
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff !important; color: #1a1530; font-size: 9.5pt; }
+  .top, .contents, .no-print { display: none !important; }
+  .wrap { padding: 0; margin: 0; max-width: none; }
+  .hero { border-radius: 8px; padding: 22px 26px; min-height: 0; background: #1a1530 !important; color: #fff !important; }
+  .hero h1 { font-size: 26pt; }
+  .hero p { font-size: 11pt; }
+  .evidence { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .metric { min-height: 110px; padding: 10px; }
+  .sec { box-shadow: none; border: 1px solid #ddd; padding: 18px; page-break-inside: avoid; }
+  .model { grid-template-columns: 1fr 220px; }
+  .model-result { background: #1a1530 !important; color: #fff !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- STICKY TOP HEADER -->
+<header class="top">
+  <div class="top-inner">
+    <a class="brand-link" href="#start">
+      <!-- STRYT Official SVG Brandmark -->
+      <svg class="brand-logo-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="strytHeaderBg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#a575fb"/>
+            <stop offset="1" stop-color="#6b21cc"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#strytHeaderBg)"/>
+        <!-- Location pin -->
+        <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="#ffffff"/>
+        <!-- Winding street -->
+        <path d="M32 39 C25 34 39 24 32 19" stroke="#7c2fe8" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Street centre line / lamps -->
+        <path d="M32 39 C25 34 39 24 32 19" stroke="#ff8400" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-dasharray="0.5 3.6"/>
+      </svg>
+      <div class="brand-text-wrap">
+        <span class="brand-name">STRYT</span>
+        <span class="brand-sub">Street Operating System</span>
+      </div>
+    </a>
+    <div class="topmeta">
+      <span class="date">Institutional Brief · November 2026</span>
+      <span class="pill"><span class="pill-live"></span>Evidence-Led Edition</span>
+      <button class="btn dark no-print" onclick="window.print()" aria-label="Print or save document as PDF">Print / Save PDF</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="start">
+
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <div class="eyebrow">THE OPERATING SYSTEM FOR NEIGHBORHOOD COMMERCE / INDIA</div>
+    <h1>Make every neighborhood <em>digitally competitive.</em></h1>
+    <p>STRYT is the decentralized, zero-commission operating infrastructure connecting local merchants, nearby consumers, service professionals, and independent delivery agents on a single DPI-native platform.</p>
+    <div class="hero-foot">
+      <span>✦ 0% Take-Rate Core Commerce</span>
+      <span>✦ Native UPI Rail Integration</span>
+      <span>✦ 4-in-1 Unified Persona Engine</span>
+      <span>✦ Asset-Light Software Economics</span>
+    </div>
+    <div class="big-watermark" aria-hidden="true">STRYT</div>
+  </section>
+
+  <!-- INDEPENDENT EVIDENCE BENCHMARKS -->
+  <section class="evidence" aria-label="Independent market evidence">
+    <div class="metric">
+      <div class="label">India Retail Economy · 2025</div>
+      <div class="number">$1.09T</div>
+      <div class="explain">Total physical retail market where 80%+ transacts across local MSMEs.</div>
+      <a href="#source-1">IBEF Source [1] ↗</a>
+    </div>
+    <div class="metric">
+      <div class="label">UPI Payment Volume · Oct 2026</div>
+      <div class="number">25.47B</div>
+      <div class="explain">Monthly transactions (₹31.53 Lakh Cr) proving zero-friction digital payment habits.</div>
+      <a href="#source-2">NPCI Official [2] ↗</a>
+    </div>
+    <div class="metric">
+      <div class="label">ONDC Merchant Reach · 2026</div>
+      <div class="number">500K+</div>
+      <div class="explain">Sellers active across 1,000+ Indian cities validating open network demand.</div>
+      <a href="#source-3">PIB Report [3] ↗</a>
+    </div>
+    <div class="metric">
+      <div class="label">Q-Commerce Sector · FY26</div>
+      <div class="number">~$13B</div>
+      <div class="explain">High-cost dark store model proving consumer demand for neighborhood speed.</div>
+      <a href="#source-4">Redseer [4] ↗</a>
+    </div>
+  </section>
+
+  <!-- LAYOUT WITH STICKY NAVIGATION -->
+  <div class="layout">
+    <aside class="contents no-print" aria-label="Table of contents">
+      <p>Inside the Brief</p>
+      <a href="#thesis">01 / Investment Thesis</a>
+      <a href="#timing">02 / Macro Context & Why Now</a>
+      <a href="#product">03 / 4-in-1 Persona Architecture</a>
+      <a href="#position">04 / Competitive Positioning</a>
+      <a href="#business">05 / High-Margin Monetization</a>
+      <a href="#economics">06 / Cluster Economics Simulator</a>
+      <a href="#validation">07 / Proof & Milestones</a>
+      <a href="#risk">08 / Diligence & Risk Guardrails</a>
+      <a href="#ask">09 / Capital Allocation & Round</a>
+      <a href="#sources">10 / Sources & Data Integrity</a>
+      <div class="navnote">
+        <strong>Institutional Standard</strong><br>
+        Macro data is government/industry verified. Financial models differentiate audited baseline from founder scenario targets.
+      </div>
+    </aside>
+
+    <main class="doc">
+
+      <!-- SECTION 1: INVESTMENT THESIS -->
+      <section class="sec" id="thesis">
+        <div class="sec-head">
+          <span class="num">01 / THE CORE THESIS</span>
+          <h2>A credible, asset-light operating platform</h2>
+          <p class="intro">STRYT organizes neighborhood commerce through software infrastructure—not by leasing expensive dark stores, taking inventory risk, or subsidizing hyper-burn logistics.</p>
+        </div>
+        <div class="col3">
+          <div class="tile">
+            <h3>The Merchant Pain</h3>
+            <p>Monopolistic aggregators impose 22%–30% take-rate commissions, mask buyer identities, and extort ad spend within the seller's own 2-km radius.</p>
+          </div>
+          <div class="tile">
+            <h3>The Product Engine</h3>
+            <p>A unified PWA enabling instant storefronts, reverse demand matching ("Ask Street"), time-slot queues, and autonomous local dispatch.</p>
+          </div>
+          <div class="tile">
+            <h3>The Economic Moat</h3>
+            <p>0% core transaction commission attracts merchants virally; monetization is driven by predictable SaaS, DaaS micro-dispatch, and hyper-targeted ads.</p>
+          </div>
+        </div>
+        <div class="bigquote">
+          “The multi-billion dollar opportunity is not to own the neighborhood’s inventory. It is to become the indispensable software layer that makes the neighborhood digitally competitive.”
+        </div>
+        <div class="note">
+          <strong>Investment Readiness:</strong> STRYT is presented here as an operational software hypothesis with verified market macro tailwinds. Active paying cohorts and GMV traction are subject to local cluster pilot audits.
+        </div>
+      </section>
+
+      <!-- SECTION 2: MACRO CONTEXT -->
+      <section class="sec" id="timing">
+        <div class="sec-head">
+          <span class="num">02 / MACRO CATALYSTS</span>
+          <h2>Why the aggregator monopoly is vulnerable today</h2>
+          <p class="intro">Three macroeconomic forces converge in India to create an opening for an open, merchant-first operating platform.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="dot">1</div>
+            <div>
+              <strong>Traditional Retail Dominates Physical Commerce.</strong> <span class="tag verified">Verified Market Data</span>
+              <p>IBEF measures Indian retail at $1.094 Trillion in 2025. Over 80% of purchases occur within 2 km of the buyer's home at neighborhood Kiranas and independent establishments. <a href="#source-1">[1]</a></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="dot">2</div>
+            <div>
+              <strong>Ubiquitous Zero-MDR Payment Rails.</strong> <span class="tag verified">NPCI Official</span>
+              <p>UPI processed 25.47 billion transactions in October 2026 alone (~₹31.53 Lakh Cr). Consumers and merchants are fully habituated to instant mobile settlements, bypassing credit card gateway fees. <a href="#source-2">[2]</a></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="dot">3</div>
+            <div>
+              <strong>The Dark-Store Unit Economics Wall.</strong> <span class="tag verified">Analyst Estimate</span>
+              <p>Quick-commerce players face mounting urban lease costs, perishable inventory shrinkage (dairy, fruit), and rider attrition. Neighborhood stores already hold that inventory 300 meters away at zero platform capex. <a href="#source-4">[4]</a></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="dot">4</div>
+            <div>
+              <strong>Open Digital Public Infrastructure (DPI).</strong> <span class="tag verified">PIB Official</span>
+              <p>ONDC has scaled to 500,000+ sellers across 1,000+ cities. The regulatory and consumer sentiment is decisively shifting toward open, anti-monopoly merchant enablement. <a href="#source-3">[3]</a></p>
+            </div>
+          </div>
+        </div>
+        <div class="note caution">
+          <strong>Market Sizing Discipline:</strong> Institutional investors should distinguish India's total $1.15T retail GMV from STRYT's addressable software market. STRYT's addressable market is defined by software subscriptions, dispatch micro-fees, and promotional revenues.
+        </div>
+      </section>
+
+      <!-- SECTION 3: PRODUCT & WORKFLOWS -->
+      <section class="sec" id="product">
+        <div class="sec-head">
+          <span class="num">03 / PRODUCT ARCHITECTURE</span>
+          <h2>4-in-1 Unified Persona Engine</h2>
+          <p class="intro">Unlike fragmented platforms that silo apps into food, grocery, salons, or courier services, STRYT enables one universal account to switch seamlessly between four roles in any neighborhood.</p>
+        </div>
+        <div class="workflow">
+          <div class="role customer">
+            <div class="circle">🛍️</div>
+            <h3>Customer</h3>
+            <p>Post reverse requests ("Ask Street"), compare local bids, book time slots, and track delivery on a live map.</p>
+          </div>
+          <div class="role merchant">
+            <div class="circle">🏪</div>
+            <h3>Store Merchant</h3>
+            <p>Publish instant catalogs, receive localized demand, manage virtual queues, and dispatch in-house or pooled riders.</p>
+          </div>
+          <div class="role provider">
+            <div class="circle">⚡</div>
+            <h3>Service Provider</h3>
+            <p>Home technicians, salons, and repair pros quote directly on community leads with mutual milestone escrow.</p>
+          </div>
+          <div class="role rider">
+            <div class="circle">🛵</div>
+            <h3>Delivery Rider</h3>
+            <p>Local gig partners or store runners accept batch runs, turn-by-turn routing, and OTP doorstep handoffs.</p>
+          </div>
+        </div>
+        <div class="flowbar">
+          <span>Single Unified PWA · Zero App-Store Friction · Cross-Network Liquidity</span>
+        </div>
+        <div class="col2">
+          <div class="tile">
+            <h3>Reverse Demand Marketplace ("Ask Your Street")</h3>
+            <p>Customers post what they need ("5L cold-pressed oil by 5 PM"). Surrounding verified merchants compete on pricing and availability. Solves the cold-start problem without heavy advertising.</p>
+          </div>
+          <div class="tile">
+            <h3>Direct Peer-to-Merchant (P2M) UPI</h3>
+            <p>Payment flows straight to the merchant's UPI VPA. Eliminates 7-day aggregator settlement holds and credit risk, building immediate merchant trust.</p>
+          </div>
+          <div class="tile">
+            <h3>Autonomous Dispatch Coordination</h3>
+            <p>Merchants choose self-delivery or tap nearby pooled riders via a ₹5–₹10 micro-coordination fee. Real-time GPS tracking and 6-digit OTP verification ensure handoff security.</p>
+          </div>
+          <div class="tile">
+            <h3>Virtual Walk-in Queues & Appointments</h3>
+            <p>Eliminates street crowding for clinics, salons, and food spots with live token countdowns and automated SMS/push notifications.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: MARKET POSITIONING -->
+      <section class="sec" id="position">
+        <div class="sec-head">
+          <span class="num">04 / COMPETITIVE DEFENSE</span>
+          <h2>Enabling the merchant, not taxing them</h2>
+          <p class="intro">STRYT does not compete with delivery speed kings on subsidized logistics. It competes on merchant profitability, customer ownership, and multi-service utility.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Dominant Model</th>
+                <th>Aggregator Vulnerability</th>
+                <th>STRYT Strategic Moat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Zomato / Swiggy</strong></td>
+                <td>20%–30% food commission</td>
+                <td>Merchant margin erosion; high delivery surcharges for consumers</td>
+                <td><span class="highlight">0% Commission;</span> merchant keeps 100% of order value; direct customer relationships</td>
+              </tr>
+              <tr>
+                <td><strong>Zepto / Blinkit</strong></td>
+                <td>Asset-heavy dark stores</td>
+                <td>High capital burn; limited SKU breadth; bypasses neighborhood kiranas</td>
+                <td><span class="highlight">Asset-Light;</span> connects existing 12M+ kiranas with 15–30 min neighborhood delivery</td>
+              </tr>
+              <tr>
+                <td><strong>Urban Company</strong></td>
+                <td>Managed service platform</td>
+                <td>25%+ take-rate; rigid mandates; providers take top clients offline</td>
+                <td><span class="highlight">SaaS Tooling;</span> independent providers retain direct client lists and schedule sovereignty</td>
+              </tr>
+              <tr>
+                <td><strong>WhatsApp Business</strong></td>
+                <td>Unstructured messaging</td>
+                <td>No unified catalog search, routing, queue management, or delivery tracking</td>
+                <td><span class="highlight">Structured Workflows;</span> full inventory, cart, OTP verification, and live tracking</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 5: MONETIZATION -->
+      <section class="sec" id="business">
+        <div class="sec-head">
+          <span class="num">05 / REVENUE ARCHITECTURE</span>
+          <h2>High-margin software & transaction services</h2>
+          <p class="intro">By keeping core transactions at 0% commission, STRYT eliminates onboarding resistance and monetizes high-margin utility services.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Revenue Stream</th>
+                <th>Pricing Structure</th>
+                <th>Target Margin</th>
+                <th>Value Delivered</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Merchant SaaS Tier</strong></td>
+                <td>₹499 – ₹1,499 / mo</td>
+                <td>90%+</td>
+                <td>Advanced inventory, multi-staff access, customer loyalty CRM, custom domain</td>
+              </tr>
+              <tr>
+                <td><strong>DaaS Dispatch Fee</strong></td>
+                <td>₹5 – ₹10 / delivery</td>
+                <td>70%+</td>
+                <td>Automated rider routing, batching, doorstep OTP verification, live map telemetry</td>
+              </tr>
+              <tr>
+                <td><strong>Hyperlocal Promoted Radius</strong></td>
+                <td>₹99 – ₹499 / campaign</td>
+                <td>95%+</td>
+                <td>Boosted placement in "Ask Street" and local category feeds within 1–3 km</td>
+              </tr>
+              <tr>
+                <td><strong>Embedded Working Capital</strong></td>
+                <td>0.75% – 1.50% origination</td>
+                <td>85%+</td>
+                <td>NBFC partner credit lines based on verifiable on-platform cashflow data</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 6: CLUSTER ECONOMICS SIMULATOR -->
+      <section class="sec" id="economics">
+        <div class="sec-head">
+          <span class="num">06 / UNIT ECONOMICS</span>
+          <h2>Interactive Neighborhood Cluster Simulator</h2>
+          <p class="intro">Test the unit economics of a single dense neighborhood catchment (e.g., Indiranagar, Bengaluru or Amanora, Pune) with live assumptions.</p>
+        </div>
+        <div class="model no-print">
+          <div class="model-controls">
+            <div class="control-head">
+              <h3>Neighborhood Cluster Inputs</h3>
+              <div class="presets">
+                <button type="button" data-preset="conservative" aria-pressed="false">Conservative</button>
+                <button type="button" data-preset="base" aria-pressed="true">Base Case</button>
+                <button type="button" data-preset="upside" aria-pressed="false">Growth Scenario</button>
+              </div>
+            </div>
+            <div class="inputs">
+              <div class="field">
+                <label for="merchants">Active Merchants in Cluster</label>
+                <output id="v-merchants" for="merchants">100</output>
+                <input type="range" id="merchants" min="20" max="300" step="10" value="100">
+              </div>
+              <div class="field">
+                <label for="paid">Paid SaaS Conversion</label>
+                <output id="v-paid" for="paid">30%</output>
+                <input type="range" id="paid" min="5" max="65" step="5" value="30">
+              </div>
+              <div class="field">
+                <label for="price">Monthly SaaS Fee</label>
+                <output id="v-price" for="price">₹799</output>
+                <input type="range" id="price" min="499" max="1499" step="50" value="799">
+              </div>
+              <div class="field">
+                <label for="dispatches">Monthly Dispatches</label>
+                <output id="v-dispatches" for="dispatches">1,000</output>
+                <input type="range" id="dispatches" min="0" max="5000" step="100" value="1000">
+              </div>
+              <div class="field">
+                <label for="fee">Dispatch Micro-Fee</label>
+                <output id="v-fee" for="fee">₹7</output>
+                <input type="range" id="fee" min="5" max="10" step="1" value="7">
+              </div>
+              <div class="field">
+                <label for="promos">Paid Promoted Campaigns</label>
+                <output id="v-promos" for="promos">15</output>
+                <input type="range" id="promos" min="0" max="100" step="5" value="15">
+              </div>
+              <div class="field">
+                <label for="promoPrice">Average Promo Spend</label>
+                <output id="v-promoPrice" for="promoPrice">₹149</output>
+                <input type="range" id="promoPrice" min="49" max="299" step="10" value="149">
+              </div>
+              <div class="field">
+                <label for="cost">Direct Cluster Cloud & Telemetry Cost</label>
+                <output id="v-cost" for="cost">₹14,000</output>
+                <input type="range" id="cost" min="4000" max="50000" step="1000" value="14000">
+              </div>
+            </div>
+          </div>
+          <div class="model-result">
+            <div class="eyebrow">CLUSTER MONTHLY PERFORMANCE</div>
+            <div class="sum" id="rev">₹33,205</div>
+            <div class="result-label" id="pay-count">30 Paid Merchants · Single Catchment</div>
+            <div class="result-line">
+              <span>SaaS Subscriptions</span>
+              <b id="sub-rev">₹23,970</b>
+            </div>
+            <div class="result-line">
+              <span>Dispatch Micro-Fees</span>
+              <b id="dispatch-rev">₹7,000</b>
+            </div>
+            <div class="result-line">
+              <span>Promoted Campaigns</span>
+              <b id="promo-rev">₹2,235</b>
+            </div>
+            <div class="result-line">
+              <span>Direct Infrastructure Cost</span>
+              <b id="cost-rev">−₹14,000</b>
+            </div>
+            <div class="contrib">
+              <div class="result-label">Net Cluster Contribution Margin</div>
+              <div class="sum" id="margin">₹19,205</div>
+              <div class="result-label" id="margin-pct">57.8% of Cluster Net Revenue</div>
+            </div>
+            <div class="disclosure">
+              *Excludes central engineering overhead and corporate CAC. Illustrates local cluster contribution at operational maturity.
+            </div>
+          </div>
+        </div>
+
+        <h3 class="subheading">5-Year Strategic Growth Trajectory <span class="tag founder">Management Target Scenario</span></h3>
+        <p class="small">Illustrative phased expansion target based on sequential multi-metro rollout:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Phase</th>
+                <th>Metro Hubs</th>
+                <th>Active Merchants</th>
+                <th>Annual Platform GMV</th>
+                <th>Net Platform ARR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Year 1</strong></td>
+                <td>2 Metros (Pune, Bengaluru)</td>
+                <td>15,000</td>
+                <td>$45M</td>
+                <td>$2.2M</td>
+              </tr>
+              <tr>
+                <td><strong>Year 2</strong></td>
+                <td>6 Metros (Top Tier-1)</td>
+                <td>65,000</td>
+                <td>$240M</td>
+                <td>$11.8M</td>
+              </tr>
+              <tr>
+                <td><strong>Year 3</strong></td>
+                <td>14 Metros (Tier-1 + High Tier-2)</td>
+                <td>180,000</td>
+                <td>$820M</td>
+                <td>$41.0M</td>
+              </tr>
+              <tr>
+                <td><strong>Year 4</strong></td>
+                <td>30 Cities</td>
+                <td>420,000</td>
+                <td>$2.1B</td>
+                <td>$105.0M</td>
+              </tr>
+              <tr>
+                <td><strong>Year 5</strong></td>
+                <td>50 Cities Nationwide</td>
+                <td>850,000</td>
+                <td>$4.8B</td>
+                <td>$242.0M</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 7: VALIDATION MILESTONES -->
+      <section class="sec" id="validation">
+        <div class="sec-head">
+          <span class="num">07 / EXECUTION ROADMAP</span>
+          <h2>Disciplined cluster-by-cluster expansion</h2>
+          <p class="intro">We reject undisciplined national spend in favor of proven neighborhood liquidity loops.</p>
+        </div>
+        <div class="roadmap">
+          <div class="phase">
+            <span>PHASE 1 · DENSITY</span>
+            <h3>1 High-Density Cluster</h3>
+            <p>Prove 100+ active kiranas and service providers in one high-density residential township. Validate 35%+ weekly repeat ordering.</p>
+          </div>
+          <div class="phase">
+            <span>PHASE 2 · MONETIZATION</span>
+            <h3>Paid SaaS Conversion</h3>
+            <p>Launch the ₹799/mo merchant tier and ₹7 micro-dispatch. Target 25%+ paid conversion and positive cluster contribution margin.</p>
+          </div>
+          <div class="phase">
+            <span>PHASE 3 · EXPANSION</span>
+            <h3>Multi-Hub Playbook</h3>
+            <p>Export the standardized neighborhood playbook across 10 contiguous city zones before institutional Series A scale.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 8: DILIGENCE & RISK GUARDRAILS -->
+      <section class="sec" id="risk">
+        <div class="sec-head">
+          <span class="num">08 / RISK GOVERNANCE</span>
+          <h2>Institutional diligence & mitigating controls</h2>
+          <p class="intro">Addressing institutional investor diligence questions transparently with operational guardrails.</p>
+        </div>
+        <div class="col2">
+          <div class="tile">
+            <h3>Cold-Start Supply/Demand Balance</h3>
+            <p><strong>Mitigation:</strong> Launch with "Ask Your Street" reverse demand feeds. Merchants onboard because demand is already visible, eliminating speculative listing churn.</p>
+          </div>
+          <div class="tile">
+            <h3>Merchant SaaS Churn Resistance</h3>
+            <p><strong>Mitigation:</strong> Provide direct customer CRM ownership. Merchants retain their client phone lists and purchase history, making STRYT indispensable for retention.</p>
+          </div>
+          <div class="tile">
+            <h3>Delivery Integrity & Trust</h3>
+            <p><strong>Mitigation:</strong> Cryptographic 6-digit doorstep OTP handoffs and live browser-based telemetry prevent order shrinkage without requiring dedicated hardware.</p>
+          </div>
+          <div class="tile">
+            <h3>DPI Regulatory Compatibility</h3>
+            <p><strong>Mitigation:</strong> Built from the ground up to support ONDC network protocol compatibility and open digital public infrastructure standards.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 9: CAPITAL ALLOCATION -->
+      <section class="sec" id="ask">
+        <div class="sec-head">
+          <span class="num">09 / THE INVESTMENT PROPOSITION</span>
+          <h2>Funding the neighborhood operating layer</h2>
+          <p class="intro">Targeting seed/early-growth capital to cement cluster density and operational profitability.</p>
+        </div>
+        <div class="ask">
+          <div class="big">↗</div>
+          <div>
+            <strong>Seed / Growth Financing Round</strong>
+            <p>Capital is allocated 45% to merchant network density and field acquisition, 35% to automated dispatch and real-time core engineering, and 20% to regulatory, risk, and 18-month operating runway.</p>
+          </div>
+        </div>
+        <div class="col2" style="margin-top:16px">
+          <div class="tile">
+            <h3>Core Deliverables for this Round</h3>
+            <p>1. Prove 10 profitable, self-sustaining neighborhood clusters.<br>2. Reach 1,500 active paying merchants on SaaS subscriptions.<br>3. Demonstrate LTV/CAC &gt; 4.0x with under 6-month cluster payback.</p>
+          </div>
+          <div class="tile">
+            <h3>Underwriting Metrics for Institutional Funds</h3>
+            <p>1. Merchant Weekly Active Rate (&gt;65%).<br>2. Customer Repeat Transaction Cohort (&gt;30% at Day 60).<br>3. Software Gross Margin profile sustaining 85%+.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 10: SOURCES & METHODOLOGY -->
+      <section class="sec" id="sources">
+        <div class="sec-head">
+          <span class="num">10 / DATA INTEGRITY & AUDIT</span>
+          <h2>Independent sources & methodology</h2>
+          <p class="intro">All macro data points have been independently cross-checked against official 2025–2026 filings.</p>
+        </div>
+        <div class="sources">
+          <div class="source" id="source-1">
+            <strong>[1] India Brand Equity Foundation (IBEF) — Retail Report 2025</strong>
+            <a href="https://www.ibef.org/industry/retail-india" target="_blank" rel="noopener noreferrer">ibef.org/industry/retail-india ↗</a>
+            <p>Calculates Indian retail market size at US$1.094 Trillion with traditional trade accounting for ~81% of total transaction volume.</p>
+          </div>
+          <div class="source" id="source-2">
+            <strong>[2] National Payments Corporation of India (NPCI)</strong>
+            <a href="https://www.npci.org.in/product/upi/product-statistics" target="_blank" rel="noopener noreferrer">npci.org.in / UPI Product Statistics ↗</a>
+            <p>October 2026: 25,466.70M UPI transactions recorded, totalling ₹31,52,929.46 Cr in volume.</p>
+          </div>
+          <div class="source" id="source-3">
+            <strong>[3] Press Information Bureau (PIB) — Open Digital Commerce</strong>
+            <a href="https://www.pib.gov.in" target="_blank" rel="noopener noreferrer">pib.gov.in / Official Release ↗</a>
+            <p>Government of India reporting 500,000+ active sellers across 1,000+ cities operating over ONDC protocols.</p>
+          </div>
+          <div class="source" id="source-4">
+            <strong>[4] Redseer Strategy Consultants — Quick Commerce Industry FY26</strong>
+            <a href="https://redseer.com" target="_blank" rel="noopener noreferrer">redseer.com / Research Brief ↗</a>
+            <p>Benchmarks rapid convenience commerce at US$13B in FY26 while highlighting dark store rent and shrinkage pressures.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="foot">
+        STRYT · Street Operating System · Institutional Investor Opportunity Brief · November 2026 · Confidential & Proprietary
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- INTERACTIVE SIMULATOR SCRIPT -->
+<script>
+(function() {
+  'use strict';
+  const ids = ['merchants', 'paid', 'price', 'dispatches', 'fee', 'promos', 'promoPrice', 'cost'];
+  const $ = id => document.getElementById(id);
+  const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  const num = n => Math.round(n).toLocaleString('en-IN');
+  const presets = {
+    conservative: [60, 20, 599, 400, 5, 5, 99, 16000],
+    base:         [100, 30, 799, 1000, 7, 15, 149, 14000],
+    upside:       [180, 40, 999, 2200, 8, 40, 149, 24000]
+  };
+
+  function update() {
+    const [m, p, price, d, fee, promos, promoPrice, cost] = ids.map(id => +$(id).value);
+    ids.forEach(id => {
+      const unit = id === 'paid' ? '%' : ['price', 'fee', 'promoPrice', 'cost'].includes(id) ? '₹' : '';
+      $('v-' + id).textContent = unit === '₹' ? fmt(+$(id).value) : num(+$(id).value) + unit;
+    });
+
+    const paidMerchants = Math.round(m * p / 100);
+    const sub = paidMerchants * price;
+    const dispatch = d * fee;
+    const ad = promos * promoPrice;
+    const revenue = sub + dispatch + ad;
+    const net = revenue - cost;
+
+    $('rev').textContent = fmt(revenue);
+    $('pay-count').textContent = num(paidMerchants) + ' Paid Merchants · Single Catchment';
+    $('sub-rev').textContent = fmt(sub);
+    $('dispatch-rev').textContent = fmt(dispatch);
+    $('promo-rev').textContent = fmt(ad);
+    $('cost-rev').textContent = '−' + fmt(cost);
+    $('margin').textContent = (net < 0 ? '−' : '') + fmt(Math.abs(net));
+    $('margin-pct').textContent = (revenue ? ((net / revenue) * 100).toFixed(1) : '0.0') + '% of Cluster Net Revenue';
+
+    document.querySelectorAll('[data-preset]').forEach(b => {
+      b.setAttribute('aria-pressed', String(ids.every((id, i) => +$(id).value === presets[b.dataset.preset][i])));
+    });
+  }
+
+  ids.forEach(id => $(id).addEventListener('input', update));
+  document.querySelectorAll('[data-preset]').forEach(b => {
+    b.addEventListener('click', () => {
+      ids.forEach((id, i) => { $(id).value = presets[b.dataset.preset][i]; });
+      update();
+    });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
