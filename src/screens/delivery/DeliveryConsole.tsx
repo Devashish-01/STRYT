@@ -889,6 +889,7 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
   onCancelRun: (batch: BatchGroup) => void;
   showActionBar: boolean;
 }) {
+  useTrackingState();
   // Selective routing: when non-empty, "Route selected" builds a link through
   // only these stops instead of the whole remaining run.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -951,6 +952,8 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
             riderLng={lastKnownFix(60_000)?.lng ?? batch.lng ?? current.deliveryLng}
             riderHeading={lastKnownFix(60_000)?.heading ?? 0}
             riderName={t("dlv_trk_rider_title") || "You"}
+            storeLat={batch.lat}
+            storeLng={batch.lng}
             destLat={current.deliveryLat}
             destLng={current.deliveryLng}
             destAddress={current.deliveryAddressLine || current.customerArea}
@@ -1093,6 +1096,7 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
   onCantDeliver: (d: DeliveryItem) => void;
   showActionBar: boolean;
 }) {
+  useTrackingState();
   const { t, tf } = useI18n();
   // Two taps to decline, like declining a run: a mis-tap must not hand the order back.
   const [declineArmed, setDeclineArmed] = useState(false);

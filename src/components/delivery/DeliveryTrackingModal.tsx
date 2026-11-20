@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { SafeImg } from "@/components/common";
 import { Phone, Share2, X, ShieldCheck, Copy, Check, MapPin } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
@@ -120,13 +121,24 @@ export default function DeliveryTrackingModal({
     setTimeout(() => setCopiedCode(false), 2000);
   }
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-[2000] flex flex-col bg-[var(--surface)] animate-fade-in overflow-hidden"
-      style={{ touchAction: "none" }}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 2000,
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--surface)",
+        overflow: "hidden",
+        touchAction: "none",
+      }}
     >
       {/* 1. Full-Screen Interactive Live Map Background */}
-      <div className="absolute inset-0 z-0">
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
         <DeliveryLiveMap
           riderLat={effectiveLat}
           riderLng={effectiveLng}
@@ -140,38 +152,83 @@ export default function DeliveryTrackingModal({
           destAddress={d?.destAddress}
           status={d?.status}
           etaMinutes={d?.etaMinutes}
-          bottomSheetOffsetPx={260}
+          bottomSheetOffsetPx={280}
           interactive={true}
         />
       </div>
 
       {/* 2. Floating Top Header */}
       <div
-        className="relative z-20 flex items-center justify-between px-4 py-2.5 pointer-events-none"
-        style={{ paddingTop: "calc(12px + var(--safe-area-top, 0px))" }}
+        style={{
+          position: "relative",
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "calc(12px + var(--safe-area-top, 0px)) 16px 8px 16px",
+          pointerEvents: "none",
+        }}
       >
         <button
           type="button"
           onClick={onClose}
-          className="pointer-events-auto w-10 h-10 rounded-full flex items-center justify-center bg-[var(--surface)] text-[var(--ink-700)] shadow-md border border-[var(--line)] active:scale-95 transition-transform"
+          style={{
+            pointerEvents: "auto",
+            width: 42,
+            height: 42,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--surface)",
+            color: "var(--ink-700)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+            border: "1px solid var(--line)",
+            cursor: "pointer",
+          }}
           aria-label="Close tracking map"
         >
           <X size={18} />
         </button>
 
-        <div className="pointer-events-auto px-3.5 py-1.5 rounded-full bg-[var(--surface)] shadow-md border border-[var(--line)] flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--brand-500)] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--brand-600)]"></span>
+        <div
+          style={{
+            pointerEvents: "auto",
+            padding: "6px 14px",
+            borderRadius: 999,
+            background: "var(--surface)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+            border: "1px solid var(--line)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8, alignItems: "center", justifyContent: "center" }}>
+            <span style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", background: "var(--brand-500)", opacity: 0.75, animation: "dlv-radar-pulse 2s infinite" }} />
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--brand-600)" }} />
           </span>
-          <span className="text-xs font-bold text-[var(--ink-900)]">{t(copy.headlineKey)}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-900)" }}>{t(copy.headlineKey)}</span>
         </div>
 
         <button
           type="button"
           onClick={handleShare}
           disabled={sharing}
-          className="pointer-events-auto w-10 h-10 rounded-full flex items-center justify-center bg-[var(--surface)] text-[var(--ink-700)] shadow-md border border-[var(--line)] active:scale-95 transition-transform"
+          style={{
+            pointerEvents: "auto",
+            width: 42,
+            height: 42,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--surface)",
+            color: "var(--ink-700)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+            border: "1px solid var(--line)",
+            cursor: "pointer",
+          }}
           aria-label="Share tracking link"
         >
           <Share2 size={17} />
@@ -179,38 +236,48 @@ export default function DeliveryTrackingModal({
       </div>
 
       {/* Flexible Spacer */}
-      <div className="flex-1 pointer-events-none" />
+      <div style={{ flex: 1, pointerEvents: "none" }} />
 
       {/* 3. Zepto / Zomato Inspired Floating Bottom Sheet */}
       <div
-        className="relative z-20 rounded-t-3xl bg-[var(--surface)] shadow-[0_-8px_32px_rgba(0,0,0,0.14)] border-t border-[var(--line)] flex flex-col gap-3.5 p-4.5 transition-all duration-300"
         style={{
+          position: "relative",
+          zIndex: 20,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          background: "var(--surface)",
+          boxShadow: "0 -8px 32px rgba(0,0,0,0.14)",
+          borderTop: "1px solid var(--line)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: "14px 18px",
           paddingBottom: "calc(16px + var(--safe-area-bottom, 0px))",
-          maxHeight: "56vh",
+          maxHeight: "58vh",
           overflowY: "auto",
         }}
       >
         {/* Handle Indicator */}
-        <div className="w-10 h-1 rounded-full bg-[var(--line)] mx-auto -mt-1 shrink-0" />
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--ink-200)", margin: "-4px auto 4px auto", flexShrink: 0 }} />
 
         {/* Hero ETA Header */}
-        <div className="flex items-center justify-between">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div className="text-xl font-black text-[var(--ink-900)] tracking-tight">
+            <div style={{ fontSize: 18, fontWeight: 900, color: "var(--ink-900)", letterSpacing: "-0.02em" }}>
               {arrived
                 ? (t("dlv_pub_arrived") || "Arrived outside your door!")
                 : eta
                 ? (eta.kind === "now" ? (t("trk_eta_now") || "Arriving now") : `Arriving in ~${eta.n} mins`)
                 : t(copy.headlineKey)}
             </div>
-            <div className="text-xs text-[var(--ink-500)] mt-0.5">
+            <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 2 }}>
               {d?.storeName ? `From ${d.storeName}` : t("trk_live") || "Live Order Delivery"}
             </div>
           </div>
 
-          <div className="px-3 py-1 rounded-full bg-[var(--green-50)] border border-[var(--green-200)] flex items-center gap-1.5 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-[var(--green-500)] animate-pulse" />
-            <span className="text-xs font-semibold text-[var(--green-700)]">
+          <div style={{ padding: "4px 10px", borderRadius: 999, background: "var(--green-50)", border: "1px solid var(--green-200)", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green-500)" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green-700)" }}>
               {arrived ? (t("dlv_pub_arrived") || "Arrived") : (t("dlv_pub_on_way") || "Live")}
             </span>
           </div>
@@ -222,19 +289,28 @@ export default function DeliveryTrackingModal({
             onClick={handleCopyCode}
             role="button"
             tabIndex={0}
-            className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--brand-50)] border border-[var(--brand-200)] cursor-pointer active:scale-[0.99] transition-transform shadow-sm"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 14px",
+              borderRadius: 16,
+              background: "var(--brand-50)",
+              border: "1px solid var(--brand-200)",
+              cursor: "pointer",
+            }}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--brand-100)] flex items-center justify-center shrink-0">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--brand-100)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <ShieldCheck size={22} color="var(--brand-600)" />
               </div>
               <div>
-                <div className="text-xs font-bold text-[var(--brand-900)]">{t("trk_code_title") || "Delivery PIN / OTP"}</div>
-                <div className="text-xs text-[var(--brand-700)]">{t("trk_code_hint") || "Share code with delivery partner"}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--brand-900)" }}>{t("trk_code_title") || "Delivery PIN / OTP"}</div>
+                <div style={{ fontSize: 11, color: "var(--brand-700)" }}>{t("trk_code_hint") || "Share code with delivery partner"}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl font-mono font-black tracking-widest text-[var(--brand-700)] bg-[var(--surface)] px-2.5 py-1 rounded-lg border border-[var(--brand-200)]">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 900, letterSpacing: "2px", color: "var(--brand-700)", background: "var(--surface)", padding: "3px 8px", borderRadius: 8, border: "1px solid var(--brand-200)" }}>
                 {code}
               </span>
               {copiedCode ? <Check size={18} color="var(--green-600)" /> : <Copy size={16} color="var(--brand-600)" />}
@@ -244,21 +320,21 @@ export default function DeliveryTrackingModal({
 
         {/* Rider Profile Card */}
         {d?.agentRevealed && d.agentName && (
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--surface-muted)] border border-[var(--line)]">
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 14, background: "var(--ink-50)", border: "1px solid var(--line)" }}>
             <SafeImg
               src={d.agentAvatar ?? undefined}
               variant="avatar"
-              style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0 }}
+              style={{ width: 42, height: 42, borderRadius: "50%", flexShrink: 0 }}
             />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[var(--ink-900)] truncate">{d.agentName}</div>
-              <div className="text-xs text-[var(--ink-500)] flex items-center gap-1">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ellipsis" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-900)" }}>{d.agentName}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-500)", display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
                 <span>🛵 {t("trk_rider_title") || "Delivery Partner"}</span>
-                {d.stopsBefore && d.stopsBefore > 0 && (
+                {Boolean(d.stopsBefore && d.stopsBefore > 0) && (
                   <>
                     <span>·</span>
-                    <span className="text-[var(--brand-600)] font-medium">
-                      {d.stopsBefore === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: d.stopsBefore })}
+                    <span style={{ color: "var(--brand-600)", fontWeight: 600 }}>
+                      {d.stopsBefore === 1 ? t("dlv_trk_ahead_one") : tf("dlv_trk_ahead", { n: d.stopsBefore ?? 0 })}
                     </span>
                   </>
                 )}
@@ -267,10 +343,10 @@ export default function DeliveryTrackingModal({
             {d.agentPhone && (
               <a
                 href={`tel:${d.agentPhone}`}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--green-500)] text-white shadow-md active:scale-95 transition-transform shrink-0"
+                style={{ width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--green-500)", color: "white", textDecoration: "none", flexShrink: 0, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}
                 aria-label="Call delivery partner"
               >
-                <Phone size={18} />
+                <Phone size={17} />
               </a>
             )}
           </div>
@@ -278,21 +354,26 @@ export default function DeliveryTrackingModal({
 
         {/* Destination Address Info */}
         {d?.destAddress && (
-          <div className="flex items-start gap-2.5 px-3 py-2 rounded-xl bg-[var(--surface)] border border-[var(--line)]">
-            <MapPin size={16} className="text-[var(--red-500)] shrink-0 mt-0.5" />
-            <div className="text-xs text-[var(--ink-700)] line-clamp-2 leading-relaxed">
-              <span className="font-semibold text-[var(--ink-900)]">Delivering to: </span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 10, background: "var(--surface)", border: "1px solid var(--line)" }}>
+            <MapPin size={16} color="var(--red-500)" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 12, color: "var(--ink-700)", lineHeight: 1.4 }} className="clamp-2">
+              <strong style={{ color: "var(--ink-900)" }}>Delivering to: </strong>
               {d.destAddress}
             </div>
           </div>
         )}
 
         {/* Journey Progress Road & Milestones */}
-        <div className="flex flex-col gap-2 pt-1 border-t border-[var(--line)]">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 6, borderTop: "1px solid var(--line)" }}>
           <JourneyRoad fraction={fraction} delivered={delivered} label={t(copy.headlineKey)} />
           <JourneySteps here={here} delivered={delivered} />
         </div>
       </div>
     </div>
   );
+
+  if (typeof document !== "undefined" && document.body) {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 }

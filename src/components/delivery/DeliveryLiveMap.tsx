@@ -26,15 +26,6 @@ export interface DeliveryLiveMapProps {
   bottomSheetOffsetPx?: number;
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export default function DeliveryLiveMap({
   riderLat,
   riderLng,
@@ -71,6 +62,9 @@ export default function DeliveryLiveMap({
   const [distanceText, setDistanceText] = useState<string | null>(null);
   const [liveDurationMin, setLiveDurationMin] = useState<number | null>(null);
 
+  // Card mode is when the map is embedded in a small card (e.g. delivery console card)
+  const isCardMode = bottomSheetOffsetPx === 0;
+
   // 1. Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -87,7 +81,7 @@ export default function DeliveryLiveMap({
       doubleClickZoom: interactive,
     }).setView([initialLat, initialLng], 15);
 
-    const tileLayer = L.tileLayer(RASTER_TILES.url, {
+    L.tileLayer(RASTER_TILES.url, {
       attribution: RASTER_TILES.attribution,
       maxZoom: RASTER_TILES.maxZoom,
       tileSize: RASTER_TILES.tileSize,
@@ -101,10 +95,13 @@ export default function DeliveryLiveMap({
 
     mapRef.current = map;
 
-    // Invalidate size once container layout stabilizes (modals, CSS transitions)
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 120);
+    // Invalidate size multiple times to handle entrance animations and layout settles
+    const t1 = setTimeout(() => map.invalidateSize(), 60);
+    const t2 = setTimeout(() => map.invalidateSize(), 200);
+    const t3 = setTimeout(() => map.invalidateSize(), 500);
+
+    const onWinResize = () => map.invalidateSize();
+    window.addEventListener("resize", onWinResize);
 
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
@@ -114,14 +111,20 @@ export default function DeliveryLiveMap({
     }
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener("resize", onWinResize);
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
     };
   }, [interactive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 2. Fetch Turn-by-Turn Road Route (Mapbox Directions API with OSRM fallback)
+  // 2. Fetch Turn-by-Turn Road Route
+  // If rider is assigned but not picked up yet, route to the store!
+  const isPickupPhase = status === "ASSIGNED" && storeLat != null && storeLng != null;
+
   const routeOrigin = useMemo(() => {
     if (riderLat != null && riderLng != null) return { lat: riderLat, lng: riderLng };
     if (storeLat != null && storeLng != null) return { lat: storeLat, lng: storeLng };
@@ -129,12 +132,24 @@ export default function DeliveryLiveMap({
   }, [riderLat, riderLng, storeLat, storeLng]);
 
   const routeDestination = useMemo(() => {
+    if (isPickupPhase) {
+      return { lat: storeLat!, lng: storeLng! };
+    }
     if (destLat != null && destLng != null) return { lat: destLat, lng: destLng };
+    if (storeLat != null && storeLng != null) return { lat: storeLat, lng: storeLng };
     return null;
-  }, [destLat, destLng]);
+  }, [isPickupPhase, storeLat, storeLng, destLat, destLng]);
 
   useEffect(() => {
     if (!routeOrigin || !routeDestination) {
+      setRoadRoute(null);
+      return;
+    }
+    // Don't route if origin and destination are identical
+    if (
+      Math.abs(routeOrigin.lat - routeDestination.lat) < 0.0001 &&
+      Math.abs(routeOrigin.lng - routeDestination.lng) < 0.0001
+    ) {
       setRoadRoute(null);
       return;
     }
@@ -177,7 +192,7 @@ export default function DeliveryLiveMap({
     const storeIcon = L.divIcon({
       html: `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
-          <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:#ffffff;border:2.5px solid var(--brand-600);box-shadow:0 4px 14px rgba(0,0,0,0.22);font-size:20px;">
+          <div style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:#ffffff;border:2.5px solid var(--brand-600);box-shadow:0 4px 14px rgba(0,0,0,0.22);font-size:18px;">
             🏬
           </div>
           <div style="margin-top:3px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);pointer-events:none;">
@@ -186,8 +201,8 @@ export default function DeliveryLiveMap({
         </div>
       `,
       className: "",
-      iconSize: [40, 62],
-      iconAnchor: [20, 20],
+      iconSize: [38, 58],
+      iconAnchor: [19, 19],
     });
 
     if (storeMarkerRef.current) {
@@ -215,7 +230,7 @@ export default function DeliveryLiveMap({
         </div>
       `,
       className: "",
-      iconSize: [38, 60],
+      iconSize: [38, 58],
       iconAnchor: [19, 19],
     });
 
@@ -256,23 +271,22 @@ export default function DeliveryLiveMap({
 
     const heading = animatedRider.heading || 0;
 
-    // Headlight cone & pulse ripple (Zepto/Zomato style)
     const riderHtml = `
-      <div style="position:relative;width:60px;height:60px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+      <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
         <!-- Forward Headlight Beam Cone -->
-        <div style="position:absolute;top:50%;left:50%;width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:42px solid rgba(234, 88, 12, 0.38);transform-origin:50% 0%;transform:translate(-50%, -100%) rotate(${heading}deg);filter:blur(2px);pointer-events:none;"></div>
+        <div style="position:absolute;top:50%;left:50%;width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:38px solid rgba(234, 88, 12, 0.38);transform-origin:50% 0%;transform:translate(-50%, -100%) rotate(${heading}deg);filter:blur(2px);pointer-events:none;"></div>
 
         <!-- Radar Pulse Circle -->
-        <div style="position:absolute;width:52px;height:52px;border-radius:50%;background:rgba(234, 88, 12, 0.22);animation:dlv-radar-pulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+        <div style="position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(234, 88, 12, 0.22);animation:dlv-radar-pulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
 
         <!-- Rider Scooter Vehicle Icon -->
-        <div style="position:relative;z-index:3;width:40px;height:40px;border-radius:50%;background:#ea580c;border:3px solid #ffffff;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;transform:rotate(${heading}deg);transition:transform 0.25s linear;">
-          <span style="font-size:20px;line-height:1;display:inline-block;transform:rotate(-${heading}deg);">🛵</span>
+        <div style="position:relative;z-index:3;width:38px;height:38px;border-radius:50%;background:#ea580c;border:2.5px solid #ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.32);display:flex;align-items:center;justify-content:center;transform:rotate(${heading}deg);transition:transform 0.25s linear;">
+          <span style="font-size:18px;line-height:1;display:inline-block;transform:rotate(-${heading}deg);">🛵</span>
         </div>
 
         <!-- Rider Name Badge -->
         ${riderName ? `
-          <div style="position:absolute;top:-22px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:4;">
+          <div style="position:absolute;top:-20px;white-space:nowrap;background:rgba(15,23,42,0.88);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);z-index:4;">
             ${riderName}
           </div>
         ` : ""}
@@ -282,8 +296,8 @@ export default function DeliveryLiveMap({
     const riderIcon = L.divIcon({
       html: riderHtml,
       className: "",
-      iconSize: [60, 60],
-      iconAnchor: [30, 30],
+      iconSize: [56, 56],
+      iconAnchor: [28, 28],
     });
 
     if (riderMarkerRef.current) {
@@ -304,9 +318,7 @@ export default function DeliveryLiveMap({
     let points: [number, number][] = [];
 
     if (roadRoute && roadRoute.coordinates.length > 1) {
-      // Connect interpolated rider position to remaining road coordinates
       if (animatedRider.lat != null && animatedRider.lng != null) {
-        // Find closest point on road route
         let closestIdx = 0;
         let minD = Infinity;
         for (let i = 0; i < roadRoute.coordinates.length; i++) {
@@ -329,7 +341,7 @@ export default function DeliveryLiveMap({
       if (animatedRider.lat != null && animatedRider.lng != null) {
         points.push([animatedRider.lat, animatedRider.lng]);
       }
-      if (destLat != null && destLng != null) {
+      if (destLat != null && destLng != null && status !== "ASSIGNED") {
         points.push([destLat, destLng]);
       }
     }
@@ -346,13 +358,13 @@ export default function DeliveryLiveMap({
       return;
     }
 
-    // Casing line (soft dark shadow for contrast)
+    // Casing line (soft shadow)
     if (polylineCasingRef.current) {
       polylineCasingRef.current.setLatLngs(points);
     } else {
       polylineCasingRef.current = L.polyline(points, {
         color: "#0f172a",
-        weight: 8,
+        weight: 7,
         opacity: 0.22,
         lineCap: "round",
         lineJoin: "round",
@@ -378,23 +390,21 @@ export default function DeliveryLiveMap({
     if (!mapRef.current) return;
     const bounds = L.latLngBounds([]);
 
-    const curRiderLat = riderLat;
-    const curRiderLng = riderLng;
+    const curRiderLat = animatedRider.lat ?? riderLat;
+    const curRiderLng = animatedRider.lng ?? riderLng;
 
     if (curRiderLat != null && curRiderLng != null) bounds.extend([curRiderLat, curRiderLng]);
     if (destLat != null && destLng != null) bounds.extend([destLat, destLng]);
-    if (storeLat != null && storeLng != null && (curRiderLat == null || bounds.isValid() === false)) {
-      bounds.extend([storeLat, storeLng]);
-    }
+    if (storeLat != null && storeLng != null) bounds.extend([storeLat, storeLng]);
 
     if (bounds.isValid()) {
       mapRef.current.fitBounds(bounds, {
-        paddingTopLeft: [40, 40],
-        paddingBottomRight: [40, bottomSheetOffsetPx + 40],
+        paddingTopLeft: [24, 24],
+        paddingBottomRight: [24, Math.min(bottomSheetOffsetPx + 24, 160)],
         maxZoom: 16,
       });
     }
-  }, [riderLat, riderLng, destLat, destLng, storeLat, storeLng, bottomSheetOffsetPx]);
+  }, [animatedRider.lat, animatedRider.lng, riderLat, riderLng, destLat, destLng, storeLat, storeLng, bottomSheetOffsetPx]);
 
   const initialFitDone = useRef(false);
   useEffect(() => {
@@ -416,6 +426,7 @@ export default function DeliveryLiveMap({
   const displayEta = useMemo(() => {
     if (status === "ARRIVED") return t("dlv_pub_arrived") || "Arrived outside your door";
     if (status === "DELIVERED") return t("dlv_pub_done") || "Delivered";
+    if (status === "ASSIGNED") return t("dlv_pub_assigned") || "Pickup assigned";
     if (etaMinutes != null) return `${etaMinutes} min away`;
     if (liveDurationMin != null) return `~${liveDurationMin} min away`;
     return t("dlv_pub_on_way") || "On the way";
@@ -423,8 +434,17 @@ export default function DeliveryLiveMap({
 
   return (
     <div
-      className={`relative w-full h-full overflow-hidden select-none ${className}`}
-      style={{ minHeight: 220, background: "var(--surface-muted)", ...style }}
+      className={`delivery-live-map-wrap ${className}`}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: style?.height ? undefined : 200,
+        overflow: "hidden",
+        userSelect: "none",
+        background: "var(--surface-muted)",
+        ...style,
+      }}
     >
       <style>{`
         .delivery-map-tiles {
@@ -437,61 +457,167 @@ export default function DeliveryLiveMap({
       `}</style>
 
       {/* Map Canvas */}
-      <div ref={mapContainerRef} className="w-full h-full" style={{ zIndex: 1 }} />
-
-      {/* Top Floating ETA & Live Radar Pill */}
       <div
-        className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-lg border border-[var(--line)] backdrop-blur-md"
-        style={{ background: "color-mix(in srgb, var(--surface) 90%, transparent)" }}
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--green-500)] opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--green-500)]"></span>
-        </span>
-        <span className="text-xs font-bold text-[var(--ink-900)]">
-          {displayEta}
-        </span>
-        {distanceText && (
-          <>
-            <span className="w-1 h-1 rounded-full bg-[var(--ink-300)]" />
-            <span className="text-xs font-medium text-[var(--ink-500)]">{distanceText}</span>
-          </>
-        )}
-      </div>
+        ref={mapContainerRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Top Floating ETA & Live Radar Pill (hidden in tight card mode unless needed) */}
+      {!isCardMode && (
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 14px",
+            borderRadius: 999,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+            border: "1px solid var(--line)",
+            background: "color-mix(in srgb, var(--surface) 92%, transparent)",
+            backdropFilter: "blur(8px)",
+            whiteSpace: "nowrap",
+            maxWidth: "calc(100% - 32px)",
+          }}
+        >
+          <span style={{ position: "relative", display: "inline-flex", width: 9, height: 9, alignItems: "center", justifyContent: "center" }}>
+            <span style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", background: "var(--green-500)", opacity: 0.75, animation: "dlv-radar-pulse 2s infinite" }} />
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green-500)" }} />
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-900)" }}>
+            {displayEta}
+          </span>
+          {distanceText && (
+            <>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--ink-300)" }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-500)" }}>{distanceText}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Card Mode Compact Distance Badge */}
+      {isCardMode && distanceText && (
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: 999,
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "var(--ink-800)",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand-500)" }} />
+          <span>{distanceText}</span>
+        </div>
+      )}
 
       {/* Map Control Buttons */}
       {interactive && (
         <div
-          className="absolute right-3 z-[1000] flex flex-col gap-1.5"
-          style={{ bottom: `calc(${bottomSheetOffsetPx}px + 16px)` }}
+          style={{
+            position: "absolute",
+            right: 8,
+            bottom: isCardMode ? 8 : `calc(${bottomSheetOffsetPx}px + 12px)`,
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+          }}
         >
           <button
             type="button"
             onClick={handleRecenter}
-            className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--surface)] text-[var(--ink-700)] shadow-md border border-[var(--line)] hover:bg-[var(--surface-muted)] active:scale-95 transition-transform"
+            style={{
+              width: isCardMode ? 32 : 38,
+              height: isCardMode ? 32 : 38,
+              borderRadius: isCardMode ? 8 : 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface)",
+              color: "var(--ink-700)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.14)",
+              border: "1px solid var(--line)",
+              cursor: "pointer",
+            }}
             title="Recenter on delivery route"
             aria-label="Recenter on delivery route"
           >
-            <Target size={18} />
+            <Target size={isCardMode ? 15 : 18} />
           </button>
-          <div className="flex flex-col rounded-xl overflow-hidden shadow-md border border-[var(--line)] bg-[var(--surface)]">
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: isCardMode ? 8 : 10,
+              overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.14)",
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+            }}
+          >
             <button
               type="button"
               onClick={handleZoomIn}
-              className="w-10 h-9 flex items-center justify-center text-[var(--ink-700)] hover:bg-[var(--surface-muted)] active:scale-95 transition-transform border-b border-[var(--line)]"
+              style={{
+                width: isCardMode ? 32 : 38,
+                height: isCardMode ? 28 : 34,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "var(--surface)",
+                color: "var(--ink-700)",
+                border: "none",
+                borderBottom: "1px solid var(--line)",
+                cursor: "pointer",
+              }}
               title="Zoom in"
               aria-label="Zoom in"
             >
-              <Plus size={16} />
+              <Plus size={isCardMode ? 13 : 16} />
             </button>
             <button
               type="button"
               onClick={handleZoomOut}
-              className="w-10 h-9 flex items-center justify-center text-[var(--ink-700)] hover:bg-[var(--surface-muted)] active:scale-95 transition-transform"
+              style={{
+                width: isCardMode ? 32 : 38,
+                height: isCardMode ? 28 : 34,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "var(--surface)",
+                color: "var(--ink-700)",
+                border: "none",
+                cursor: "pointer",
+              }}
               title="Zoom out"
               aria-label="Zoom out"
             >
-              <Minus size={16} />
+              <Minus size={isCardMode ? 13 : 16} />
             </button>
           </div>
         </div>
