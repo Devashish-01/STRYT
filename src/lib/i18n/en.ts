@@ -2608,6 +2608,12 @@ const strings: Record<string, string> = {
     otp_digit: "Digit {n} of 6",
     otp_sent_again: "Code sent again",
 
+    // Order Fulfillment & Deals additions
+    order_again: "Order again",
+    dlv_deliver_myself: "Deliver Myself",
+    stock_out_of_stock: "Out of stock",
+    bapt_handover_complete: "Hand Over & Complete Order",
+
   };
 
 export default strings;

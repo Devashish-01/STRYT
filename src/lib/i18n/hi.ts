@@ -2602,6 +2602,12 @@ const strings: Record<string, string> = {
     otp_digit: "अंक {n}/6",
     otp_sent_again: "कोड फिर से भेजा गया",
 
+    // Order Fulfillment & Deals additions
+    order_again: "फिर से ऑर्डर करें",
+    dlv_deliver_myself: "स्वयं डिलीवर करें",
+    stock_out_of_stock: "स्टॉक खत्म",
+    bapt_handover_complete: "ऑर्डर सौंपें और पूरा करें",
+
   };
 
 export default strings;

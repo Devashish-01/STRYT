@@ -29,6 +29,7 @@ import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { AppointmentNote } from "@/components/appointments/AppointmentNote";
 import { OrderLines } from "@/components/OrderLines";
+import { OrderPackLines } from "@/components/delivery/OrderPackLines";
 import { OwnerOrderJourney } from "@/components/delivery/OwnerOrderJourney";
 import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
 import { RecordPaymentModal } from "@/components/appointments/RecordPaymentModal";
@@ -125,6 +126,16 @@ export default function BusinessAppointments() {
   const awaitingIds = useMemo(() => new Set((awaiting ?? []).map((o) => o.appointmentId)), [awaiting]);
   const nav = useNavigate();
   const [packingId, setPackingId] = useState<string | null>(null);
+  const [checkedPackingMap, setCheckedPackingMap] = useState<Record<string, Set<string>>>({});
+
+  function togglePackingItem(aptId: string, itemId: string) {
+    setCheckedPackingMap((prev) => {
+      const current = new Set(prev[aptId] ?? []);
+      if (current.has(itemId)) current.delete(itemId);
+      else current.add(itemId);
+      return { ...prev, [aptId]: current };
+    });
+  }
 
   async function markPacked(apt: AppointmentRecord) {
     if (packingId) return;
@@ -312,8 +323,16 @@ export default function BusinessAppointments() {
       await appointmentService.updateStatus(apt.id, outcome);
       showToast(t(outcome === "NO_SHOW" ? "bapt_no_show" : "bapt_marked_done"));
       refetch();
-    } catch {
-      showToast(t("bapt_update_failed"));
+    } catch (e: any) {
+      const msg = errorMessage(e, "");
+      if (/VISIT_NOT_STARTED/i.test(msg)) {
+        showToast("Order scheduled for later. Handover can be completed once within 1 hour of scheduled time.");
+      } else if (/INVALID_TRANSITION/i.test(msg)) {
+        showToast("This order was already updated. Refreshing...");
+        refetch();
+      } else {
+        showToast(errorMessage(e, t("bapt_update_failed")));
+      }
     } finally {
       setNoShowBusy(null);
     }
@@ -519,7 +538,14 @@ export default function BusinessAppointments() {
         )}
 
         {apt.items && apt.items.length > 0 ? (
-          <OrderLines lines={apt.items} fee={apt.fulfillmentType === "DELIVERY" ? apt.deliveryFee : undefined} />
+          <OrderPackLines
+            lines={apt.items}
+            catalog={b?.catalog}
+            fee={apt.fulfillmentType === "DELIVERY" ? apt.deliveryFee : undefined}
+            mode={apt.status === "ACCEPTED" && !apt.readyAt ? "pack" : "review"}
+            checkedItemIds={checkedPackingMap[apt.id]}
+            onToggleItem={(catalogItemId) => togglePackingItem(apt.id, catalogItemId)}
+          />
         ) : (
           apt.packageName && (
             <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
@@ -673,9 +699,22 @@ export default function BusinessAppointments() {
           </button>
         )}
 
-        {DELIVERY_AGENT_ENABLED && apt.status === "ACCEPTED" && !apt.readyAt && (apt.fulfillmentType === "DELIVERY" || awaitingIds.has(apt.id)) && (
-          <button className={`btn btn-sm btn-block row gap-6 center ${apt.fulfillmentType === "DELIVERY" ? "btn-green" : "btn-outline"}`} style={apt.fulfillmentType === "DELIVERY" ? { minHeight: 48, fontSize: 15 } : undefined} disabled={packingId === apt.id} onClick={() => markPacked(apt)}>
-            <Package size={apt.fulfillmentType === "DELIVERY" ? 17 : 14} /> {t("dlv_mark_packed")}
+        {apt.status === "ACCEPTED" && !apt.readyAt && (apt.fulfillmentType === "DELIVERY" || (apt.items && apt.items.length > 0) || awaitingIds.has(apt.id)) && (
+          <button className="btn btn-sm btn-block btn-green row gap-6 center" style={{ minHeight: 46, fontSize: 14 }} disabled={packingId === apt.id} onClick={() => markPacked(apt)}>
+            <Package size={16} /> {t("dlv_mark_packed") || "Mark Packed & Ready"}
+          </button>
+        )}
+
+        {/* For store pickup/takeaway orders that are packed & ready, offer direct handover completion */}
+        {apt.status === "ACCEPTED" && apt.readyAt && apt.fulfillmentType !== "DELIVERY" && (
+          <button
+            type="button"
+            className="btn btn-sm btn-block btn-green row gap-6 center"
+            style={{ minHeight: 46, fontSize: 14 }}
+            disabled={noShowBusy === apt.id}
+            onClick={() => markOutcome(apt, "COMPLETED")}
+          >
+            <CheckCircle2 size={16} /> {t("bapt_handover_complete") || "Hand Over & Complete Order"}
           </button>
         )}
 

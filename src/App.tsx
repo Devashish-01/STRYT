@@ -762,7 +762,7 @@ export default function App() {
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
             <Route path="/agreement/:id" element={<AgreementScreen />} />
             <Route path="/agreements" element={<Agreements />} />
-            <Route path="/appointments" element={<MyAppointments />} />
+            <Route path="/appointments" element={<MyAppointments initialSwimlane="SERVICES" />} />
             <Route path="/orders" element={<MyAppointments initialSwimlane="ORDERS" />} />
             <Route path="/rate/:id" element={<RateScreen />} />
 

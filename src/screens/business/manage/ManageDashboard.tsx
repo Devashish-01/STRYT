@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Calendar, Camera, Check, ChevronRight, HelpCircle,
   Megaphone, Play, QrCode, Search, Star,
-  Users, Wallet, X as XIcon, Zap,
+  Users, Wallet, X as XIcon, Zap, Package, MapPin, CheckCircle2,
 } from "@/components/Icons";
+import { enrichOrderLinesWithStock } from "@/lib/orderStockEnrichment";
 import {
   appointmentService, businessService, bulkService, deliveryService, bustBusinessGetCache, communityService,
   customPaymentService, notificationService, requestService,
@@ -12,7 +13,7 @@ import {
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
-import { AppBar } from "@/components/common";
+import { AppBar, SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
@@ -180,6 +181,24 @@ export default function ManageDashboard() {
 
   const todayAppointments = todaysAppointments(appts);
   const upcomingList = upcomingAppointments(appts);
+  const activeFulfillmentOrders = appts.filter(
+    (a) => a.status === "ACCEPTED" && (a.fulfillmentType === "DELIVERY" || (a.items && a.items.length > 0))
+  );
+  const [packingId, setPackingId] = useState<string | null>(null);
+
+  async function markPacked(aptId: string) {
+    if (packingId) return;
+    setPackingId(aptId);
+    try {
+      await deliveryService.markOrderReady(aptId);
+      showToast(t("dlv_marked_packed") || "Order marked packed & ready!");
+      refetchAppointments();
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update order"));
+    } finally {
+      setPackingId(null);
+    }
+  }
 
   // Business Packages — the console's own vocabulary and shape. A restaurant
   // gets "Add your first 3 dishes" and a Menu/Reservations/Waitlist tile row;
@@ -232,14 +251,28 @@ export default function ManageDashboard() {
     }
   }
 
-  async function updateAppointment(item: AppointmentRecord, status: "ACCEPTED" | "REJECTED") {
+  async function updateAppointment(item: AppointmentRecord, status: "ACCEPTED" | "REJECTED" | "COMPLETED") {
     setBusyId(item.id);
     try {
       await appointmentService.updateStatus(item.id, status);
-      showToast(status === "ACCEPTED" ? "Appointment accepted" : "Appointment declined");
+      showToast(
+        status === "ACCEPTED"
+          ? "Order accepted 🛍️"
+          : status === "COMPLETED"
+          ? "Order handover completed! ✅"
+          : "Order declined"
+      );
       refetchAppointments();
-    } catch {
-      showToast(t("mdash_appointment_failed"));
+    } catch (e: any) {
+      const msg = errorMessage(e, "");
+      if (/VISIT_NOT_STARTED/i.test(msg)) {
+        showToast("This order is scheduled for later. Handover can be completed once within 1 hour of scheduled time.");
+      } else if (/INVALID_TRANSITION/i.test(msg)) {
+        showToast("This order was already updated. Refreshing...");
+        refetchAppointments();
+      } else {
+        showToast(errorMessage(e, t("mdash_appointment_failed")));
+      }
     } finally {
       setBusyId(null);
     }
@@ -452,12 +485,60 @@ export default function ManageDashboard() {
                     </div>
                   ) : (
                     <div className="col gap-10">
-                      {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => (
-                        <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
-                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
-                          <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
-                        </TodayAction>
-                      ))}
+                      {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => {
+                        const isDelivery = item.fulfillmentType === "DELIVERY";
+                        const enrichedLines = enrichOrderLinesWithStock(item.items, business?.catalog);
+                        return (
+                          <TodayAction
+                            key={`appointment-${item.id}`}
+                            icon={<Calendar size={18} color="var(--brand-600)" />}
+                            title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`}
+                            subtitle={item.packageName ?? item.dateLabel}
+                            badge={
+                              <span className={`badge ${isDelivery ? "badge-purple" : "badge-gray"}`} style={{ fontSize: 9.5 }}>
+                                {isDelivery ? "🛵 Delivery" : "🛍️ Store Pickup"}
+                              </span>
+                            }
+                            content={
+                              (item.items && item.items.length > 0) || item.deliveryAddressLine || item.notes ? (
+                                <div className="col gap-6" style={{ background: "var(--ink-50)", padding: "8px 10px", borderRadius: 8, marginTop: 4 }}>
+                                  {enrichedLines.length > 0 && (
+                                    <div className="col gap-4">
+                                      {enrichedLines.map((line, idx) => (
+                                        <div key={idx} className="row between center-v tiny">
+                                          <span className="semi" style={{ color: "var(--ink-800)" }}>
+                                            <span style={{ color: "var(--brand-700)", fontWeight: 700 }}>{line.quantity}×</span> {line.name}
+                                          </span>
+                                          <span style={{ fontSize: 10 }}>
+                                            {line.stockHealth === "OUT_OF_STOCK" && <span style={{ color: "var(--red-600)", fontWeight: 700 }}>❌ Out of stock</span>}
+                                            {line.stockHealth === "SHORTAGE" && <span style={{ color: "var(--red-600)", fontWeight: 700 }}>⚠️ Shortage ({line.availableQuantity} in stock)</span>}
+                                            {line.stockHealth === "LOW_STOCK" && <span style={{ color: "var(--amber-800)", fontWeight: 600 }}>⚡ Only {line.availableQuantity} left</span>}
+                                            {line.stockHealth === "IN_STOCK" && line.availableQuantity != null && <span style={{ color: "var(--green-700)", fontWeight: 600 }}>✓ {line.availableQuantity} in stock</span>}
+                                            {line.stockHealth === "IN_STOCK" && line.availableQuantity == null && <span style={{ color: "var(--green-700)", fontWeight: 600 }}>✓ In stock</span>}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {item.deliveryAddressLine && (
+                                    <div className="tiny" style={{ color: "var(--ink-600)" }}>
+                                      📍 {item.deliveryAddressLine}
+                                    </div>
+                                  )}
+                                  {item.notes && (
+                                    <div className="tiny" style={{ color: "var(--ink-600)", fontStyle: "italic" }}>
+                                      📝 {item.notes}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null
+                            }
+                          >
+                            <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
+                            <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
+                          </TodayAction>
+                        );
+                      })}
 
                       {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
                         <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
@@ -496,6 +577,81 @@ export default function ManageDashboard() {
             </section>
           );
         })()}
+
+        {bookingsOn && hasScope("appointments") && activeFulfillmentOrders.length > 0 && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="row between center-v" style={{ marginBottom: 8 }}>
+              <span className="small semi" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>⚡ Active Orders to Fulfill</span>
+                <span className="badge badge-purple" style={{ fontSize: 10, padding: "1px 6px" }}>{activeFulfillmentOrders.length}</span>
+              </span>
+              <button className="see-all" onClick={() => nav(`${base}/appointments?tab=deliveries`)}>
+                {t("mdash_view_all")}
+              </button>
+            </div>
+            <div className="col gap-10">
+              {activeFulfillmentOrders.slice(0, 3).map((item) => {
+                const isPacked = !!item.readyAt;
+                const isDelivery = item.fulfillmentType === "DELIVERY";
+                return (
+                  <div key={item.id} className="card col gap-8" style={{ padding: 12, borderLeft: `3px solid ${isPacked ? "var(--green-500)" : "var(--brand-500)"}` }}>
+                    <div className="row between center-v">
+                      <div className="row gap-8 center-v">
+                        <SafeImg src={item.customerAvatar} variant="avatar" style={{ width: 34, height: 34, borderRadius: 10 }} />
+                        <div>
+                          <div className="small semi">{ownerVisibleCustomerName(item)}</div>
+                          <div className="tiny muted">{isDelivery ? "🛵 Home Delivery" : "🛍️ Store Pickup"} · {item.timeLabel}</div>
+                        </div>
+                      </div>
+                      <span className={`badge ${isPacked ? "badge-green" : "badge-purple"}`} style={{ fontSize: 9.5 }}>
+                        {isPacked ? "Ready to Dispatch" : "Preparing / Packing"}
+                      </span>
+                    </div>
+
+                    {item.items && item.items.length > 0 && (
+                      <div className="tiny" style={{ color: "var(--ink-700)", background: "var(--ink-50)", padding: "6px 8px", borderRadius: 6 }}>
+                        {item.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+                      </div>
+                    )}
+
+                    <div className="row gap-8" style={{ marginTop: 2 }}>
+                      {!isPacked ? (
+                        <button
+                          className="btn btn-green btn-sm grow row gap-6 center"
+                          disabled={packingId === item.id}
+                          onClick={() => markPacked(item.id)}
+                        >
+                          <Package size={14} /> Mark Packed &amp; Ready
+                        </button>
+                      ) : isDelivery ? (
+                        <button
+                          className="btn btn-delivery btn-sm grow row gap-6 center"
+                          onClick={() => nav(`${base}/appointments?tab=deliveries`)}
+                        >
+                          <span>🛵</span> Assign Delivery / Deliver
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-green btn-sm grow row gap-6 center"
+                          onClick={() => updateAppointment(item, "COMPLETED")}
+                        >
+                          <CheckCircle2 size={14} /> Complete Handover
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 12 }}
+                        onClick={() => nav(`${base}/appointments`)}
+                      >
+                        Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
@@ -583,8 +739,37 @@ export default function ManageDashboard() {
   );
 }
 
-function TodayAction({ icon, title, subtitle, children }: { icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="card" style={{ padding: 14 }}><div className="row gap-10 center-v">{icon}<div className="grow"><div className="semi small">{title}</div><div className="tiny muted">{subtitle}</div></div></div><div className="row gap-8" style={{ marginTop: 10 }}>{children}</div></div>;
+function TodayAction({
+  icon,
+  title,
+  subtitle,
+  badge,
+  content,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  badge?: React.ReactNode;
+  content?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="card col gap-8" style={{ padding: 14 }}>
+      <div className="row gap-10 center-v">
+        {icon}
+        <div className="grow" style={{ minWidth: 0 }}>
+          <div className="row between center-v">
+            <div className="semi small ellipsis">{title}</div>
+            {badge}
+          </div>
+          <div className="tiny muted">{subtitle}</div>
+        </div>
+      </div>
+      {content}
+      <div className="row gap-8" style={{ marginTop: content ? 6 : 10 }}>{children}</div>
+    </div>
+  );
 }
 
 function GrowAction({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {

@@ -11,16 +11,17 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin, Package } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin, Package, ChevronRight } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import { OrderLines } from "@/components/OrderLines";
 import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
-import { isLiveOrder, isRecentlyDelivered } from "@/lib/orderLists";
+import { isLiveOrder, isRecentlyDelivered, isOrderActivity } from "@/lib/orderLists";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
@@ -34,12 +35,6 @@ import { errorMessage } from "@/lib/errorMessage";
 // delivered or cancelled — however late it runs (see isLiveOrder). One just delivered stays a few hours, in its "Delivered" state.
 function isUpcoming(a: AppointmentRecord): boolean {
   return isLiveOrder(a) || isRecentlyDelivered(a);
-}
-
-// Distinguishes commerce fulfillment (grocery, food, pharmacy order with items/delivery)
-// from scheduled calendar/time-slot bookings (salon, doctor consultation, tutor).
-function isOrderActivity(a: AppointmentRecord): boolean {
-  return a.fulfillmentType === "DELIVERY" || Boolean(a.items && a.items.length > 0) || isAutoOrderNote(a.notes, !!a.items?.length);
 }
 
 // Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
@@ -136,7 +131,7 @@ interface RebookTarget {
   targetPackageKey: BusinessPackageKey;
 }
 
-export default function MyAppointments({ initialSwimlane = "ALL" }: { initialSwimlane?: "ALL" | "ORDERS" | "SERVICES" }) {
+export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initialSwimlane?: "ALL" | "ORDERS" | "SERVICES" }) {
   const nav = useNavigate();
   const { user, showToast } = useApp();
   const { t, tf, lang } = useI18n();
@@ -364,6 +359,33 @@ export default function MyAppointments({ initialSwimlane = "ALL" }: { initialSwi
         </button>
       </div>
 
+      {swimlane === "SERVICES" && ordersUpcomingCount > 0 && (
+        <div className="page-pad" style={{ paddingTop: 4, paddingBottom: 0 }}>
+          <button
+            type="button"
+            className="card row between center-v"
+            style={{
+              padding: "10px 14px",
+              background: "var(--brand-50)",
+              border: "1px solid var(--brand-200)",
+              borderRadius: 12,
+              width: "100%",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+            onClick={() => nav("/agreements?section=orders")}
+          >
+            <div className="row gap-8 center-v">
+              <span>🛍️</span>
+              <span className="tiny semi" style={{ color: "var(--brand-900)" }}>
+                You have {ordersUpcomingCount} active store {ordersUpcomingCount === 1 ? "order" : "orders"}. View in My Deals →
+              </span>
+            </div>
+            <ChevronRight size={16} color="var(--brand-600)" />
+          </button>
+        </div>
+      )}
+
       {/* Upcoming / Past tabs */}
       <div className="hscroll" style={{ paddingTop: 6, paddingBottom: 6 }}>
         <button className={`chip ${tab === "UPCOMING" ? "active" : ""}`} onClick={() => setTab("UPCOMING")}>
@@ -394,10 +416,23 @@ export default function MyAppointments({ initialSwimlane = "ALL" }: { initialSwi
               />
             ) : (
               list.map((apt) => {
+                if (tab === "PAST") {
+                  return (
+                    <CompactOrderCard
+                      key={apt.id}
+                      apt={apt}
+                      onRebook={(a) => openRebook(a, "AGAIN")}
+                      onReview={(a) => setReviewingApt(a)}
+                      onPay={(a) => openPay(a)}
+                      onDismiss={isDismissible(apt) ? (a) => dismissCard(a) : undefined}
+                      onPreviewPhoto={(url) => setPreviewPhoto(url)}
+                    />
+                  );
+                }
+
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
                 const payable = isPayable(apt.status);
-                // Unpaid notification in Past tab so customers know payment is still due
-                const pastDueUnpaid = tab === "PAST" && isUnpaidActionable(apt);
+                const pastDueUnpaid = false;
                 const isOrder = isOrderActivity(apt);
                 return (
                   <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14, border: pastDueUnpaid ? "1px solid var(--amber-300)" : undefined }}>

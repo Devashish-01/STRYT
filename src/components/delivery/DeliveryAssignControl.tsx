@@ -106,12 +106,31 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
           )}
           {packed === false && <div className="tiny" style={{ color: "var(--amber-700)" }}>{t("dlv_assign_not_packed")}</div>}
           {(team ?? []).length === 0 ? (
-            <div className="tiny muted">No delivery team members yet. Add one in Team &amp; access with the Delivery role.</div>
+            <div className="col gap-6">
+              <div className="tiny muted">No dedicated delivery staff registered. You can deliver this order yourself:</div>
+              <button
+                type="button"
+                className="btn btn-delivery btn-sm row gap-6 center"
+                disabled={busy}
+                onClick={() => assign("self", true)}
+              >
+                <span>🛵</span> {t("dlv_deliver_myself") || "Deliver Myself"}
+              </button>
+            </div>
           ) : (
             <div className="row wrap gap-6">
-              {(team ?? []).map((m) => (
-                <button key={m.userId} className={`chip ${m.isSelf ? "active" : ""}`} disabled={busy} onClick={() => assign(m.userId, m.isSelf)}>
-                  {m.isSelf ? t("dlv_me") : m.name}{!m.onDuty && !m.isSelf && <span className="muted"> · Off duty</span>}
+              <button
+                type="button"
+                className="chip active"
+                style={{ background: "var(--delivery-100)", borderColor: "var(--delivery-500)", color: "var(--delivery-800)", fontWeight: 700 }}
+                disabled={busy}
+                onClick={() => assign("self", true)}
+              >
+                🛵 {t("dlv_deliver_myself") || "Deliver Myself"}
+              </button>
+              {(team ?? []).filter((m) => !m.isSelf).map((m) => (
+                <button key={m.userId} className="chip" disabled={busy} onClick={() => assign(m.userId, false)}>
+                  {m.name}{!m.onDuty && <span className="muted"> · Off duty</span>}
                 </button>
               ))}
             </div>

@@ -1,4 +1,13 @@
 import type { AppointmentRecord } from "@/types";
+import { isAutoOrderNote } from "@/lib/orderLines";
+
+/**
+ * Distinguishes commerce fulfillment (grocery, food, pharmacy order with items/delivery)
+ * from scheduled calendar/time-slot bookings (salon, doctor consultation, tutor).
+ */
+export function isOrderActivity(a: Pick<AppointmentRecord, "fulfillmentType" | "items" | "notes">): boolean {
+  return a.fulfillmentType === "DELIVERY" || Boolean(a.items && a.items.length > 0) || isAutoOrderNote(a.notes, !!a.items?.length);
+}
 
 /**
  * Whether an order still belongs in the "live" lists (the owner's Upcoming, the customer's Upcoming).
