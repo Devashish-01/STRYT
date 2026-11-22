@@ -337,9 +337,10 @@ Deno.serve(async (req: Request) => {
                   fcmSent++;
                 } else {
                   const errorRes = await res.json();
-                  const errorCode = errorRes?.error?.status;
+                  const status = errorRes?.error?.status;
+                  const fcmCode = errorRes?.error?.details?.[0]?.errorCode;
                   // If token is invalid/unregistered, delete it
-                  if (errorCode === "UNREGISTERED" || errorCode === "INVALID_ARGUMENT") {
+                  if (status === "NOT_FOUND" || fcmCode === "UNREGISTERED" || status === "UNREGISTERED" || status === "INVALID_ARGUMENT") {
                     await admin.from("fcm_tokens").delete().eq("user_id", userId).eq("token", t.token);
                   }
                 }

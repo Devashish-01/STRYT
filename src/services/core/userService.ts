@@ -31,7 +31,7 @@ const USER_COLUMNS = new Set([
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
   "showNamePublicly", "locationPublic", "onboardingCompletedAt",
-  "phone",
+  // Phone mutations are locked down to verified OTP bridge (20260994); not directly editable here
   // First-run onboarding's interest capture. pickColumns + toSnake handle the
   // rest of the mapping, so this entry is the whole client-side wiring.
   "interestCategoryIds",

@@ -252,9 +252,17 @@ export default function ManageDashboard() {
   }
 
   async function updateAppointment(item: AppointmentRecord, status: "ACCEPTED" | "REJECTED" | "COMPLETED") {
+    if (status === "COMPLETED" && item.fulfillmentType === "DELIVERY") {
+      nav(`${base}/deliveries`);
+      return;
+    }
     setBusyId(item.id);
     try {
-      await appointmentService.updateStatus(item.id, status);
+      if (status === "ACCEPTED" && item.fulfillmentType === "DELIVERY") {
+        await appointmentService.acceptWithEta(item.id, "30-45 min");
+      } else {
+        await appointmentService.updateStatus(item.id, status);
+      }
       showToast(
         status === "ACCEPTED"
           ? "Order accepted 🛍️"

@@ -63,7 +63,13 @@ export const entityPasswordService = {
       p_new_password: newPassword,
       p_current_password: currentPassword ?? undefined,
     });
-    if (error) throw new Error(error.message || "Couldn't save the password.");
+    if (error) {
+      const msg = error.message || "";
+      if (/LOCKED_OUT|too many wrong/i.test(msg)) {
+        throw new Error("Too many failed attempts. Please wait a few minutes before trying again.");
+      }
+      throw new Error(msg || "Couldn't save the password.");
+    }
   },
 
   /** Remove the password — requires the current one to confirm. */

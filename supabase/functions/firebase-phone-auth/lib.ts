@@ -77,14 +77,16 @@ export function checkFirebaseClaims(claims: FirebaseClaims, nowSec: number): Cla
   return { ok: true, phone, firebaseUid };
 }
 
-/** First hop of x-forwarded-for, else cf-connecting-ip, else a shared "unknown" bucket (fails safe: tighter). */
+/** cf-connecting-ip (trusted Cloudflare edge header), else first hop of x-forwarded-for, else a shared "unknown" bucket. */
 export function clientIp(headers: { get(name: string): string | null }): string {
+  const cf = headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
   const fwd = headers.get("x-forwarded-for");
   if (fwd) {
     const first = fwd.split(",")[0].trim();
     if (first) return first;
   }
-  return headers.get("cf-connecting-ip")?.trim() || "unknown";
+  return "unknown";
 }
 
 /** Short sha-256 prefix. Rate-limit keys and log lines carry this, never a raw IP or phone number. */

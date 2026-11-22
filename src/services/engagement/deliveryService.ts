@@ -25,6 +25,13 @@ export function friendlyDeliveryError(e: unknown): unknown {
     [/PROOF_TOO_EARLY/, "Wait a few more minutes for the customer before leaving the order."],
     [/INVALID_PROOF_PHOTO/, "That photo couldn't be used. Take it again."],
     [/ALREADY_HANDED_OFF/, "The customer already gave the code — just complete the delivery."],
+    [/HANDOFF_NOT_VERIFIED/, "Customer delivery code must be verified before completing delivery."],
+    [/NOT_AGENT/, "You are not assigned as the rider for this delivery."],
+    [/INVALID_TRANSITION/, "This delivery is already completed, cancelled, or in an invalid state."],
+    [/DELIVERY_NOT_FOUND/, "Delivery record not found. Please refresh."],
+    [/BATCH_NOT_FOUND/, "Delivery run not found."],
+    [/NO_APPOINTMENTS_SELECTED/, "Please select at least one order."],
+    [/APPOINTMENT_NOT_FOUND/, "Order not found."],
   ];
   for (const [re, text] of map) if (re.test(msg)) return new Error(text);
   return e;
@@ -494,7 +501,7 @@ export const deliveryService = {
       p_reason: reason,
       p_note: note?.trim() || undefined,
     });
-    if (error) throw toApiError(error);
+    if (error) throw friendlyDeliveryError(toApiError(error));
   },
 
   /**
@@ -517,10 +524,12 @@ export const deliveryService = {
 
   /** Verify the customer's handoff code; true when it matches. */
   async confirmHandoff(deliveryId: string, code: string): Promise<boolean> {
+    const trimmed = (code ?? "").trim();
+    if (!trimmed) return false;
     const sb = getSupabase();
     const { data, error } = await sb.rpc("confirm_handoff", {
       p_delivery_id: deliveryId,
-      p_code: code,
+      p_code: trimmed,
     });
     if (error) throw toApiError(error);
     return data === true;
@@ -861,7 +870,22 @@ export const deliveryService = {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!data) return null;
+    if (!data) {
+      const prog = await this.myProgress(appointmentId).catch(() => null);
+      if (!prog) return null;
+      return {
+        id: prog.id,
+        appointmentId,
+        status: prog.status,
+        liveStatus: prog.liveStatus,
+        handoffCode: prog.handoffCode,
+        handoffVerified: prog.status === "DELIVERED",
+        agentUserId: null,
+        agentName: prog.agentName || "Delivery agent",
+        lat: null,
+        lng: null,
+      };
+    }
     const r = data as any;
     return {
       id: r.id,

@@ -82,14 +82,8 @@ function isServiceCaller(req: Request): boolean {
   return apikey === expected || bearer === expected;
 }
 
-async function releaseHeldPaymentsForDeletion(sb: SupabaseClient, userId: string): Promise<void> {
-  // After the grace period the user explicitly chose deletion — unblock purge by
-  // marking any stale HELD rows as refunded rather than leaving the account stuck.
-  await sb
-    .from("payments")
-    .update({ escrow_status: "REFUNDED" })
-    .eq("escrow_status", "HELD")
-    .eq("payer_user_id", userId);
+async function releaseHeldPaymentsForDeletion(_sb: SupabaseClient, _userId: string): Promise<void> {
+  // Legacy escrow payments table was dropped in 20260995; no-op.
 }
 
 /** Deletes and fails loudly. Purge steps used to ignore their errors, so a storefront that refused to delete left
@@ -109,16 +103,6 @@ async function canPurgeUser(sb: SupabaseClient, userId: string): Promise<{ ok: t
 
   if (activeAgreements && activeAgreements > 0) {
     return { ok: false, message: "Cannot delete account: active agreements still exist. Resolve them first." };
-  }
-
-  const { count: heldPayments } = await sb
-    .from("payments")
-    .select("*", { count: "exact", head: true })
-    .eq("escrow_status", "HELD")
-    .eq("payer_user_id", userId);
-
-  if (heldPayments && heldPayments > 0) {
-    return { ok: false, message: "Cannot delete account: held payment records still exist." };
   }
 
   return { ok: true };
@@ -228,6 +212,15 @@ async function purgeCustomerAccount(
     avatar: "",
     phone: "0000000000",
     email: null,
+    alias: null,
+    area: null,
+    city: null,
+    lat: null,
+    lng: null,
+    unit_number: null,
+    switch_pin_hash: null,
+    business_password_hash: null,
+    provider_password_hash: null,
     customer_enabled: false,
     customer_deleted_at: new Date().toISOString(),
   }).eq("id", targetId);

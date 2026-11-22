@@ -22,10 +22,12 @@ export function enrichOrderLinesWithStock(
   const catalogMap = new Map((catalog ?? []).map((c) => [c.id, c]));
 
   return lines.map((line) => {
-    const item = catalogMap.get(line.catalogItemId);
+    const orderedQty = Math.max(1, Math.floor(Number(line.quantity) || 0));
+    const safeLine: OrderLine = { ...line, quantity: orderedQty };
+    const item = catalogMap.get(safeLine.catalogItemId);
     if (!item) {
       return {
-        ...line,
+        ...safeLine,
         stockHealth: "UNTRACKED",
         availableQuantity: null,
         shortageCount: 0,
@@ -33,28 +35,28 @@ export function enrichOrderLinesWithStock(
     }
 
     if (item.inventoryType === "FINITE") {
-      const stock = item.quantity ?? 0;
+      const stock = Math.max(0, Math.floor(Number(item.quantity) || 0));
       if (stock <= 0 || item.stockStatus === "OUT_OF_STOCK") {
         return {
-          ...line,
+          ...safeLine,
           catalogItem: item,
           stockHealth: "OUT_OF_STOCK",
           availableQuantity: stock,
-          shortageCount: line.quantity,
+          shortageCount: orderedQty,
         };
       }
-      if (stock < line.quantity) {
+      if (stock < orderedQty) {
         return {
-          ...line,
+          ...safeLine,
           catalogItem: item,
           stockHealth: "SHORTAGE",
           availableQuantity: stock,
-          shortageCount: line.quantity - stock,
+          shortageCount: orderedQty - stock,
         };
       }
       if (stock <= 3 || item.stockStatus === "LIMITED") {
         return {
-          ...line,
+          ...safeLine,
           catalogItem: item,
           stockHealth: "LOW_STOCK",
           availableQuantity: stock,
@@ -62,7 +64,7 @@ export function enrichOrderLinesWithStock(
         };
       }
       return {
-        ...line,
+        ...safeLine,
         catalogItem: item,
         stockHealth: "IN_STOCK",
         availableQuantity: stock,
@@ -73,7 +75,7 @@ export function enrichOrderLinesWithStock(
     // INFINITE inventory (made-to-order food, services)
     if (item.stockStatus === "OUT_OF_STOCK") {
       return {
-        ...line,
+        ...safeLine,
         catalogItem: item,
         stockHealth: "OUT_OF_STOCK",
         availableQuantity: null,
@@ -81,7 +83,7 @@ export function enrichOrderLinesWithStock(
       };
     }
     return {
-      ...line,
+      ...safeLine,
       catalogItem: item,
       stockHealth: "IN_STOCK",
       availableQuantity: null,

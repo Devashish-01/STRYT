@@ -109,8 +109,8 @@ function toRpcItems(items: AppointmentRecord["items"] | undefined) {
   return items.map((it) => ({
     catalog_item_id: it.catalogItemId,
     item_name: it.name,
-    unit_price: it.price,
-    quantity: it.quantity,
+    unit_price: Math.max(0, Number(it.price) || 0),
+    quantity: Math.max(1, Math.floor(Number(it.quantity) || 1)),
   }));
 }
 

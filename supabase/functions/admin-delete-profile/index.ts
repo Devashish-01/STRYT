@@ -170,19 +170,15 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: false, message: "Cannot delete user: active agreements exist" }), { status: 400, headers: CORS });
       }
 
-      // Check held escrow payments
-      const { count: heldPayments } = await sb.from("payments")
-        .select("*", { count: "exact", head: true })
-        .eq("escrow_status", "HELD")
-        .or(`payer_user_id.eq.${targetId},agreement_id.in.(select id from agreements where requester_user_id = '${targetId}' or responder_user_id = '${targetId}')`);
-
-      if (heldPayments && heldPayments > 0) {
-        return new Response(JSON.stringify({ ok: false, message: "Cannot delete user: held escrow payments exist" }), { status: 400, headers: CORS });
-      }
-
       // 1. Delete associated business profiles owned by this user
       const { data: ownedBusinesses } = await sb.from("businesses").select("id").eq("owner_user_id", targetId);
       for (const biz of ownedBusinesses || []) {
+        const { data: bulkDeals } = await sb.from("bulk_deals").select("id").eq("business_id", biz.id);
+        for (const deal of bulkDeals || []) {
+          await sb.from("bulk_deal_tokens").delete().eq("deal_id", deal.id);
+          await sb.from("bulk_deal_pledges").delete().eq("deal_id", deal.id);
+          await sb.from("bulk_deals").delete().eq("id", deal.id);
+        }
         await sb.from("catalog_items").delete().eq("business_id", biz.id);
         await sb.from("offers").delete().eq("business_id", biz.id);
         await sb.from("stories").delete().eq("owner_id", biz.id).eq("owner_type", "business");
@@ -220,6 +216,16 @@ serve(async (req) => {
         name: "Deleted User",
         avatar: "",
         phone: "0000000000",
+        email: null,
+        alias: null,
+        area: null,
+        city: null,
+        lat: null,
+        lng: null,
+        unit_number: null,
+        switch_pin_hash: null,
+        business_password_hash: null,
+        provider_password_hash: null,
         customer_enabled: false,
         customer_deleted_at: new Date().toISOString(),
       }).eq("id", targetId);
@@ -267,16 +273,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: false, message: "Cannot delete business: active agreements exist" }), { status: 400, headers: CORS });
       }
 
-      // Check held escrow payments
-      const { count: heldPayments } = await sb.from("payments")
-        .select("*", { count: "exact", head: true })
-        .eq("escrow_status", "HELD")
-        .or(`payer_user_id.eq.${ownerId},agreement_id.in.(select id from agreements where requester_user_id = '${ownerId}' or responder_user_id = '${ownerId}')`);
-
-      if (heldPayments && heldPayments > 0) {
-        return new Response(JSON.stringify({ ok: false, message: "Cannot delete business: held escrow payments exist" }), { status: 400, headers: CORS });
-      }
-
       // Identity documents submitted for this business. Removed by the paths the row recorded, not by the
       // owner's folder, which also holds any provider profile's documents.
       const { data: bizDocs } = await sb.from("businesses")
@@ -294,7 +290,13 @@ serve(async (req) => {
         }
       }
 
-      // Purge catalog/offers/stories
+      // Purge catalog/offers/stories/bulk deals
+      const { data: bulkDeals } = await sb.from("bulk_deals").select("id").eq("business_id", targetId);
+      for (const deal of bulkDeals || []) {
+        await sb.from("bulk_deal_tokens").delete().eq("deal_id", deal.id);
+        await sb.from("bulk_deal_pledges").delete().eq("deal_id", deal.id);
+        await sb.from("bulk_deals").delete().eq("id", deal.id);
+      }
       await sb.from("catalog_items").delete().eq("business_id", targetId);
       await sb.from("offers").delete().eq("business_id", targetId);
       await sb.from("stories").delete().eq("owner_id", targetId).eq("owner_type", "business");
@@ -347,16 +349,6 @@ serve(async (req) => {
 
       if (activeAgreements && activeAgreements > 0) {
         return new Response(JSON.stringify({ ok: false, message: "Cannot delete provider: active agreements exist" }), { status: 400, headers: CORS });
-      }
-
-      // Check held escrow payments
-      const { count: heldPayments } = await sb.from("payments")
-        .select("*", { count: "exact", head: true })
-        .eq("escrow_status", "HELD")
-        .or(`payer_user_id.eq.${ownerId},agreement_id.in.(select id from agreements where requester_user_id = '${ownerId}' or responder_user_id = '${ownerId}')`);
-
-      if (heldPayments && heldPayments > 0) {
-        return new Response(JSON.stringify({ ok: false, message: "Cannot delete provider: held escrow payments exist" }), { status: 400, headers: CORS });
       }
 
       // Identity documents submitted for this provider — by recorded path, for the same reason as above.

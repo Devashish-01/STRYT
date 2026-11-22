@@ -255,8 +255,17 @@ export default function AgreementScreen() {
       await action();
       if (successMsg) showToast(successMsg);
       refetch();
-    } catch {
-      showToast("Something went wrong. Try again.");
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (/AGREEMENT_EXPIRED/i.test(msg)) {
+        showToast("This agreement has expired. Please create a new request or agreement.");
+      } else if (/PAYMENT_ALREADY_CLAIMED/i.test(msg)) {
+        showToast("Payment has already been recorded for this agreement.");
+      } else if (/NOT_A_PARTY/i.test(msg)) {
+        showToast("You are not authorized to update this agreement.");
+      } else {
+        showToast(msg || "Something went wrong. Try again.");
+      }
     } finally {
       setBusy(false);
     }

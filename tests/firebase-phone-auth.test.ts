@@ -73,11 +73,11 @@ describe("INDIAN_MOBILE", () => {
 
 describe("clientIp", () => {
   const h = (m: Record<string, string>) => ({ get: (k: string) => m[k.toLowerCase()] ?? null });
-  it("uses the first x-forwarded-for hop", () => {
+  it("uses the first x-forwarded-for hop when cf-connecting-ip is absent", () => {
     expect(clientIp(h({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" }))).toBe("203.0.113.5");
   });
-  it("falls back to cf-connecting-ip, then a shared bucket", () => {
-    expect(clientIp(h({ "cf-connecting-ip": "198.51.100.7" }))).toBe("198.51.100.7");
+  it("prioritizes trusted cf-connecting-ip over spoofed x-forwarded-for", () => {
+    expect(clientIp(h({ "cf-connecting-ip": "198.51.100.7", "x-forwarded-for": "1.2.3.4" }))).toBe("198.51.100.7");
     expect(clientIp(h({}))).toBe("unknown");
   });
 });

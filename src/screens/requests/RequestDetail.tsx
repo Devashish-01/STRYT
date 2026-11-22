@@ -156,9 +156,9 @@ export default function RequestDetail() {
       haptics.success();
       showToast(`Accepted ${p.responderName}'s offer`);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
-    } catch {
+    } catch (e: any) {
       setAccepted(null);
-      showToast("Couldn't accept proposal. Try again.");
+      showToast(errorMessage(e, "Couldn't accept proposal. Try again."));
     }
   }
 
@@ -172,9 +172,9 @@ export default function RequestDetail() {
       haptics.success();
       showToast(`Accepted at ${inr(counter.amount)}`);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
-    } catch {
+    } catch (e: any) {
       setAccepted(null);
-      showToast("Couldn't accept. Try again.");
+      showToast(errorMessage(e, "Couldn't accept. Try again."));
     }
   }
 
@@ -188,8 +188,8 @@ export default function RequestDetail() {
       setCounterFor(null);
       setCounterAmt("");
       refetch();
-    } catch {
-      showToast("Couldn't send counter. Try again.");
+    } catch (e: any) {
+      showToast(errorMessage(e, "Couldn't send counter. Try again."));
     } finally {
       setCounterBusy(null);
     }
@@ -205,8 +205,8 @@ export default function RequestDetail() {
       setCounterBackFor(null);
       setCounterBackAmt("");
       refetch();
-    } catch {
-      showToast("Couldn't send counter. Try again.");
+    } catch (e: any) {
+      showToast(errorMessage(e, "Couldn't send counter. Try again."));
     } finally {
       setCounterBusy(null);
     }

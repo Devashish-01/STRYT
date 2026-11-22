@@ -10,6 +10,8 @@ import type { CustomPayment, PaymentMethod } from "@/types";
 // "INVALID_TRANSITION" in the toast.
 function friendlyCustomPaymentError(err: any): Error {
   const msg: string = err?.message || "";
+  if (/OWNER_CANNOT_SELF_PAY/i.test(msg)) return new Error("You cannot make a payment to your own business.");
+  if (/INVALID_AMOUNT/i.test(msg)) return new Error("Please enter a valid amount.");
   if (/PAYMENT_NOT_FOUND/i.test(msg)) return new Error("That claim no longer exists.");
   if (/NOT_TARGET_MANAGER/i.test(msg)) return new Error("You don't have permission to act on this claim.");
   if (/INVALID_TRANSITION/i.test(msg)) return new Error("Already handled — someone beat you to it.");
@@ -49,16 +51,20 @@ export const customPaymentService = {
     note?: string | null,
     reference?: string | null
   ): Promise<CustomPayment> {
+    const cleanAmount = Number(amount);
+    if (!cleanAmount || cleanAmount <= 0 || isNaN(cleanAmount)) {
+      throw new Error("Please enter a valid payment amount.");
+    }
     const sb = getSupabase();
     const { data, error } = await sb.rpc("custom_payment_create", {
       p_target_type: targetType,
       p_target_id: targetId,
-      p_amount: amount,
+      p_amount: cleanAmount,
       p_method: method,
       p_note: note ?? undefined,
       p_reference: reference ?? undefined,
     });
-    throwIfError(error);
+    if (error) throw friendlyCustomPaymentError(error);
     return rowToRecord(data);
   },
 
