@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n";
 import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { OrderLines } from "@/components/OrderLines";
-import { isLiveOrder, isRecentlyDelivered, isOrderActivity } from "@/lib/orderLists";
+import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
 import { amountDue } from "@/lib/orderLines";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import ReviewSheet from "@/components/ReviewSheet";
@@ -90,14 +90,14 @@ export default function Agreements() {
 
   const activeOrders = useMemo(() => {
     return allOrders
-      .filter((a) => isLiveOrder(a) || isRecentlyDelivered(a))
+      .filter(isLiveOrder)
       .sort((a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   }, [allOrders]);
 
   const completedOrders = useMemo(() => {
     return allOrders
-      .filter((a) => !isLiveOrder(a) && !isRecentlyDelivered(a))
-      .sort((a, b) => new Date(b.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+      .filter((a) => !isLiveOrder(a))
+      .sort((a, b) => new Date(b.scheduledForISO || b.createdAtISO).getTime() - new Date(a.scheduledForISO || a.createdAtISO).getTime());
   }, [allOrders]);
 
   function switchSection(next: "orders" | "deals") {

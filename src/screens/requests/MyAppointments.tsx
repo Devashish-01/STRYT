@@ -21,7 +21,7 @@ import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import { OrderLines } from "@/components/OrderLines";
 import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
-import { isLiveOrder, isRecentlyDelivered, isOrderActivity } from "@/lib/orderLists";
+import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
@@ -31,10 +31,9 @@ import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
 
-// A booking counts as "upcoming" while it is still live: a slot booking until its time passes, a home-delivery order until it is
-// delivered or cancelled — however late it runs (see isLiveOrder). One just delivered stays a few hours, in its "Delivered" state.
+// A booking counts as "upcoming" while it is still live (in progress). Once completed, delivered, or cancelled, it moves to Past.
 function isUpcoming(a: AppointmentRecord): boolean {
-  return isLiveOrder(a) || isRecentlyDelivered(a);
+  return isLiveOrder(a);
 }
 
 // Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
@@ -193,8 +192,7 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
     };
   }, [data, dismissedIds, swimlane]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
-  // The tab's number counts what is still in progress, not a delivery kept on the list for its "Delivered" moment.
-  const upcomingCount = upcomingList.filter((a) => isLiveOrder(a)).length;
+  const upcomingCount = upcomingList.length;
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
