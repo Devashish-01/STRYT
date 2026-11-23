@@ -319,6 +319,8 @@ export const communityService = {
       .from("community_posts")
       .select("*")
       .eq("author_user_id", userId)
+      .or("author_type.eq.user,author_type.is.null")
+      .is("author_ref_id", null)
       .order("created_at", { ascending: false })
       .limit(30);
     throwIfError(error);

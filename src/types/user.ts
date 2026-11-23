@@ -347,6 +347,24 @@ export interface PublicUser {
   email?: string;        // present only if the owner made it public
   locationShared?: boolean; // viewer currently has an approved location grant
   locationRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "DENIED";
+  ownedProvider?: {
+    id: string;
+    displayName: string;
+    avatar?: string | null;
+    ratingAvg?: number;
+    ratingCount?: number;
+    category?: string | null;
+    isVerified?: boolean;
+  } | null;
+  ownedBusiness?: {
+    id: string;
+    name: string;
+    coverImage?: string | null;
+    ratingAvg?: number;
+    ratingCount?: number;
+    category?: string | null;
+    isVerified?: boolean;
+  } | null;
 }
 
 export interface CurrentUser {

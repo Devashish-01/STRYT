@@ -144,7 +144,7 @@ export const socialService = {
     return data ? rowToStory(data as Record<string, unknown>) : null;
   },
 
-  /** Everything you have live right now, oldest first - including what you posted as a shop or provider. */
+  /** Everything you have live right now as a personal user, oldest first (business/provider stories belong to their own profiles). */
   async myStories(): Promise<Story[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -153,6 +153,7 @@ export const socialService = {
       .from("stories")
       .select("*")
       .eq("user_id", uid)
+      .or("owner_type.eq.USER,owner_type.is.null")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -350,6 +351,7 @@ export const socialService = {
       .from("stories")
       .select("*")
       .eq("user_id", uid)
+      .or("owner_type.eq.USER,owner_type.is.null")
       .eq("is_highlighted", true)
       .order("created_at", { ascending: false });
     if (error) throw error;

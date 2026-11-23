@@ -310,15 +310,23 @@ export const userService = {
     if (!u) return undefined;
     const ur = u as any;
 
-    const [helpedRes, requestsRes, userProvidersData, ratingsRes, postsRes, userRequestsData, proposalsGivenData] = await Promise.all([
+    const [helpedRes, requestsRes, userProvidersData, ratingsRes, postsRes, userRequestsData, proposalsGivenData, userBusinessesData] = await Promise.all([
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", id).eq("status", "COMPLETED"),
       sb.from("requests").select("*", { count: "exact", head: true }).eq("requester_user_id", id),
-      sb.from("providers").select("id, is_verified, verification_status").eq("user_id", id),
+      sb.from("providers").select("id, display_name, avatar, rating_avg, rating_count, category_name, is_verified, verification_status").eq("user_id", id),
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
-      sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
+      // Customer profile strictly shows personal posts — business and provider posts belong on their own listing profiles
+      sb.from("community_posts")
+        .select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile")
+        .eq("author_user_id", id)
+        .or("author_type.eq.user,author_type.is.null")
+        .is("author_ref_id", null)
+        .order("created_at", { ascending: false })
+        .limit(20),
       sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
       // proposals keeps the responder's note in `message` (there is no `note` column; E2E-004).
       sb.from("proposals").select("id, request_id, price, message, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
+      sb.from("businesses").select("id, name, cover_image, rating_avg, rating_count, category_name, is_verified").eq("owner_user_id", id),
     ]);
 
     const ownedProvIds = (userProvidersData.data ?? []).map((p) => p.id);
@@ -357,6 +365,31 @@ export const userService = {
       return (userN.data ?? []).find((x) => x.id === tid)?.name ?? "A neighbor";
     };
 
+    const firstProv = (userProvidersData.data ?? [])[0];
+    const firstBiz = (userBusinessesData.data ?? [])[0];
+    const ownedProvider = firstProv
+      ? {
+          id: firstProv.id,
+          displayName: firstProv.display_name,
+          avatar: firstProv.avatar,
+          ratingAvg: Number(firstProv.rating_avg ?? 0),
+          ratingCount: firstProv.rating_count ?? 0,
+          category: firstProv.category_name,
+          isVerified: Boolean(firstProv.is_verified || firstProv.verification_status === "APPROVED"),
+        }
+      : null;
+    const ownedBusiness = firstBiz
+      ? {
+          id: firstBiz.id,
+          name: firstBiz.name,
+          coverImage: firstBiz.cover_image,
+          ratingAvg: Number(firstBiz.rating_avg ?? 0),
+          ratingCount: firstBiz.rating_count ?? 0,
+          category: firstBiz.category_name,
+          isVerified: Boolean(firstBiz.is_verified),
+        }
+      : null;
+
     return {
       id: ur.id,
       name: ur.name,
@@ -380,6 +413,8 @@ export const userService = {
       helpedCount: helpedRes.count ?? 0,
       requestsCount: requestsRes.count ?? 0,
       vouchCount: vouchCount ?? 0,
+      ownedProvider,
+      ownedBusiness,
       badges: [
         ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.goodNeighbor ? ["Good Neighbor"] : []),
         ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.topHelper    ? ["Top Helper"]     : []),

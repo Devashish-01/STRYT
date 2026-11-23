@@ -64,7 +64,7 @@ export default function BottomNav() {
           <span style={{ marginTop: 2 }}>{t("create")}</span>
         </button>
 
-        <NavLink to="/chats" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+        <NavLink to="/chats?scope=CUSTOMER" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
           {({ isActive }) => (
             <>
               <MessageSquare size={22} weight={isActive ? "fill" : "regular"} className="nav-item__icon" />

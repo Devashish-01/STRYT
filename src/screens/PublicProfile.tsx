@@ -409,6 +409,163 @@ export default function PublicProfile() {
           </div>
         </div>
 
+        {/* ── Multi-Hat Bridge Card (Provider / Business Storefront) ── */}
+        {(u.ownedProvider || u.ownedBusiness) && (
+          <div style={{ padding: "12px 16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+            {u.ownedProvider && (
+              <div
+                className="card"
+                style={{
+                  borderRadius: 20,
+                  background: "linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%)",
+                  border: "1.5px solid var(--brand-200)",
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div className="row space-between center-v">
+                  <div className="row center-v gap-10">
+                    <SafeImg
+                      src={u.ownedProvider.avatar}
+                      variant="avatar"
+                      style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid #fff", flexShrink: 0 }}
+                    />
+                    <div className="col" style={{ gap: 2 }}>
+                      <div className="row center-v gap-6">
+                        <span className="bold small" style={{ color: "var(--ink-900)", fontSize: 15 }}>
+                          {u.ownedProvider.displayName}
+                        </span>
+                        {u.ownedProvider.isVerified && (
+                          <BadgeCheck size={14} color="var(--green-600)" />
+                        )}
+                      </div>
+                      <span className="tiny muted" style={{ color: "var(--brand-800)", fontWeight: 600 }}>
+                        🎨 {u.ownedProvider.category || "Professional Services"} • ★ {(u.ownedProvider.ratingAvg ?? 0) > 0 ? u.ownedProvider.ratingAvg : "New"} ({u.ownedProvider.ratingCount ?? 0})
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge badge-purple" style={{ fontSize: 10, padding: "3px 8px" }}>
+                    Local Provider
+                  </span>
+                </div>
+
+                <div className="row gap-8">
+                  <button
+                    type="button"
+                    className="btn btn-outline grow"
+                    onClick={() => nav(`/provider/${u.ownedProvider?.id}`)}
+                    style={{ borderRadius: 12, padding: "8px 12px", fontSize: 13, fontWeight: 700, borderColor: "var(--brand-300)", color: "var(--brand-700)" }}
+                  >
+                    View Services & Portfolio →
+                  </button>
+                  {!isSelf && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={async () => {
+                        if (!u.ownedProvider) return;
+                        try {
+                          const conv = await chatService.getOrCreate(u.id, {
+                            type: "provider",
+                            id: u.ownedProvider.id,
+                            name: u.ownedProvider.displayName,
+                            avatar: u.ownedProvider.avatar || "",
+                            ownerUserId: u.id,
+                          });
+                          nav(`/chat/${conv.id}`);
+                        } catch (e) {
+                          showToast(errorMessage(e, "Couldn't open chat"));
+                        }
+                      }}
+                      style={{ borderRadius: 12, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}
+                    >
+                      Inquire / Book
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {u.ownedBusiness && (
+              <div
+                className="card"
+                style={{
+                  borderRadius: 20,
+                  background: "linear-gradient(135deg, var(--amber-50) 0%, var(--amber-100) 100%)",
+                  border: "1.5px solid var(--amber-200)",
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div className="row space-between center-v">
+                  <div className="row center-v gap-10">
+                    <SafeImg
+                      src={u.ownedBusiness.coverImage}
+                      variant="photo"
+                      style={{ width: 44, height: 44, borderRadius: 10, border: "2px solid #fff", flexShrink: 0, objectFit: "cover" }}
+                    />
+                    <div className="col" style={{ gap: 2 }}>
+                      <div className="row center-v gap-6">
+                        <span className="bold small" style={{ color: "var(--ink-900)", fontSize: 15 }}>
+                          {u.ownedBusiness.name}
+                        </span>
+                        {u.ownedBusiness.isVerified && (
+                          <BadgeCheck size={14} color="var(--green-600)" />
+                        )}
+                      </div>
+                      <span className="tiny muted" style={{ color: "var(--orange-600)", fontWeight: 600 }}>
+                        🏪 {u.ownedBusiness.category || "Local Store"} • ★ {(u.ownedBusiness.ratingAvg ?? 0) > 0 ? u.ownedBusiness.ratingAvg : "New"} ({u.ownedBusiness.ratingCount ?? 0})
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge badge-amber" style={{ fontSize: 10, padding: "3px 8px" }}>
+                    Local Store
+                  </span>
+                </div>
+
+                <div className="row gap-8">
+                  <button
+                    type="button"
+                    className="btn btn-outline grow"
+                    onClick={() => nav(`/business/${u.ownedBusiness?.id}`)}
+                    style={{ borderRadius: 12, padding: "8px 12px", fontSize: 13, fontWeight: 700, borderColor: "var(--amber-300)", color: "var(--amber-800)" }}
+                  >
+                    Visit Store & Order →
+                  </button>
+                  {!isSelf && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={async () => {
+                        if (!u.ownedBusiness) return;
+                        try {
+                          const conv = await chatService.getOrCreate(u.id, {
+                            type: "business",
+                            id: u.ownedBusiness.id,
+                            name: u.ownedBusiness.name,
+                            avatar: u.ownedBusiness.coverImage || "",
+                            ownerUserId: u.id,
+                          });
+                          nav(`/chat/${conv.id}`);
+                        } catch (e) {
+                          showToast(errorMessage(e, "Couldn't open chat"));
+                        }
+                      }}
+                      style={{ borderRadius: 12, padding: "8px 14px", fontSize: 13, fontWeight: 700, background: "var(--orange-600)" }}
+                    >
+                      Message Store
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Pill Content Tabs (Only Posts, Asks, Badges) ── */}
         <div
           className="row"

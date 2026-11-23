@@ -994,6 +994,19 @@ export const SPECIFIC_PROVIDER_IMAGERY: Record<string, CuratedProviderProfile> =
       { id: "pp_aa4", caption: "Solo artist gallery exhibition booth showcase", url: "https://images.unsplash.com/photo-1501472312651-787554900085?auto=format&fit=crop&w=800&q=75" },
     ],
   },
+
+  // 7. Priya Nair — Bridal & Traditional Mehndi Artist
+  p_priya_mehndi: {
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    portfolio: [
+      { id: "pp_priya_1", caption: "Royal Bridal Storyboard with bespoke couple portraits and lotus motifs", url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=75" },
+      { id: "pp_priya_2", caption: "Fine traditional Marwadi bridal mehndi on palms & forearms", url: "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=75" },
+      { id: "pp_priya_3", caption: "Contemporary Indo-Arabic floral design with delicate shaded roses", url: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=75" },
+      { id: "pp_priya_4", caption: "Intricate bridal feet mehndi with payal anklet pattern", url: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=75" },
+      { id: "pp_priya_5", caption: "Baby shower / Godh Bharai cute cradle and blessings mandala", url: "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=75" },
+      { id: "pp_priya_6", caption: "Deep mahogany natural stain after 48 hours using 100% organic henna", url: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=75" },
+    ],
+  },
 };
 
 // ── Generic Category Defaults (used if not in specific overrides) ───────────

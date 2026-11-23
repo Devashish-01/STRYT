@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MessageCircle, Search, QrCode, X, ArrowLeft } from "@/components/Icons";
 import { chatService, relativeTime, type ChatScope } from "@/services/engagement/chatService";
@@ -8,6 +8,7 @@ import { EmptyState, SafeImg } from "@/components/common";
 import { NoMessagesIllustration, NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import { useAccountOptions } from "@/hooks/useAccountOptions";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every visit.
@@ -15,21 +16,63 @@ const QrScannerSheet = lazy(() => import("@/components/QrScannerSheet"));
 
 export default function ConversationList() {
   const nav = useNavigate();
-  const { user } = useApp();
+  const { user, activeContext } = useApp();
+  const { options } = useAccountOptions();
   const { t, tf } = useI18n();
   const SCOPE_LABEL: Record<string, string> = {
-    BUSINESS: t("business_inbox"),
-    PROVIDER: t("provider_inbox"),
-    CUSTOMER: t("personal_inbox"),
+    BUSINESS: t("business_inbox") || "Business Inbox",
+    PROVIDER: t("provider_inbox") || "Provider Inbox",
+    CUSTOMER: t("personal_inbox") || "Personal Chats",
   };
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const rawScope = params.get("scope");
   const scopeId = params.get("id") ?? undefined;
-  const scope: ChatScope | undefined =
-    rawScope === "BUSINESS" || rawScope === "PROVIDER" || rawScope === "CUSTOMER"
-      ? { scope: rawScope, id: scopeId }
-      : undefined;
-  const scopeKey = `${rawScope ?? ""}:${scopeId ?? ""}`;
+
+  // Strict scope defaulting: Never dump all hats together.
+  // When no query param is given, default to the user's active context.
+  const scope: ChatScope = useMemo(() => {
+    if (rawScope === "BUSINESS" || rawScope === "PROVIDER" || rawScope === "CUSTOMER") {
+      return { scope: rawScope, id: scopeId };
+    }
+    if (activeContext.type === "business" && activeContext.id) {
+      return { scope: "BUSINESS", id: activeContext.id };
+    }
+    if (activeContext.type === "provider" && activeContext.id) {
+      return { scope: "PROVIDER", id: activeContext.id };
+    }
+    return { scope: "CUSTOMER" };
+  }, [rawScope, scopeId, activeContext]);
+
+  const chips = useMemo(() => {
+    if (options.length < 2) return [];
+    const list: { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string; label: string; active: boolean }[] = [
+      {
+        scope: "CUSTOMER",
+        label: "👤 " + (t("personal_inbox") || "Personal"),
+        active: scope.scope === "CUSTOMER",
+      },
+    ];
+    for (const o of options) {
+      if (o.type === "business" && o.id) {
+        list.push({
+          scope: "BUSINESS",
+          id: o.id,
+          label: "🏪 " + o.name,
+          active: scope.scope === "BUSINESS" && scope.id === o.id,
+        });
+      } else if (o.type === "provider" && o.id) {
+        list.push({
+          scope: "PROVIDER",
+          id: o.id,
+          label: "🎨 " + o.name,
+          active: scope.scope === "PROVIDER" && scope.id === o.id,
+        });
+      }
+    }
+    return list;
+  }, [options, scope, t]);
+
+  const scopeKey = `${scope.scope}:${scope.id ?? ""}`;
   const { data: convs, loading } = useQueryWithRealtime(
     () => chatService.conversations(scope),
     "conversations",
@@ -97,6 +140,49 @@ export default function ConversationList() {
       </header>
 
       <div className="screen-scroll">
+        {chips.length > 1 && (
+          <div
+            className="row gap-8"
+            style={{
+              padding: "10px 16px",
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              borderBottom: "1px solid var(--line)",
+              background: "var(--surface)",
+            }}
+          >
+            {chips.map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  if (chip.scope === "CUSTOMER") {
+                    setParams({ scope: "CUSTOMER" });
+                  } else {
+                    setParams({ scope: chip.scope, id: chip.id ?? "" });
+                  }
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  fontSize: 12.5,
+                  fontWeight: chip.active ? 700 : 500,
+                  background: chip.active ? "var(--brand-700)" : "var(--ink-50)",
+                  color: chip.active ? "#fff" : "var(--ink-700)",
+                  border: chip.active ? "none" : "1px solid var(--line)",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  boxShadow: chip.active ? "0 2px 8px rgba(160, 32, 224, 0.25)" : "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <ListSkeleton count={4} />
         ) : (convs ?? []).length === 0 ? (
