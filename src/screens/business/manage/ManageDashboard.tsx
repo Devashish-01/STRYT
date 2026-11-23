@@ -51,6 +51,7 @@ export default function ManageDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
+  const [packingId, setPackingId] = useState<string | null>(null);
 
   const { data: business, loading: businessLoading, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { available, toggle: toggleAvailability } = useShopOpenToggle(id, business, refetchBusiness);
@@ -184,7 +185,6 @@ export default function ManageDashboard() {
   const activeFulfillmentOrders = appts.filter(
     (a) => a.status === "ACCEPTED" && (a.fulfillmentType === "DELIVERY" || (a.items && a.items.length > 0))
   );
-  const [packingId, setPackingId] = useState<string | null>(null);
 
   async function markPacked(aptId: string) {
     if (packingId) return;

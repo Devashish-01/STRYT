@@ -626,7 +626,15 @@ export const deliveryService = {
    * Silently no-ops server-side for a terminal delivery, so a late fix from a
    * backgrounded app can't resurrect anything.
    */
-  async updatePosition(deliveryId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
+  async updatePosition(
+    deliveryId: string,
+    lat: number,
+    lng: number,
+    accuracy?: number,
+    heading?: number,
+    recordedAt?: string,
+    simulated?: boolean,
+  ): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("update_delivery_position", {
       p_delivery_id: deliveryId,
@@ -634,13 +642,23 @@ export const deliveryService = {
       p_lng: lng,
       p_accuracy: accuracy ?? undefined,
       p_heading: heading ?? undefined,
+      p_recorded_at: recordedAt ?? undefined,
+      p_simulated: simulated ?? false,
     });
     if (error) throw toApiError(error);
   },
 
   /** Pure GPS push for the whole active run — separate from discrete stop-status changes,
    *  so a throttled background fix never has to pretend to be a status transition. */
-  async updateBatchPosition(batchId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
+  async updateBatchPosition(
+    batchId: string,
+    lat: number,
+    lng: number,
+    accuracy?: number,
+    heading?: number,
+    recordedAt?: string,
+    simulated?: boolean,
+  ): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("update_delivery_batch_position", {
       p_batch_id: batchId,
@@ -648,6 +666,8 @@ export const deliveryService = {
       p_lng: lng,
       p_accuracy: accuracy ?? undefined,
       p_heading: heading ?? undefined,
+      p_recorded_at: recordedAt ?? undefined,
+      p_simulated: simulated ?? false,
     });
     if (error) throw toApiError(error);
   },

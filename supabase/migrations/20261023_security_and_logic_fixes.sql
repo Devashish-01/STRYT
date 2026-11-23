@@ -73,6 +73,10 @@ begin
   return false;
 end $function$;
 
+REVOKE ALL ON FUNCTION public.confirm_handoff(p_delivery_id text, p_code text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.confirm_handoff(p_delivery_id text, p_code text) TO authenticated;
+
+
 -- 4. Prevent modifying pledged quantity if deposit is already paid or pending confirmation
 CREATE OR REPLACE FUNCTION public.bulk_deal_pledge_join(
   p_deal_id text, p_quantity integer default 1, p_notes text default null,
@@ -155,6 +159,9 @@ begin
 
   return v_deal;
 end $function$;
+
+REVOKE ALL ON FUNCTION public.bulk_deal_pledge_join(text, integer, text, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.bulk_deal_pledge_join(text, integer, text, text) TO authenticated;
 
 -- 5. Cap exponential lockout exponent in _verify_entity_password
 CREATE OR REPLACE FUNCTION public._verify_entity_password(
@@ -253,3 +260,7 @@ begin
 
   return false;
 end $function$;
+
+REVOKE ALL ON FUNCTION public._verify_entity_password(p_kind text, p_entity_id text, p_password text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public._verify_entity_password(p_kind text, p_entity_id text, p_password text) TO authenticated;
+

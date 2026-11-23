@@ -22,6 +22,9 @@ export interface Fix {
   lng: number;
   accuracy?: number;
   heading?: number;
+  speed?: number;
+  timestamp?: number;
+  simulated?: boolean;
 }
 type FixCb = (f: Fix) => void;
 
@@ -135,6 +138,9 @@ async function startWatcher(notice: ForegroundNotice): Promise<Mode> {
             lng: loc.longitude,
             accuracy: loc.accuracy,
             heading: loc.bearing ?? undefined,
+            speed: loc.speed ?? undefined,
+            timestamp: loc.time ?? Date.now(),
+            simulated: Boolean(loc.simulated),
           });
         },
       );
@@ -152,6 +158,9 @@ async function startWatcher(notice: ForegroundNotice): Promise<Mode> {
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
         heading: pos.coords.heading ?? undefined,
+        speed: pos.coords.speed ?? undefined,
+        timestamp: pos.timestamp,
+        simulated: false,
       });
     });
     return "foreground";
@@ -165,6 +174,9 @@ async function startWatcher(notice: ForegroundNotice): Promise<Mode> {
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
           heading: pos.coords.heading ?? undefined,
+          speed: pos.coords.speed ?? undefined,
+          timestamp: pos.timestamp,
+          simulated: false,
         }),
       undefined,
       { enableHighAccuracy: true, maximumAge: 10000 },

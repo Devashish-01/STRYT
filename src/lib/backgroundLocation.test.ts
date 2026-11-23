@@ -162,6 +162,28 @@ describe("live share and delivery tracking share one watcher", () => {
     await Promise.all([backgroundLocation.start(() => {}, undefined, "live-share"), backgroundLocation.start(() => {}, LIVE_SHARE_NOTICE, "delivery")]);
     expect(mocks.start).toHaveBeenCalledTimes(1);
   });
+
+  it("captures and forwards simulated mock flag, speed, and timestamp", async () => {
+    let received: any = null;
+    await backgroundLocation.start((f) => { received = f; }, undefined, "delivery");
+    mocks.emit?.({
+      latitude: 18.5,
+      longitude: 73.8,
+      accuracy: 8,
+      bearing: 180,
+      simulated: true,
+      speed: 12.5,
+      time: 1700000000000,
+    } as any);
+    expect(received).not.toBeNull();
+    expect(received.lat).toBe(18.5);
+    expect(received.lng).toBe(73.8);
+    expect(received.accuracy).toBe(8);
+    expect(received.heading).toBe(180);
+    expect(received.speed).toBe(12.5);
+    expect(received.timestamp).toBe(1700000000000);
+    expect(received.simulated).toBe(true);
+  });
 });
 
 describe("whether the prominent disclosure must be shown first", () => {

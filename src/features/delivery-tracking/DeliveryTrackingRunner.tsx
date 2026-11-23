@@ -131,6 +131,11 @@ function Tracker({ userId }: { userId: string }) {
           lastFixRef.current = Date.now();
           const targets = targetsRef.current;
 
+          // Horizontal accuracy gating: discard low-accuracy / multipath fixes (> 100m)
+          if (f.accuracy && f.accuracy > 100) {
+            return;
+          }
+
           // Realtime broadcast to subscribed customers (<200ms latency)
           for (const apptId of targets.activeAppointmentIds) {
             deliveryService.broadcastLivePosition(apptId, {
@@ -143,11 +148,16 @@ function Tracker({ userId }: { userId: string }) {
             });
           }
 
+          const isoTime = f.timestamp ? new Date(f.timestamp).toISOString() : new Date().toISOString();
           let failed = false;
           const settle = (p: Promise<unknown>) => p.catch(() => { failed = true; });
           const sends: Promise<unknown>[] = [];
-          for (const batchId of targets.batchIds) sends.push(settle(deliveryService.updateBatchPosition(batchId, f.lat, f.lng, f.accuracy, f.heading)));
-          for (const soloId of targets.soloIds) sends.push(settle(deliveryService.updatePosition(soloId, f.lat, f.lng, f.accuracy, f.heading)));
+          for (const batchId of targets.batchIds) {
+            sends.push(settle(deliveryService.updateBatchPosition(batchId, f.lat, f.lng, f.accuracy, f.heading, isoTime, f.simulated)));
+          }
+          for (const soloId of targets.soloIds) {
+            sends.push(settle(deliveryService.updatePosition(soloId, f.lat, f.lng, f.accuracy, f.heading, isoTime, f.simulated)));
+          }
           void Promise.all(sends).then(() => {
             failuresRef.current = failed ? failuresRef.current + 1 : 0;
             setTrackingState({
