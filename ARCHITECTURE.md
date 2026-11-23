@@ -1,7 +1,7 @@
 # STRYT — System Architecture & Technical Specification
 
-> **Document Version:** 1.0.0  
-> **Target Release:** v1.0.91+  
+> **Document Version:** 1.1.0  
+> **Target Release:** v1.0.92+  
 > **Source Base:** 100% verified against active codebase, components, store slices, services, Capacitor configurations, and PostgreSQL migrations.  
 > **Last Updated:** November 2026
 
@@ -15,12 +15,16 @@
 4. [Frontend Architecture & Patterns](#4-frontend-architecture--patterns)
    - [Application Shell & Layout Tiers](#41-application-shell--layout-tiers)
    - [Multi-Tier Route Guard Pipeline](#42-multi-tier-route-guard-pipeline)
-   - [State Management & Modular Context Slices](#43-state-management--modular-context-slices)
+   - [State Management, Multi-Persona Partitioning & Context Slices](#43-state-management-multi-persona-partitioning--context-slices)
    - [Responsive Design System & Token Architecture](#44-responsive-design-system--token-architecture)
    - [Offline Resiliency & Mutation Queuing](#45-offline-resiliency--mutation-queuing)
 5. [Backend & Database Architecture](#5-backend--database-architecture)
    - [Data Modeling & Domain Partitioning (94 Tables)](#51-data-modeling--domain-partitioning-94-tables)
-   - [PostGIS Geospatial Engine & Proximity Indexing](#52-postgis-geospatial-engine--proximity-indexing)
+   - [PostGIS Geospatial Engine & Dual-Track Geofencing Architecture](#52-postgis-geospatial-engine--dual-track-geofencing-architecture)
+     - [5.2.1 Discovery Geofencing Subsystem (Privacy & Anti-Enumeration)](#521-discovery-geofencing-subsystem-privacy--anti-enumeration)
+     - [5.2.2 Delivery Geofencing Subsystem (High-Precision Telemetry & Anti-Spoofing)](#522-delivery-geofencing-subsystem-high-precision-telemetry--anti-spoofing)
+     - [5.2.3 Statistical Uncertainty, Hysteresis & Debouncing Math](#523-statistical-uncertainty-hysteresis--debouncing-math)
+     - [5.2.4 Three-Tier PostGIS Latency Benchmarking](#524-three-tier-postgis-latency-benchmarking)
    - [Stored Procedures (RPCs) & Transactional Integrity](#53-stored-procedures-rpcs--transactional-integrity)
    - [Row-Level Security (RLS) & Anti-IDOR Governance](#54-row-level-security-rls--anti-idor-governance)
 6. [Security, Identity & Access Control](#6-security-identity--access-control)
@@ -37,6 +41,7 @@
    - [Multiplexed Native Background Geolocation](#81-multiplexed-native-background-geolocation)
    - [Unified Push Notification Delivery Engine](#82-unified-push-notification-delivery-engine)
    - [Supabase Realtime WebSocket Subscriptions](#83-supabase-realtime-websocket-subscriptions)
+   - [Google Play Store Background Location Policy & Evidence Standard](#84-google-play-store-background-location-policy--evidence-standard)
 9. [Observability, Privacy & Telemetry](#9-observability-privacy--telemetry)
    - [Sentry Error Boundary with PII Stripping](#91-sentry-error-boundary-with-pii-stripping)
    - [Client-Side Crash Diagnostics](#92-client-side-crash-diagnostics)
@@ -229,7 +234,7 @@ flowchart TD
     end
 ```
 
-### 4.3 State Management & Modular Context Slices
+### 4.3 State Management, Multi-Persona Partitioning & Context Slices
 
 State management is centralized in `src/store/AppProvider.tsx` using specialized React hooks composed into a unified `useApp()` hook. This modular separation avoids monolithic state bloat while preserving global access:
 
@@ -245,8 +250,21 @@ src/store/
 └── useToast.ts              # Non-blocking global notification queue
 ```
 
-- **Active Context Hat (`activeContext`):** Tracks whether an authenticated owner is operating under their `"CUSTOMER"`, `"BUSINESS"`, or `"PROVIDER"` persona. Persists across page refreshes to ensure navigation headers, dashboards, and bottom bars maintain context consistency.
-- **Real-Time Badge Synchronizer:** Subscribes to Supabase Realtime changes across `notifications` and `messages`, updating navigation counters without manual polling.
+#### Multi-Persona Partitioning & Role Switching
+STRYT supports seamless multi-hat operational workflows where a single authenticated identity (`users.id`) can simultaneously hold multiple roles (`roles: string[]` such as `["customer", "business", "provider", "delivery"]`):
+1. **Context Hat Isolation (`activeContext`):**
+   - The user's active session role is managed via `activeContext` (`"CUSTOMER"`, `"BUSINESS"`, or `"PROVIDER"`), persisted in client storage to survive page refreshes and cold starts.
+   - Headers, sidebars, bottom navigation, and action buttons dynamically reconfigure based on the active hat without requiring multiple user accounts.
+2. **Conversation & Chat Persona Attribution:**
+   - In `messages` and `conversations`, messages carry explicit metadata: `sender_role` (`"CUSTOMER" | "BUSINESS" | "PROVIDER"`), `entity_id` (the specific business or provider UUID), and `entity_name`.
+   - This ensures that when a merchant replies to a customer query, the customer sees the verified business branding and storefront name, not the personal profile of the merchant owner or staff member typing the message.
+3. **Community Post Partitioning:**
+   - Hyperlocal feeds (`community_posts`) partition content authoring via `author_type` (`"user" | "business" | "provider"`) and `author_ref_id`.
+   - Storefront promotions, flash sales, and business updates are attributed to the business entity, while personal discussions remain under the resident profile.
+4. **Shared Terminal & Physical Till Protection:**
+   - On shared shop tablets and POS counters, staff operate under the store's business session. Switching back to the owner's personal customer persona is locked behind a mandatory 4-digit Switch PIN (`switch_pin_attempts`), preventing floor staff from inspecting private orders, family chats, or personal location history.
+5. **Real-Time Badge Synchronizer:**
+   - Subscribes to Supabase Realtime changes across `notifications` and `messages`, updating navigation counters without manual polling.
 
 ### 4.4 Responsive Design System & Token Architecture
 
@@ -309,45 +327,95 @@ erDiagram
 | **4. Solo Service Pros** | `providers`, `provider_packages`, `portfolio_items`, `provider_view_logs`, `leads` | Freelancer profiles, hourly/fixed service packages, work radius geofencing, and direct customer lead inboxes. |
 | **5. Pillar C Reverse Market** | `requests`, `request_me_toos`, `proposals`, `proposal_counters`, `agreements` | Customer asks, peer upvotes ("Me Too"), merchant bidding, counter-proposals, milestone agreements, and escrow dispute logs. |
 | **6. Appointments & Commerce** | `appointments`, `appointment_items`, `blocked_slots`, `custom_payments` | Slot scheduling, walk-in reservations, itemized orders, merchant slot capacities, and direct UPI/custom payment logging. |
-| **7. Logistics & Delivery** | `delivery_agent_duty`, `delivery_batches`, `appointment_deliveries`, `tracking_tokens`, `handoff_attempts` | Rider on-duty status, batched multi-drop delivery, live rider GPS positions, customer tracking tokens, and secure PIN handoff attempts. |
+| **7. Logistics & Delivery** | `delivery_agent_duty`, `delivery_batches`, `appointment_deliveries`, `delivery_location_history`, `tracking_tokens`, `handoff_attempts` | Rider on-duty status, batched multi-drop delivery, live rider GPS positions, decoupled telemetry history (`delivery_location_history`), customer tracking tokens, and secure PIN handoff attempts. |
 | **8. Hyperlocal Community** | `community_posts`, `post_comments`, `post_likes`, `post_saves`, `comment_reactions`, `poll_votes`, `societies`, `society_members` | Neighborhood feeds, threaded comments, upvotes, poll voting counters, residential society gating, and recommendation tagging. |
 | **9. Ephemeral Stories** | `stories`, `story_views` | 24-hour visual stories, video/photo assets, viewer telemetry, and geo-targeted neighborhood story distribution. |
 | **10. Real-time Messaging** | `conversations`, `messages` | Direct buyer-seller chat threads, proposal linking, attachment URLs, and unread counters. |
 | **11. Safety & Live Location** | `live_shares`, `live_share_recipients`, `location_share_grants`, `emergency_contacts` | "My People" safety broadcasting, cryptographic live-share tokens, recipient permissions, and emergency dispatch links. |
 | **12. Growth & Loyalty** | `bulk_deals`, `bulk_deal_pledges`, `bulk_deal_tokens`, `group_buy_tokens`, `loyalty_cards`, `user_stamps`, `leaderboard_points` | Group buying thresholds, digital stamp loyalty cards, redeemable QR coupons, and neighborhood leaderboards. |
 
-### 5.2 PostGIS Geospatial Engine & Hardened Geofencing Architecture
+> **Recent Geofencing & Telemetry Migrations:**  
+> - `20261023_harden_delivery_geofencing.sql`: Establishes conservative geofence math, 15m hysteresis buffer, and debouncing standards.  
+> - `20261024_harden_geofence_discovery.sql`: Implements server-side 1.0 km guest clamp, 25-item page ceiling, coordinate bounds checks, and `SECURITY DEFINER` privilege restriction across 7 spatial discovery RPCs.  
+> - `20261025_teleportation_and_telemetry_hardening.sql`: Implements server-side velocity checks ($> 130\text{ km/h}$), creates `delivery_location_history`, enforces monotonic live position protection, and locks arrival notifications (`arrival_notified_at`).
 
-STRYT relies on spatial coordinates (`GEOGRAPHY(Point, 4326)`) indexed via GiST (`USING GIST(location)`).
-- **Proximity Queries:** Functions like `businesses_nearby(lat, lng, radius_km)` and `community_posts_nearby(lat, lng, radius_km)` execute high-speed spatial intersections using `ST_DWithin`:
-  ```sql
-  WHERE ST_DWithin(
-    b.location,
-    ST_SetSRID(ST_MakePoint(search_lng, search_lat), 4326)::geography,
-    radius_km * 1000
-  )
-  ```
-- **Database-Level Guest Clamping & Coordinate Validation:** All public discovery RPCs enforce:
-  1. Coordinate range validation (`-90 <= lat <= 90`, `-180 <= lng <= 180`), rejecting malformed payloads before query execution.
-  2. Anonymous users (`auth.role() = 'anon'`) are strictly clamped to a **1.0 km radius**, regardless of parameters passed over PostgREST.
-  3. Authenticated callers are capped at a **50.0 km ceiling** to prevent database Denial-of-Service scans.
-  4. Functions run with `SECURITY DEFINER SET search_path = public` with revoked `public` execution permissions, preventing table-enumeration attacks.
-- **Server-Side Anti-Spoofing & Teleportation Defense:** 
-  The `update_rider_position` RPC calculates real-world velocity between consecutive GPS fixes. Speeds exceeding $130\text{ km/h}$ raise `IMPLAUSIBLE_SPEED_DETECTED`, reject the position update, and record telemetry in `client_errors`.
-- **Decoupled Telemetry & Monotonic State Protection:**
-  Live delivery state (`appointment_deliveries`) is strictly protected against out-of-order writes (`p_recorded_at >= position_at`). Offline batches (queued via `riderQueue.ts`) are stored in `delivery_location_history` without corrupting live delivery tracking.
-- **Conservative Boundary Ingress & Idempotent Arrival Geofences:**
-  Arrival at delivery destinations requires conservative spatial containment:
-  $$d + \text{accuracy} \le R$$
-  Upon entering the 100-meter delivery zone, an atomic idempotency lock (`arrival_notified_at IS NULL`) guarantees that exactly **one** push notification is dispatched to the customer.
-- **Client-Side Hysteresis Engine & Debouncing:**
-  Perimeter boundary detection (`src/lib/geo/hysteresis.ts`) implements a 15-meter hysteresis buffer ($\epsilon = 15\text{ m}$) and a multi-sample debouncer ($N \ge 2$) to eliminate oscillation at geofence edges caused by fluctuating GPS noise.
-- **Three-Tier Latency Benchmarking:**
-  Spatial queries are verified with `scripts/db-tests/benchmark-postgis.mjs` across three distinct tiers:
-  1. SQL Engine Latency (GiST `EXPLAIN ANALYZE`): p95 $< 10\text{ ms}$.
-  2. PostgREST RPC Processing: p95 $< 35\text{ ms}$.
-  3. Client Network Round-Trip: p95 $< 120\text{ ms}$.
-- **Comprehensive Plan & Specifications:** For full implementation specifications and migration logs, see [GEOFENCING_HARDENING_PLAN.md](file:///d:/zetax/name/STRYT/GEOFENCING_HARDENING_PLAN.md).
+### 5.2 PostGIS Geospatial Engine & Dual-Track Geofencing Architecture
+
+STRYT's spatial infrastructure is built on PostgreSQL coordinates (`GEOGRAPHY(Point, 4326)`) indexed with GiST (`USING GIST(location)`). The platform enforces a strict architectural dichotomy between **Discovery Geofencing** and **Delivery Geofencing**. While both leverage shared PostGIS calculation primitives (`ST_DWithin`, `ST_DistanceSphere`), their security models, access privileges, and freshness requirements are completely decoupled:
+
+```mermaid
+flowchart TD
+    subgraph GeoEngine ["PostGIS Spatial Substrate (SRID 4326 + GiST)"]
+        GISTIndex["Spatial GIST Indexes on location"]
+        STPrimitives["ST_DWithin & ST_DistanceSphere Primitives"]
+    end
+
+    subgraph DiscoveryTrack ["Track 1: Discovery Geofencing (Privacy & Anti-Scraping)"]
+        GuestClamp["Anonymous Guest Clamp (Fixed 1.0 km Radius)"]
+        AuthCeiling["Authenticated Cap (Max 50.0 km Radius)"]
+        ResultCap["Strict Page Ceiling (Max 25 Entities)"]
+        CoordBounds["Coordinate Bounds Check (-90..90, -180..180)"]
+        SecDefiner["SECURITY DEFINER RPCs (Revoked Direct SELECT)"]
+    end
+
+    subgraph DeliveryTrack ["Track 2: Delivery Geofencing (Telemetry & Integrity)"]
+        NativeMock["Native Capgo Mock Detection (simulated: boolean)"]
+        SpeedCap["Velocity Ceiling (> 130 km/h Anomaly Rejection)"]
+        DecoupledHist["Decoupled Telemetry (delivery_location_history)"]
+        MonotonicWrite["Monotonic Live State Protection (client_time >= position_at)"]
+        IdempotentArrival["Atomic Arrival Lock (arrival_notified_at IS NULL)"]
+        HysteresisMath["Statistical Boundary Ingress (d + accuracy <= R - 15m)"]
+    end
+
+    GeoEngine --> DiscoveryTrack
+    GeoEngine --> DeliveryTrack
+```
+
+#### 5.2.1 Discovery Geofencing Subsystem (Privacy & Anti-Enumeration)
+Discovery powers buyer exploration across shops, offers, community discussions, and provider packages (`businesses_nearby`, `community_posts_nearby`, `categories_nearby`, `search_nearby_directory`, `leads_nearby`, `offers_nearby`, `explore_feed_nearby`):
+1. **Coordinate Range Validation:**
+   - Pre-execution validation verifies that latitude falls within $[-90.0, 90.0]$ and longitude within $[-180.0, 180.0]$, immediately raising `INVALID_COORDINATES` on malformed inputs.
+2. **Database-Level Guest Clamp:**
+   - Anonymous requests (`auth.role() = 'anon'`) are forcefully clamped to a **1.0 km radius** via `least(greatest(in_radius_km, 0.05), 1.0)`, preventing unauthenticated callers from harvesting merchant catalogs across regions.
+   - Results are capped at a maximum of **25 items** per query, neutralizing brute-force radius walking.
+3. **Authenticated Query Ceilings:**
+   - Authenticated sessions are capped at a **50.0 km radius** (`least(greatest(in_radius_km, 0.05), 50.0)`), mitigating database-level Denial-of-Service scans and competitor scraping.
+4. **Narrowly Scoped Execution Privileges:**
+   - Direct `SELECT` on sensitive underlying tables is restricted; spatial queries execute exclusively via `SECURITY DEFINER` RPCs with `SET search_path = public`.
+   - RPCs return narrow, projection-only field sets, omitting internal foreign keys, administrative metadata, and private user identifiers.
+
+#### 5.2.2 Delivery Geofencing Subsystem (High-Precision Telemetry & Anti-Spoofing)
+Delivery logistics require low-latency, fraud-resistant tracking between dispatch and doorstep handoff:
+1. **Verified Native Mock-Location Detection:**
+   - Telemetry integrates with `@capgo/background-geolocation` native bridge, inspecting the native hardware `simulated: boolean` flag (or Android mock location provider). Mock flags are streamed into telemetry payloads to inform backend risk scoring without brittle client-side logic.
+2. **Server-Side Teleportation & Velocity Anomaly Ceiling:**
+   - The `update_rider_position` RPC computes real-world velocity between the rider's consecutive position fixes:
+     $$v = \frac{\Delta d}{\Delta t}$$
+   - Any transit fix reflecting a speed exceeding **130 km/h** over a distance greater than **250 meters** is flagged as `IMPLAUSIBLE_SPEED_DETECTED`, rejected from live tracking, and recorded in `client_errors`.
+3. **Decoupled Telemetry & Monotonic State Protection:**
+   - Live delivery tracking (`appointment_deliveries`) is strictly monotonic: position updates are committed only when `v_client_time >= position_at`, preventing delayed network packets from rewinding the rider's displayed position.
+   - Background batches flushed from offline buffers (`riderQueue.ts`) after cellular dead zones are preserved in `delivery_location_history` for route auditing without corrupting live customer-facing coordinates.
+4. **Idempotent Arrival Notifications:**
+   - Entry into the customer's 100-meter arrival geofence is protected by an atomic idempotency lock (`arrival_notified_at IS NULL`). The database sets `arrival_notified_at = now()` atomically with the arrival state change, guaranteeing that fluctuating GPS jitter near the perimeter never dispatches duplicate push notifications.
+
+#### 5.2.3 Statistical Uncertainty, Hysteresis & Debouncing Math
+To eliminate false boundary triggers caused by GPS drift in urban canyons, STRYT employs statistical uncertainty verification combined with hysteresis:
+1. **Conservative Ingress Check (Geofence Entry):**
+   - An entry event is recognized if and only if the rider's 68% confidence error circle is entirely enclosed within the geofence radius $R$ minus the hysteresis margin $\epsilon = 15\text{ m}$:
+     $$(d + \text{accuracy}) \le (R - \epsilon)$$
+2. **Confident Egress Check (Geofence Exit):**
+   - An exit event is recognized only when the uncertainty circle is completely outside the geofence radius plus the hysteresis margin:
+     $$(d - \text{accuracy}) \ge (R + \epsilon)$$
+3. **Multi-Sample Temporal Debouncer (`GeofenceDebouncer`):**
+   - State flips require $N \ge 2$ consecutive conforming GPS fixes before transitioning between `INSIDE` and `OUTSIDE`, preventing perimeter oscillation.
+
+#### 5.2.4 Three-Tier PostGIS Latency Benchmarking
+Spatial query scalability is verified using `scripts/db-tests/benchmark-postgis.mjs`, measuring performance across three isolated tiers:
+1. **Tier 1 — SQL Engine Execution (GiST `EXPLAIN ANALYZE`):** Target p95 $< 10\text{ ms}$. Evaluates raw spatial index traversal speed under synthetic concurrent load.
+2. **Tier 2 — PostgREST RPC Processing:** Target p95 $< 35\text{ ms}$. Evaluates PL/pgSQL function overhead, JSON serialization, and connection pool queuing.
+3. **Tier 3 — Client Network Round-Trip Time (RTT):** Target p95 $< 120\text{ ms}$. Measures complete device-to-backend-to-device response latency over standard mobile 4G/5G connections.
+- **Table Lock Avoidance:** Heavyweight `CLUSTER` commands on PostGIS GiST indexes are explicitly avoided in production migrations due to table-level exclusive read/write locks; spatial performance is maintained via standard GiST indexing and regular autovacuum maintenance.
+- **Reference Plan:** Detailed implementation specifications, test cases, and penetration testing benchmarks are documented in [GEOFENCING_HARDENING_PLAN.md](file:///d:/zetax/name/STRYT/GEOFENCING_HARDENING_PLAN.md).
 
 ### 5.3 Stored Procedures (RPCs) & Transactional Integrity
 
@@ -538,6 +606,30 @@ Notifications originate from database triggers and are delivered through dual ch
 The app establishes reactive PostgreSQL WAL connections using the `useQueryWithRealtime` hook:
 - Subscribes to table-level changes filtered by user or entity IDs (`agent_user_id=eq.${userId}`, `business_id=eq.${businessId}`).
 - Updates client UI cache immediately upon database changes for chat messages, appointment statuses, queue movements, and delivery positions.
+
+### 8.4 Google Play Store Background Location Policy & Evidence Standard
+
+STRYT strictly restricts background geolocation execution to critical on-duty delivery courier workflows and opt-in user safety broadcasting ("My People"). To comply with Google Play's Location in the Background Policy, the application enforces the following architectural safeguards:
+
+1. **Prominent In-App Educational Disclosure (`src/components/BackgroundLocationDisclosure.tsx`):**
+   - Displayed *prior* to requesting Android runtime permissions (`ACCESS_BACKGROUND_LOCATION`).
+   - Explicitly explains why background access is required (live route tracking for waiting customers), that tracking occurs continuously even when the app is minimized or the screen is off, and clarifies that tracking automatically terminates when the delivery completes or the rider goes off-duty.
+2. **Persistent Native Foreground Service & Notification:**
+   - Background location runs inside an Android Foreground Service powered by `@capgo/background-geolocation`.
+   - Displays an ongoing, un-dismissible notification in the system shade with:
+     - Notification Channel: `stryt_delivery_tracking` (High Priority).
+     - Title: `"STRYT Live Tracking"`.
+     - Subtext / Body: Dynamic status showing active order tracking.
+3. **Two-Step Courier Dispatch Workflow:**
+   - To prevent accidental background service starts before the courier is actually on the road, dispatch enforces a two-step progression:
+     1. **"Picked up from shop"** (`PICKED_UP`): Marks that the rider has gathered items from the merchant counter.
+     2. **"Start delivery"** (`IN_TRANSIT`): Mounts the background geolocation tracking service and initiates live telemetry broadcasting.
+4. **Play Console Video Evidence Standard:**
+   - Demonstrations submitted to Google Play Console adhere to the sub-30 second continuous review video standard:
+     - Shows the in-app educational disclosure before permission escalation.
+     - Captures Android 11–15 permission dialog navigation ("Allow all the time").
+     - Shows courier tapping "Start delivery", backgrounding the app to the home screen, pulling down the Android notification tray to reveal the persistent `"STRYT Live Tracking"` notification, and reopening the app with active tracking intact.
+   - Standard operating procedures and step-by-step recording blueprints are documented in [DELIVERY_VIDEO_ONE_PHONE_CHECKLIST.md](file:///d:/zetax/name/STRYT/archive/docs/launch/play-console/DELIVERY_VIDEO_ONE_PHONE_CHECKLIST.md), [DELIVERY_VIDEO_TWO_PHONE_CHECKLIST.md](file:///d:/zetax/name/STRYT/archive/docs/launch/play-console/DELIVERY_VIDEO_TWO_PHONE_CHECKLIST.md), and [DELIVERY_FLOW_GOOGLE_MAPS_PLAYSTORE_BLUEPRINT.md](file:///d:/zetax/name/STRYT/DELIVERY_FLOW_GOOGLE_MAPS_PLAYSTORE_BLUEPRINT.md).
 
 ---
 
