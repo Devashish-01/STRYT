@@ -377,9 +377,9 @@ When the rider begins delivery, STRYT launches a native Android Foreground Servi
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 🛵 STRYT Partner • Active Delivery Run                       │
-│ Delivering Order #82A to Amanora Park Town                   │
-│ Live GPS tracking active • Tap to return to navigation       │
+│ 🛵 STRYT Live Tracking                                       │
+│ Sharing live location for active deliveries.                 │
+│ Open STRYT to view status.                                   │
 └──────────────────────────────────────────────────────────────┘
 ```
 * **Persistent & Non-Dismissible:** Cannot be swiped away while the rider is holding an active delivery.
@@ -392,7 +392,7 @@ When the rider begins delivery, STRYT launches a native Android Foreground Servi
 
 ### 3.4 Second-by-Second Reviewer Video Script (The Google Play Evidence Masterplan)
 
-To ensure Google Play reviewers ("Google Livit" / Policy Verification Team) approve the app on first submission, record a **35-second continuous screen recording** on an Android device following this exact choreography:
+To ensure Google Play reviewers ("Google Livit" / Policy Verification Team) approve the app on first submission, record a **30-to-35-second continuous screen recording** on an Android device following this exact choreography:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -400,10 +400,10 @@ To ensure Google Play reviewers ("Google Livit" / Policy Verification Team) appr
 ├──────────────┬───────────────────┬──────────────────────────────────────────────────────────────────────┤
 │ Timestamp    │ Screen Shown      │ Action & Reviewer Verification Cue                                   │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
-│ 0:00 - 0:05  │ Rider App         │ Suresh Kumar signs into Rider Hub. Shows Order #82A assigned.        │
-│              │                   │ Taps "Picked up from shop → Start Delivery".                         │
+│ 0:00 - 0:05  │ Rider App         │ Suresh Kumar in Delivery console. Shows assigned order.              │
+│              │                   │ Taps "Start delivery" (or "Picked up from shop" → "Start delivery"). │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
-│ 0:05 - 0:10  │ Disclosure Modal  │ In-App Prominent Disclosure clearly appears on screen.                │
+│ 0:05 - 0:10  │ Disclosure Modal  │ In-App Prominent Disclosure clearly appears on screen.               │
 │              │                   │ Reviewer sees: "even when the app is closed or not in use".          │
 │              │                   │ Tap "Continue".                                                      │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
@@ -411,14 +411,14 @@ To ensure Google Play reviewers ("Google Livit" / Policy Verification Team) appr
 │              │                   │ and redirect to App Settings -> "Allow all the time".                │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
 │ 0:15 - 0:20  │ Notification Bar  │ Pull down Android notification shade. Highlight the persistent       │
-│              │                   │ "STRYT Partner • Active Delivery Run" notification icon.             │
+│              │                   │ "STRYT Live Tracking" notification icon.                             │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
-│ 0:20 - 0:28  │ Background Test   │ PRESS ANDROID HOME BUTTON. Rider app goes to background.              │
+│ 0:20 - 0:28  │ Background Test   │ PRESS ANDROID HOME BUTTON. Rider app goes to background.             │
 │              │ (Crucial Step)    │ Open Chrome on the same phone showing Store Owner / Customer live    │
 │              │                   │ map at https://stryt.in. Show the rider scooter icon CONTINUOUSLY    │
 │              │                   │ MOVING on the map while the STRYT app is minimized!                  │
 ├──────────────┼───────────────────┼──────────────────────────────────────────────────────────────────────┤
-│ 0:28 - 0:35  │ Handoff & Cleanup │ Switch back to STRYT app. Enter customer OTP "9198".                 │
+│ 0:28 - 0:35  │ Handoff & Cleanup │ Switch back to STRYT app. Enter customer delivery verification code. │
 │              │                   │ Tap "Confirm Delivery". Screen flashes green with success haptic.    │
 │              │                   │ Pull down notification shade: Show tracking notification is GONE.    │
 └──────────────┴───────────────────┴──────────────────────────────────────────────────────────────────────┘

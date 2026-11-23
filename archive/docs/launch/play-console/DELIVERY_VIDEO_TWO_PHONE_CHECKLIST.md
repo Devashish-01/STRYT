@@ -18,9 +18,9 @@ Use this with [App access](APP_ACCESS.md), the [video script](BACKGROUND_LOCATIO
 
 ## Record
 
-1. Start Phone A's built-in screen recorder. Tap **Picked up from shop → Start delivery**.
-2. Hold on STRYT's disclosure long enough to read the background-location statement, then tap **Continue**. Show the Android runtime prompt. On Android 11+, **Allow all the time** is in the app-location settings; record that step if needed.
-3. Show the persistent **STRYT Live Tracking** notification. Background or lock Phone A while recording continues. Keep the delivery active.
+1. Start Phone A's built-in screen recorder. Tap **Start delivery** (or **Picked up from shop** then **Start delivery**; you may tap "Picked up from shop" beforehand to save filming seconds).
+2. Hold on STRYT's in-app disclosure long enough to read the background-location statement ("Allow location in the background?"), then tap **Continue**. Show the Android runtime prompt. On Android 11–15, follow the prompt to App Info / Settings → **Permissions → Location → Allow all the time**; record the setting being granted.
+3. Show the persistent **"STRYT Live Tracking"** notification in the notification shade. Background or lock Phone A while recording continues. Keep the delivery active.
 4. Record Phone B's **Live board** showing Suresh's position while Phone A is in the background. If the marker does not update, stop and investigate before submitting the video.
 5. Send both original recordings for editing. Aim for a final video around 30 seconds, but preserve enough footage to prove each required step. Do not show the sign-in codes, unrelated personal data, or My People as a second declared feature.
 

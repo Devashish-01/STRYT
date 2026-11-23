@@ -14,20 +14,22 @@ Use this when you have one Android phone. The existing [two-phone checklist](DEL
 
 **Location preflight (verified 2026-11-18):** Sharma General Store's approved live pin and address are **Amanora Park Town, Hadapsar, Pune 411028**. Priya's saved pin is approximately **0.31 km** from the shop, inside its **5 km** delivery radius. Check the pin again in checkout and make sure your phone's actual position is near Hadapsar before recording.
 
-1. In the **STRYT app**, sign in as Priya. Open **Sharma General Store**, add at least **₹100** of in-stock items, choose **Home delivery**, enter a full address, confirm the map pin is within the shop's **5 km** delivery radius, and place the cash-on-delivery order.
-2. Sign out of Priya. Sign in as Rajesh. Long-press **Profile**, choose **Sharma General Store**, then open **Orders**. Accept the new order, mark it packed, and assign it to **suresh_k**.
-3. Sign out of Rajesh. Sign in as Suresh. Long-press **Profile**, choose **Delivery**, switch **On duty** on, and find the order under **Assigned**. Leave the order ready to start. Prepare it shortly before filming; an untouched accepted order can expire after about three hours.
-4. Open **Chrome** on the same phone and visit `https://stryt.in`. Sign in as **Rajesh** there. Long-press **Profile**, choose **Sharma General Store**, then open **Orders → Deliveries → Live board**. Confirm the board loads and shows the assigned delivery. Leave Chrome signed in and switch back to the STRYT app, still signed in as Suresh. Chrome and the installed app should keep separate sessions; verify this on your phone.
+1. In the **STRYT app**, sign in as Priya (`9222222222` / `222222`). Priya defaults to Customer mode on Home. Open **Sharma General Store**, add at least **₹100** of in-stock items, choose **Home delivery**, enter a full address, confirm the map pin is within the shop's **5 km** delivery radius, and place the cash-on-delivery order.
+2. Sign out of Priya. Sign in as Rajesh (`9111111111` / `111111`). Long-press **Profile**, choose **Sharma General Store**, then open **Orders**. Accept the new order, tap **Mark Packed & Ready**, and assign delivery to **suresh_k**.
+3. Sign out of Rajesh. Sign in as Suresh (`9333333333` / `333333`). Long-press **Profile**, choose **Delivery**, switch **On duty** on, and find the order under **Assigned**.
+   - *Time-Saving Tip for the 30-Second Limit:* You can optionally tap **"Picked up from shop"** *before* starting screen recording. That transitions the button to **"Start delivery"**, allowing your recording to begin immediately on the action that triggers the disclosure modal.
+   - Prepare the order shortly before filming; an untouched accepted order can expire after about three hours.
+4. Open **Chrome** on the same phone and visit `https://stryt.in`. Sign in as **Rajesh** there. Long-press **Profile**, choose **Sharma General Store**, then open **Orders → Deliveries → Live board** (`/business/:id/manage/deliveries`). Confirm the board loads and shows the assigned delivery. Leave Chrome signed in and switch back to the STRYT app, still signed in as Suresh. Chrome and the installed app keep separate sessions; verify this on your phone.
 5. Reset **STRYT app's** Android location permission to **Don't allow** so the in-app disclosure and Android permission flow appear when tracking starts. Turn on phone location and internet. Hide personal notifications and disable screen-recorder microphone if it would capture private conversation.
 
 ## Record one continuous take
 
 | Shot | What to show |
 | --- | --- |
-| 1 | Start the phone's built-in screen recorder. In the installed STRYT app, show Suresh's assigned delivery. Tap **Picked up from shop → Start delivery**. |
-| 2 | Pause on the STRYT background-location disclosure long enough to read it. Tap **Continue**. Record the Android runtime location prompt and grant permission. On Android 11+, follow the phone's app-location settings route to **Allow all the time** if prompted. |
-| 3 | Show that the delivery is active. Pull down notifications and show the persistent **STRYT Live Tracking** notification. |
-| 4 | Press **Home** so STRYT is in the background. Keep the delivery running. Open Chrome from the home screen and show Rajesh's **Live board** receiving Suresh's current position. Wait for a fresh position or update timestamp; move a safe short distance if needed. |
+| 1 | Start the phone's built-in screen recorder. In the installed STRYT app, show Suresh's assigned delivery. Tap **Start delivery** (or tap **Picked up from shop** then **Start delivery**). |
+| 2 | Pause on the STRYT background-location disclosure dialog ("Allow location in the background?") long enough to read that precise location is collected even when the app is closed or not in use. Tap **Continue**. Record the Android runtime location prompt and grant permission. On Android 11–15, follow the prompt to App Info / Settings → **Permissions → Location → Allow all the time**. |
+| 3 | Show that the delivery is active. Pull down the Android notification shade and highlight the persistent **"STRYT Live Tracking"** notification (`Sharing live location for active deliveries. Open STRYT to view status.`). |
+| 4 | Press **Home** so STRYT is in the background. Keep the delivery running. Open Chrome from the home screen and show Rajesh's **Live board** receiving Suresh's current position updating live while STRYT is backgrounded. Wait for a fresh position or update timestamp; move a safe short distance if needed. |
 
 Do **not** sign out of Suresh after starting the delivery. The app's delivery tracking stops on sign-out, so switching accounts inside the installed app cannot prove background tracking. The owner view must be in Chrome while the installed app remains in the background. Do not claim that the position updated unless the board visibly shows it.
 
