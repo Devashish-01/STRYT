@@ -358,7 +358,7 @@ export function MapFilterStrip({
             setRadOpen((v) => !v);
           }}
         >
-          <Target size={14} weight={radiusKm != null ? "bold" : "regular"} />
+          {!radiusLabel.startsWith("🌍") && <Target size={13} weight={radiusKm != null ? "bold" : "regular"} />}
           <span>{radiusLabel}</span>
           <ChevronDown size={11} className={`map-chevron${radOpen ? " is-open" : ""}`} />
         </button>

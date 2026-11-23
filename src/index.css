@@ -4458,28 +4458,36 @@ button.set-row:active {
   z-index: 999;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px;
+  gap: 5px;
+  padding: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.95) !important;
   box-shadow: 0 6px 24px rgba(26, 21, 48, 0.12), 0 1px 4px rgba(26, 21, 48, 0.06) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.map-control-bar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Open now / Radius / Category / List-Map — 4 unified sleek floating pill segments */
 .map-control-bar__toggle {
-  flex: 1;
-  justify-content: center;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: max-content;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 36px;
-  padding: 0 6px;
-  border: 1px solid rgba(226, 221, 240, 0.6);
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(226, 221, 240, 0.8);
   background: rgba(245, 241, 250, 0.75);
   border-radius: 999px;
   color: var(--ink-700);
@@ -4490,6 +4498,7 @@ button.set-row:active {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 .map-control-bar__toggle svg {
@@ -4888,13 +4897,15 @@ button.set-row:active {
    component's own tap-target convention. Brand-tinted so it still reads as
    the CTA it is, not just another chip. */
 .map-search-area {
-  height: 38px;
+  height: 34px !important;
   border-radius: 999px !important;
   background: var(--brand-50) !important;
   border-color: var(--brand-300) !important;
   color: var(--brand-700) !important;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(139, 71, 245, 0.16);
+  flex-shrink: 0;
+  padding: 0 12px !important;
 }
 .map-search-area:disabled { opacity: 0.75; }
 

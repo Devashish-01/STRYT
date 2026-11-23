@@ -21,11 +21,11 @@ export default function SearchThisArea({
   return (
     <button
       type="button"
-      className="chip-pill map-search-area"
+      className="map-control-bar__toggle map-search-area"
       onClick={onClick}
       disabled={busy}
     >
-      {busy ? <Loader size={14} className="spin" /> : <RotateCcw size={14} />}
+      {busy ? <Loader size={13} className="spin" /> : <RotateCcw size={13} />}
       <span>{busy ? t("map_searching") : t("map_search_this_area")}</span>
     </button>
   );
