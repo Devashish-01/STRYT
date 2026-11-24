@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
+import { MARKETPLACE_PACKAGE_KEYS } from "@/lib/marketplaceScope";
 
 /**
  * The moment a Business Package becomes a real, visible, ownable choice
@@ -52,7 +53,7 @@ export function PackageConfirmCard({
         </button>
       ) : (
         <div className="row wrap gap-6">
-          {PACKAGE_KEYS.map((key) => {
+          {MARKETPLACE_PACKAGE_KEYS.map((key) => {
             const p = BUSINESS_PACKAGES[key];
             return (
               <button

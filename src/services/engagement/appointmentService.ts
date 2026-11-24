@@ -5,8 +5,27 @@ import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy }
 import { errorCode, errorMessage } from "@/lib/errorMessage";
 import { linesFromRows } from "@/lib/orderLines";
 import { autoCompletesNow, isTerminalAppointment } from "@/lib/machines/appointment";
+import { isExcludedMarketplaceEntry, MARKETPLACE_UNAVAILABLE, RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
+import { businessService } from "@/services/marketplace/businessService";
+import { providerService } from "@/services/marketplace/providerService";
 
 const STORAGE_KEY = "stryt_appointments";
+
+async function requireBookingTarget(targetType: AppointmentRecord["targetType"], targetId: string) {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return;
+  const service = targetType === "BUSINESS" ? businessService : providerService;
+  if (!(await service.get(targetId))) throw new Error(MARKETPLACE_UNAVAILABLE);
+}
+
+function visibleBookings(rows: AppointmentRecord[]): AppointmentRecord[] {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return rows;
+  return rows.filter((row) => !isExcludedMarketplaceEntry({
+    id: row.targetId,
+    name: row.targetName,
+    packageKey: row.targetPackageKey,
+    subCategory: row.packageName,
+  }));
+}
 
 /** Spots used at one timestamp for one service, from the `booked_slots` RPC. */
 export interface BookedSlotUsage {
@@ -300,6 +319,7 @@ async function patchPaymentStatus(
 
 export const appointmentService = {
   async create(payload: Omit<AppointmentRecord, "id" | "createdAtISO" | "status">): Promise<AppointmentRecord> {
+    await requireBookingTarget(payload.targetType, payload.targetId);
     const uid = await currentUserId();
     const customerId = uid || payload.customerId || "guest";
 
@@ -507,7 +527,7 @@ export const appointmentService = {
         }
       }
       return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
-    })();
+    })().then(visibleBookings);
 
     inFlightAppointmentLists.set(customerId, promise);
     try {
@@ -536,7 +556,7 @@ export const appointmentService = {
         return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
       }
       return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
-    })();
+    })().then(visibleBookings);
 
     inFlightTargetLists.set(targetId, promise);
     try {

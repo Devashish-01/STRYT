@@ -13,6 +13,7 @@ import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
 import { notificationService } from "@/services/engagement/notificationService";
 import { getRelatableBusinessCover, getRelatableBusinessGallery, enrichCatalogItems, enrichBusinessPortfolio } from "@/lib/curatedImages";
+import { requireMarketplaceEntry, visibleMarketplaceEntries } from "./catalogService";
 
 // A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
 // success with zero rows affected, not an error — so throwIfError alone can't
@@ -159,7 +160,7 @@ export const businessService = {
     // schema types yet.
     const { data, error } = await sb.from("businesses").select("*").eq("owner_user_id", uid).neq("status", "DELETED" as any);
     throwIfError(error);
-    return toCamel<Business[]>(data ?? []);
+    return visibleMarketplaceEntries(toCamel<Business[]>(data ?? []));
   },
 
   /**
@@ -190,8 +191,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("businesses").select("*").in("id", ids);
     throwIfError(error);
-    return (data ?? []).map((row) => {
-      const b = toCamel<Business>(row);
+    return (await visibleMarketplaceEntries(toCamel<Business[]>(data ?? []))).map((b) => {
       b.coverImage = getRelatableBusinessCover(b);
       b.gallery = getRelatableBusinessGallery(b);
       return b;
@@ -208,6 +208,7 @@ export const businessService = {
     throwIfError(error);
     if (!data) return undefined;
     const b = toCamel<Business>(data);
+    if (!(await visibleMarketplaceEntries([b])).length) return undefined;
     b.coverImage = getRelatableBusinessCover(b);
     b.gallery = getRelatableBusinessGallery(b);
     b.catalog = enrichCatalogItems(b.id, b.catalog ?? [], b.name, b.categoryName);
@@ -629,6 +630,7 @@ export const businessService = {
   },
 
   async update(id: string, patch: Partial<Business>) {
+    await requireMarketplaceEntry(patch);
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
     if (Object.keys(cols).length === 0) return undefined as unknown as Business;
@@ -678,6 +680,7 @@ export const businessService = {
   },
 
   async create(data: Partial<Business>) {
+    await requireMarketplaceEntry(data);
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);

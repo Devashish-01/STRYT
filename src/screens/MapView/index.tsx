@@ -42,6 +42,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import { useMapViewport } from "./useMapViewport";
 import { track, EVENTS } from "@/lib/analytics";
 import { paletteFor, retintFor } from "./mapPalette";
+import { RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
 
 // The default basemap — OpenFreeMap's open-source vector style, built from
 // OpenStreetMap data. Mapbox is a fallback only (see FALLBACK_TIMEOUT_MS
@@ -78,6 +79,17 @@ const FALLBACK_TIMEOUT_MS = 8_000;
  * support a given property throws in MapLibre, and one unexpected layer must
  * never take down the whole retint.
  */
+function hideBasemapPointsOfInterest(map: MaplibreMap) {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return;
+  for (const layer of map.getStyle()?.layers ?? []) {
+    const sourceLayer = "source-layer" in layer ? layer["source-layer"] : undefined;
+    if (sourceLayer !== "poi" && !/^poi(?:[\s_-]|$)/i.test(layer.id)) continue;
+    if (map.getLayoutProperty(layer.id, "visibility") !== "none") {
+      map.setLayoutProperty(layer.id, "visibility", "none");
+    }
+  }
+}
+
 function applyBasemapRetint(map: MaplibreMap, lampGlow: number) {
   const layers = map.getStyle()?.layers;
   if (!layers) return;
@@ -722,6 +734,7 @@ export default function MapView() {
         transformRequest={transformRequest}
         workerUrl={maplibreWorkerUrl}
         onLoad={handleMapLoad}
+        onStyleData={RESTRICTED_ANDROID_MARKETPLACE ? (event) => hideBasemapPointsOfInterest(event.target) : undefined}
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a
         // query — see useMapViewport.

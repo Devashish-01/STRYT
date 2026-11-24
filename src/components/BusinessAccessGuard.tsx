@@ -13,6 +13,7 @@ import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
 import { BusinessAccessContext, FULL_ACCESS, type BusinessAccessValue } from "@/lib/businessAccess";
+import MarketplaceConsoleScope from "@/components/MarketplaceConsoleScope";
 
 
 /**
@@ -20,6 +21,10 @@ import { BusinessAccessContext, FULL_ACCESS, type BusinessAccessValue } from "@/
  * publishes scope + console mode for child screens.
  */
 export default function BusinessAccessGuard() {
+  return <MarketplaceConsoleScope kind="business"><BusinessPermissions /></MarketplaceConsoleScope>;
+}
+
+function BusinessPermissions() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast, user, businessPasswordRequired } = useApp();

@@ -8,7 +8,8 @@ import { ErrorView, Skeleton } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import ProviderManageNav from "./ProviderManageNav";
 import { invalidateQueryCache } from "@/hooks/useApi";
-import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
+import { MARKETPLACE_PACKAGE_KEYS } from "@/lib/marketplaceScope";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 import { AccessibleSheet } from "@/components/ui/AccessibleSheet";
@@ -337,7 +338,7 @@ export default function ProviderSettings() {
           variant="bottom-sheet"
         >
           <div className="col gap-8">
-            {PACKAGE_KEYS.map((key) => {
+            {MARKETPLACE_PACKAGE_KEYS.map((key) => {
               const p = BUSINESS_PACKAGES[key];
               const active = pkgKey === key;
               return (

@@ -2,15 +2,13 @@ import type { CapacitorConfig } from '@capacitor/cli';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// The OTA updater compares bundle versions against the "current" version. If we
-// don't tell it, it falls back to the native versionName ("1.0" in build.gradle)
-// — which is HIGHER than our package.json scheme (0.1.x), so every OTA bundle
-// would look like a downgrade and never apply. Anchor the current version to
-// package.json so OTA bundles (0.1.1, 0.1.2, …) correctly read as newer.
+// iOS OTA bundles use package.json versions. The Android updater uses the
+// native version to reset downloaded bundles on an app update.
 let appVersion = '0.1.0';
 try {
   appVersion = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version || appVersion;
 } catch { /* keep default */ }
+const isIosSync = process.argv.includes('ios');
 
 const config: CapacitorConfig = {
   appId: 'in.stryt.app',
@@ -66,13 +64,16 @@ const config: CapacitorConfig = {
       // "atBackground": the plugin checks + downloads the new bundle in the
       // background and applies it automatically when the app is minimized/sent
       // to the background. This provides a silent update experience like Swiggy/Zepto.
-      autoUpdate: 'atBackground',
+      // The non-medical Android release must boot its bundled code. An older
+      // OTA may still include healthcare features. iOS sync keeps its OTA lane.
+      autoUpdate: isIosSync ? 'atBackground' : false,
+      resetWhenUpdate: true,
       // The plugin POSTs the update check (a static Storage file rejects POST
       // with 400), so updateUrl points at an edge function that returns the
       // manifest { version, url, checksum }. The zip it references is a public
       // Storage object the plugin fetches over GET, which Storage does allow.
       updateUrl: 'https://gnswxlfmcwyhmzlfipql.supabase.co/functions/v1/app-update',
-      version: appVersion,
+      version: isIosSync ? appVersion : undefined,
     },
   },
 };

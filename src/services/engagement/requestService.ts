@@ -8,6 +8,8 @@ import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName, greetingName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
+import { RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
+import { requireMarketplaceEntry, visibleMarketplaceEntries } from "@/services/marketplace/catalogService";
 // No client analytics here: request, proposal, agreement and rating events are emitted by triggers on those tables
 // (supabase/migrations/20261009_analytics_v1.sql), so they also cover writes this service never sees.
 
@@ -236,6 +238,13 @@ async function sweepExpired(sb: ReturnType<typeof getSupabase>): Promise<void> {
   ]).catch(() => { lastSweepAt = 0; /* retry next call */ });
 }
 
+async function visibleRequests(rows: RequestPost[]): Promise<RequestPost[]> {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return rows;
+  const candidates = rows.map((row) => ({ ...row, name: row.title }));
+  const ids = new Set((await visibleMarketplaceEntries(candidates)).map((row) => row.id));
+  return rows.filter((row) => ids.has(row.id));
+}
+
 export const requestService = {
   async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number; radiusKm?: number } = {}): Promise<Page<RequestPost>> {
     const sb = getSupabase();
@@ -281,7 +290,7 @@ export const requestService = {
         return r.distanceKm <= postCap;
       });
     }
-    return { data: rows, page: makePage(rawRows, count, from, limit).page };
+    return { data: await visibleRequests(rows), page: makePage(rawRows, count, from, limit).page };
   },
 
   async mine(userLat = 0, userLng = 0): Promise<RequestPost[]> {
@@ -295,7 +304,7 @@ export const requestService = {
       .eq("requester_user_id", uid)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return ((data ?? []) as unknown as RequestRow[]).map((r) => rowToRequest(r, userLat, userLng));
+    return visibleRequests(((data ?? []) as unknown as RequestRow[]).map((r) => rowToRequest(r, userLat, userLng)));
   },
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
@@ -303,10 +312,11 @@ export const requestService = {
     await sweepExpired(sb);
     const { data, error } = await sb.from("requests").select(requestSelect()).eq("id", id).maybeSingle();
     throwIfError(error);
-    return data ? rowToRequest(data as any, userLat, userLng) : undefined;
+    return data ? (await visibleRequests([rowToRequest(data as any, userLat, userLng)]))[0] : undefined;
   },
 
   async create(data: Partial<RequestPost>) {
+    await requireMarketplaceEntry({ ...data, name: data.title });
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to post a request" }, 401);
@@ -319,6 +329,7 @@ export const requestService = {
   },
 
   async update(id: string, data: Partial<RequestPost>): Promise<RequestPost> {
+    await requireMarketplaceEntry({ ...data, name: data.title });
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);

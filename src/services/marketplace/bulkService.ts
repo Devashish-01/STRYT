@@ -1,6 +1,8 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { haversineKm } from "@/lib/geocode";
+import { isExcludedMarketplaceEntry, MARKETPLACE_UNAVAILABLE, RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
+import { businessService } from "./businessService";
 import type {
   BulkDeal, BulkTier, BulkDealPledge, GroupBuyToken, GroupBuyRedemptionStats, PaymentMethod,
 } from "@/types";
@@ -106,6 +108,13 @@ function rowToPledge(r: any): BulkDealPledge {
 
 const DEAL_SELECT = "*, business:businesses!business_id(name, cover_image, lat, lng, upi_id)";
 
+async function visibleDeals(deals: BulkDeal[]): Promise<BulkDeal[]> {
+  if (!RESTRICTED_ANDROID_MARKETPLACE || !deals.length) return deals;
+  const ids = [...new Set(deals.map((deal) => deal.businessId))];
+  const businesses = new Set((await businessService.byIds(ids)).map((business) => business.id));
+  return deals.filter((deal) => businesses.has(deal.businessId) && !isExcludedMarketplaceEntry({ name: deal.title }));
+}
+
 // Deadline auto-close, mirroring requestService.ts's sweepExpired exactly:
 // opportunistic on read rather than a hard cron dependency, throttled so a
 // busy feed doesn't fire it on every card. Target-hit closing is already
@@ -159,7 +168,7 @@ export const bulkService = {
     if (p.lat && p.lng) {
       out.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     }
-    return out;
+    return visibleDeals(out);
   },
 
   async dealsForBusiness(businessId: string): Promise<BulkDeal[]> {
@@ -171,7 +180,7 @@ export const bulkService = {
       .eq("business_id", businessId)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r) => rowToDeal(r));
+    return visibleDeals((data ?? []).map((r) => rowToDeal(r)));
   },
 
   async getDeal(id: string): Promise<BulkDeal | undefined> {
@@ -179,10 +188,14 @@ export const bulkService = {
     await sweepExpiredDeals(sb);
     const { data, error } = await sb.from("bulk_deals").select(DEAL_SELECT).eq("id", id).maybeSingle();
     throwIfError(error);
-    return data ? rowToDeal(data) : undefined;
+    return data ? (await visibleDeals([rowToDeal(data)]))[0] : undefined;
   },
 
   async createDeal(businessId: string, deal: Partial<BulkDeal>): Promise<BulkDeal> {
+    if (RESTRICTED_ANDROID_MARKETPLACE &&
+      (isExcludedMarketplaceEntry({ name: deal.title }) || !(await businessService.get(businessId)))) {
+      throw new Error(MARKETPLACE_UNAVAILABLE);
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in to create a bulk deal");
@@ -283,8 +296,7 @@ export const bulkService = {
       .in("id", [...mine.keys()])
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r) => {
-      const deal = rowToDeal(r, userLat, userLng);
+    return (await visibleDeals((data ?? []).map((row) => rowToDeal(row, userLat, userLng)))).map((deal) => {
       const p = mine.get(deal.id);
       return {
         ...deal,
