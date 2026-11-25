@@ -12,8 +12,9 @@
 --      - category_counts_nearby
 -- 2. Caps authenticated queries to max 50.0 km to prevent wide-area table scan DoS attacks.
 -- 3. Validates geographic coordinate bounds (-90 <= lat <= 90, -180 <= lng <= 180).
--- 4. Enforces SECURITY DEFINER with fixed search_path = public on all spatial discovery functions.
--- 5. Implements explicit REVOKE and GRANT EXECUTE access controls.
+-- 4. Retains SECURITY INVOKER, so existing table RLS and column privileges
+--    still apply. These full-row RPCs must never run as SECURITY DEFINER.
+-- 5. Retains existing EXECUTE grants without expanding caller privileges.
 
 -- ============================================================================
 -- 1. businesses_nearby
@@ -30,7 +31,7 @@ create or replace function public.businesses_nearby(
 returns setof public.businesses
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -77,8 +78,6 @@ begin
 end;
 $$;
 
-revoke all on function public.businesses_nearby(double precision, double precision, double precision, text, integer, integer, text[]) from public, anon;
-grant execute on function public.businesses_nearby(double precision, double precision, double precision, text, integer, integer, text[]) to anon, authenticated;
 
 -- ============================================================================
 -- 2. providers_nearby
@@ -95,7 +94,7 @@ create or replace function public.providers_nearby(
 returns setof public.providers
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -139,8 +138,6 @@ begin
 end;
 $$;
 
-revoke all on function public.providers_nearby(double precision, double precision, double precision, text, integer, integer, text[]) from public, anon;
-grant execute on function public.providers_nearby(double precision, double precision, double precision, text, integer, integer, text[]) to anon, authenticated;
 
 -- ============================================================================
 -- 3. community_posts_nearby
@@ -155,7 +152,7 @@ create or replace function public.community_posts_nearby(
 returns setof public.community_posts
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -206,8 +203,6 @@ begin
 end;
 $$;
 
-revoke all on function public.community_posts_nearby(double precision, double precision, double precision, integer, integer) from public, anon;
-grant execute on function public.community_posts_nearby(double precision, double precision, double precision, integer, integer) to anon, authenticated;
 
 -- ============================================================================
 -- 4. stories_nearby
@@ -221,7 +216,7 @@ create or replace function public.stories_nearby(
 returns setof public.stories
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -251,6 +246,7 @@ begin
   left join public.businesses b on s.owner_type = 'business' and b.id = s.owner_id
   left join public.providers  p on s.owner_type = 'provider'  and p.id = s.owner_id
   where s.expires_at > now()
+    and (not v_is_anon or s.geom is not null)
     and (
       s.geom is null
       or ST_DWithin(
@@ -271,8 +267,6 @@ begin
 end;
 $$;
 
-revoke all on function public.stories_nearby(double precision, double precision, double precision, integer) from public, anon;
-grant execute on function public.stories_nearby(double precision, double precision, double precision, integer) to anon, authenticated;
 
 -- ============================================================================
 -- 5. search_businesses_nearby & search_providers_nearby
@@ -288,7 +282,7 @@ create or replace function public.search_businesses_nearby(
 returns setof public.businesses
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -297,6 +291,9 @@ declare
   v_is_anon          boolean := (auth.role() = 'anon' or auth.uid() is null);
   v_clean_q          text := nullif(trim(coalesce(in_q, '')), '');
 begin
+  if v_is_anon and (in_lat is null or in_lng is null) then
+    return;
+  end if;
   if in_lat is not null and (in_lat < -90 or in_lat > 90) then
     raise exception 'INVALID_COORDINATES';
   end if;
@@ -349,8 +346,6 @@ begin
 end;
 $$;
 
-revoke all on function public.search_businesses_nearby(text, double precision, double precision, double precision, integer, integer) from public, anon;
-grant execute on function public.search_businesses_nearby(text, double precision, double precision, double precision, integer, integer) to anon, authenticated;
 
 create or replace function public.search_providers_nearby(
   in_q text,
@@ -363,7 +358,7 @@ create or replace function public.search_providers_nearby(
 returns setof public.providers
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
@@ -372,6 +367,9 @@ declare
   v_is_anon          boolean := (auth.role() = 'anon' or auth.uid() is null);
   v_clean_q          text := nullif(trim(coalesce(in_q, '')), '');
 begin
+  if v_is_anon and (in_lat is null or in_lng is null) then
+    return;
+  end if;
   if in_lat is not null and (in_lat < -90 or in_lat > 90) then
     raise exception 'INVALID_COORDINATES';
   end if;
@@ -424,8 +422,6 @@ begin
 end;
 $$;
 
-revoke all on function public.search_providers_nearby(text, double precision, double precision, double precision, integer, integer) from public, anon;
-grant execute on function public.search_providers_nearby(text, double precision, double precision, double precision, integer, integer) to anon, authenticated;
 
 -- ============================================================================
 -- 6. category_counts_nearby
@@ -438,13 +434,16 @@ create or replace function public.category_counts_nearby(
 returns table (category_id text, kind text, listings integer)
 language plpgsql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
 declare
   v_effective_radius double precision;
   v_is_anon          boolean := (auth.role() = 'anon' or auth.uid() is null);
 begin
+  if v_is_anon and (in_lat is null or in_lng is null) then
+    return;
+  end if;
   if in_lat is not null and (in_lat < -90 or in_lat > 90) then
     raise exception 'INVALID_COORDINATES';
   end if;
@@ -452,12 +451,10 @@ begin
     raise exception 'INVALID_COORDINATES';
   end if;
 
-  if in_radius_km is not null then
-    if v_is_anon then
-      v_effective_radius := least(greatest(in_radius_km, 0.05), 1.0);
-    else
-      v_effective_radius := least(greatest(in_radius_km, 0.05), 50.0);
-    end if;
+  if v_is_anon then
+    v_effective_radius := least(greatest(coalesce(in_radius_km, 1.0), 0.05), 1.0);
+  elsif in_radius_km is not null then
+    v_effective_radius := least(greatest(in_radius_km, 0.05), 50.0);
   else
     v_effective_radius := null;
   end if;
@@ -490,6 +487,3 @@ begin
    group by p.category_id;
 end;
 $$;
-
-revoke all on function public.category_counts_nearby(double precision, double precision, double precision) from public, anon;
-grant execute on function public.category_counts_nearby(double precision, double precision, double precision) to anon, authenticated;

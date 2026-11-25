@@ -4,7 +4,6 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, AgreementStatus, ProposalCounter } from "@/types";
-import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName, greetingName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
@@ -324,7 +323,6 @@ export const requestService = {
     const row = { ...toSnake(cols), requester_user_id: uid, status: "OPEN" };
     const { data: created, error } = await sb.from("requests").insert(row).select().maybeSingle();
     throwIfError(error);
-    void leaderboardService.addPoints(uid, 2);
     return toCamel<RequestPost>(created);
   },
 
@@ -561,14 +559,12 @@ export const requestService = {
 
   async completeAgreement(id: string) {
     const sb = getSupabase();
-    const uid = await currentUserId();
     // Server RPC validates the caller is the requester and the deal is in
     // REVIEW before completing — replacing a raw update that any participant
     // could call out of order. It no longer touches an escrow status: STRYT
     // never held the funds, and 20260995 removed the table that claimed it did.
     const { error } = await sb.rpc("agreement_complete", { p_id: id });
     throwIfError(error);
-    if (uid) void leaderboardService.addPoints(uid, 5);
     return { ok: true, status: "COMPLETED" };
   },
 

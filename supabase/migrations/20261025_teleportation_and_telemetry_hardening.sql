@@ -29,10 +29,10 @@ create index if not exists idx_dlv_loc_hist_delivery
 
 alter table public.delivery_location_history enable row level security;
 
+-- History is written only by the authorized position RPC. A direct client
+-- insert could otherwise forge points for any delivery_id.
 drop policy if exists dlv_loc_hist_insert on public.delivery_location_history;
-create policy dlv_loc_hist_insert on public.delivery_location_history
-  for insert to authenticated
-  with check (agent_user_id = (select auth.uid())::text);
+revoke insert, update, delete on public.delivery_location_history from anon, authenticated;
 
 drop policy if exists dlv_loc_hist_select on public.delivery_location_history;
 create policy dlv_loc_hist_select on public.delivery_location_history
@@ -104,14 +104,10 @@ begin
 
       -- Speed ceiling: 130 km/h over more than 250m displacement
       if v_speed_kmh > 130.0 and v_delta_meters > 250.0 then
-        insert into public.client_errors (user_id, error_type, message, metadata, created_at)
-        values (
-          v_uid,
-          'LOCATION_TELEPORTATION_SUSPECTED',
-          format('Speed %s km/h across %s m in %s s', round(v_speed_kmh::numeric, 1), round(v_delta_meters::numeric, 1), round(v_delta_seconds::numeric, 1)),
-          jsonb_build_object('delivery_id', p_delivery_id, 'prev_lat', v_row.lat, 'prev_lng', v_row.lng, 'new_lat', p_lat, 'new_lng', p_lng),
-          now()
-        );
+        -- A table insert would be rolled back by the exception below. Log the
+        -- rejection in Postgres logs instead of writing nonexistent columns.
+        raise log 'LOCATION_TELEPORTATION_SUSPECTED delivery=% agent=% speed_kmh=%',
+          p_delivery_id, v_uid, round(v_speed_kmh::numeric, 1);
         raise exception 'IMPLAUSIBLE_SPEED_DETECTED';
       end if;
     end if;

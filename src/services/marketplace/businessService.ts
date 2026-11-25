@@ -3,7 +3,6 @@ import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken, QueueHistoryToken, QueueTokenStatus, PaymentStatus } from "@/types";
-import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import { aliasName } from "@/lib/publicName";
@@ -1107,11 +1106,6 @@ export const businessService = {
       bustBusinessGetCache(id);
       return;
     }
-    const { count: existingCount } = await sb
-      .from("ratings")
-      .select("*", { count: "exact", head: true })
-      .eq("ratee_type", "BUSINESS")
-      .eq("ratee_id", id);
     const { error } = await sb.from("ratings").insert({
       rater_user_id: uid,
       ratee_type: "BUSINESS",
@@ -1123,10 +1117,6 @@ export const businessService = {
     throwIfError(error);
     // The header's rating comes from the cached business row; without this the reviewer returns to their old one.
     bustBusinessGetCache(id);
-    if ((existingCount ?? 0) === 0) {
-      const { data: biz } = await sb.from("businesses").select("owner_user_id").eq("id", id).maybeSingle();
-      if (biz?.owner_user_id) void leaderboardService.addPoints(biz.owner_user_id, 3);
-    }
   },
 
 };

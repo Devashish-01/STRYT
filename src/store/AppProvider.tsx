@@ -10,7 +10,8 @@ import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { chatService } from "@/services/engagement/chatService";
-import { registerPush, canOfferPushPermission } from "@/lib/pushNotifications";
+import { registerPush, unregisterPush, canOfferPushPermission } from "@/lib/pushNotifications";
+import { clearQueryCache } from "@/hooks/useApi";
 import { Capacitor } from "@capacitor/core";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { useToast } from "@/store/useToast";
@@ -551,6 +552,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dismissNotifExplainer,
       signIn: () => setIsAuthed(true),
       signOut: () => {
+        const signingOutUserId = viewUser.id;
+        clearQueryCache();
         tokenStore.clear();
         setIsAuthed(false);
         setProfileReady(false);
@@ -582,7 +585,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(key);
           }
         }
-        void authService.logout().catch((err) => console.error("Error signing out:", err));
+        void (async () => {
+          if (signingOutUserId) await unregisterPush(signingOutUserId);
+          await authService.logout();
+        })().catch((err) => console.error("Error signing out:", err));
       },
     }),
     [

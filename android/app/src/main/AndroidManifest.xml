@@ -57,6 +57,16 @@
                 <data android:scheme="in.stryt.app" />
             </intent-filter>
 
+            <!-- HTTPS App Links become verified when stryt.in serves the Play
+                 app-signing certificate in /.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="stryt.in" />
+                <data android:scheme="https" android:host="www.stryt.in" />
+            </intent-filter>
+
         </activity>
 
         <!-- Fallback channel for FCM messages that omit or mismatch a channel.

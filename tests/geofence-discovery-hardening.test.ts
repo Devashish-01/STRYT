@@ -18,7 +18,7 @@ describe("Geofence Discovery Hardening Migration (20261024_harden_geofence_disco
     expect(content.length).toBeGreaterThan(500);
   });
 
-  it("all covered spatial discovery functions pin security definer and search_path = public", () => {
+  it("all covered spatial discovery functions retain caller privileges and pin search_path", () => {
     const content = fs.readFileSync(migrationPath, "utf8");
     const functions = [
       "businesses_nearby",
@@ -32,12 +32,13 @@ describe("Geofence Discovery Hardening Migration (20261024_harden_geofence_disco
 
     for (const fn of functions) {
       expect(content).toContain(`create or replace function public.${fn}`);
-      // Must have security definer and set search_path = public
+      // Full-row listing functions must not bypass table RLS or column grants.
       const fnBlockRegex = new RegExp(`create or replace function public\\.${fn}[\\s\\S]*?\\$\\$;`, "i");
       const match = content.match(fnBlockRegex);
       expect(match, `Function ${fn} block not found`).not.toBeNull();
       if (match) {
-        expect(match[0].toLowerCase()).toContain("security definer");
+        expect(match[0].toLowerCase()).toContain("security invoker");
+        expect(match[0].toLowerCase()).not.toContain("security definer");
         expect(match[0].toLowerCase()).toContain("search_path = public");
       }
     }
@@ -62,7 +63,7 @@ describe("Geofence Discovery Hardening Migration (20261024_harden_geofence_disco
     expect(content).toContain("least(greatest(coalesce(in_radius_km, 50.0), 0.05), 50.0)");
   });
 
-  it("explicitly revokes public/anon execute and grants controlled access", () => {
+  it("preserves the existing execute grants", () => {
     const content = fs.readFileSync(migrationPath, "utf8");
     const functions = [
       "businesses_nearby",
@@ -75,8 +76,8 @@ describe("Geofence Discovery Hardening Migration (20261024_harden_geofence_disco
     ];
 
     for (const fn of functions) {
-      expect(content).toContain(`revoke all on function public.${fn}`);
-      expect(content).toContain(`grant execute on function public.${fn}`);
+      expect(content).not.toContain(`revoke all on function public.${fn}`);
+      expect(content).not.toContain(`grant execute on function public.${fn}`);
     }
   });
 });

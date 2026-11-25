@@ -7,6 +7,7 @@ import { aliasName } from "@/lib/publicName";
 import { clampStoryHours } from "@/lib/stories";
 import { uploadService } from "@/services/core/uploadService";
 import { ACHIEVEMENT_THRESHOLDS } from "@/lib/badges";
+import { isExcludedMarketplaceEntry, RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
 import type {
   Story,
   AvailableNow,
@@ -96,6 +97,31 @@ async function filterStoriesByPrivacy(storiesList: Story[]): Promise<Story[]> {
   });
 }
 
+async function filterRestrictedStories(storiesList: Story[]): Promise<Story[]> {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return storiesList;
+  const sb = getSupabase();
+  const businessIds = [...new Set(storiesList.map((story) => story.businessId).filter((id): id is string => !!id))];
+  const providerIds = [...new Set(storiesList.map((story) => story.providerId).filter((id): id is string => !!id))];
+  const [businesses, providers] = await Promise.all([
+    businessIds.length ? sb.from("businesses").select("id,name,category_name,sub_category,package_key").in("id", businessIds) : Promise.resolve({ data: [], error: null }),
+    providerIds.length ? sb.from("providers").select("id,display_name,category_name,sub_category,package_key").in("id", providerIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (businesses.error) throw businesses.error;
+  if (providers.error) throw providers.error;
+  const restricted = new Set<string>();
+  for (const business of businesses.data ?? []) {
+    if (isExcludedMarketplaceEntry({ name: business.name, categoryName: business.category_name, subCategory: business.sub_category, packageKey: business.package_key })) restricted.add(`business:${business.id}`);
+  }
+  for (const provider of providers.data ?? []) {
+    if (isExcludedMarketplaceEntry({ name: provider.display_name, categoryName: provider.category_name, subCategory: provider.sub_category, packageKey: provider.package_key })) restricted.add(`provider:${provider.id}`);
+  }
+  return storiesList.filter((story) =>
+    !isExcludedMarketplaceEntry({ name: story.authorName, displayName: story.caption }) &&
+    !(story.businessId && restricted.has(`business:${story.businessId}`)) &&
+    !(story.providerId && restricted.has(`provider:${story.providerId}`))
+  );
+}
+
 /** story_mutes arrives with 20261008, so the generated database types do not list it yet - an untyped handle
  *  until they are regenerated (same approach the code used for user_blocks when that was new). */
 const storyMutes = () => (getSupabase() as unknown as { from: (t: string) => any }).from("story_mutes");
@@ -114,7 +140,7 @@ export const socialService = {
       .limit(50);
     if (error) throw error;
     const mapped = (data ?? []).map(rowToStory);
-    return filterStoriesByPrivacy(mapped);
+    return filterRestrictedStories(await filterStoriesByPrivacy(mapped));
   },
 
   async storiesNearby(lat: number, lng: number, radiusKm = 5): Promise<Story[]> {
@@ -126,7 +152,7 @@ export const socialService = {
       in_limit: 50,
     });
     if (error) throw error;
-    return filterStoriesByPrivacy((data ?? []).map(rowToStory));
+    return filterRestrictedStories(await filterStoriesByPrivacy((data ?? []).map(rowToStory)));
   },
 
   async myStory(): Promise<Story | null> {
@@ -402,6 +428,7 @@ export const socialService = {
     
     // Dynamically evaluate working hours & manual override for each provider
     let list = (data ?? [])
+      .filter((r) => !RESTRICTED_ANDROID_MARKETPLACE || !isExcludedMarketplaceEntry({ name: r.display_name, categoryName: r.category_name, subCategory: r.sub_category, packageKey: r.package_key }))
       .filter((r) => {
         const evalRes = evaluateProviderAvailability(
           r.availability_note as string,
@@ -609,7 +636,22 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("get_leaderboard");
     if (error) throw error;
-    return (data ?? []).map((r) => ({
+    const rows = data ?? [];
+    const blockedProviders = new Set<string>();
+    if (RESTRICTED_ANDROID_MARKETPLACE) {
+      const providerIds = rows.filter((r) => r.is_provider).map((r) => r.target_id).filter((id): id is string => !!id);
+      if (providerIds.length) {
+        const { data: providers, error: providerError } = await sb.from("providers")
+          .select("id,display_name,category_name,sub_category,package_key").in("id", providerIds);
+        if (providerError) throw providerError;
+        for (const provider of providers ?? []) {
+          if (isExcludedMarketplaceEntry({ name: provider.display_name, categoryName: provider.category_name, subCategory: provider.sub_category, packageKey: provider.package_key })) blockedProviders.add(provider.id);
+        }
+      }
+    }
+    return rows.filter((r) => !RESTRICTED_ANDROID_MARKETPLACE ||
+      (!isExcludedMarketplaceEntry({ name: r.name }) && !blockedProviders.has(r.target_id)))
+      .map((r) => ({
       rank:       Number(r.rank),
       name:       r.name,
       avatar:     r.avatar ?? "",

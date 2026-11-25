@@ -536,6 +536,26 @@ export default function App() {
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
   const navigate = useNavigate();
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const openLink = (raw: string) => {
+      try {
+        const url = new URL(raw);
+        let path: string;
+        if (url.protocol === "https:" && (url.hostname === "stryt.in" || url.hostname === "www.stryt.in")) {
+          path = url.pathname;
+        } else if (url.protocol === "stryt:" || url.protocol === "in.stryt.app:") {
+          if (url.hostname === "auth") return;
+          path = `/${url.hostname}${url.pathname}`;
+        } else return;
+        if (path.startsWith("//")) return;
+        navigate(`${path}${url.search}${url.hash}`);
+      } catch { /* Ignore malformed external links. */ }
+    };
+    const listener = CapApp.addListener("appUrlOpen", ({ url }) => openLink(url));
+    void CapApp.getLaunchUrl().then((result) => { if (result?.url) openLink(result.url); });
+    return () => { void listener.then((handle) => handle.remove()); };
+  }, [navigate]);
   // A push tap that points into another part of the app (a shop's console from the personal side, say) asks first.
   const { go: goGuarded, sheet: partSheet } = usePartNavigation();
 

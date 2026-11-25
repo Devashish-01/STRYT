@@ -16,6 +16,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 // store.tsx calls registerPush right after sign-in — without Firebase init,
 // PushNotifications.register() can crash the process on the native side.
 const FCM_READY = true;
+let currentNativeToken: string | null = null;
 
 export async function registerPush(userId: string, options: { requestPermission?: boolean } = {}): Promise<void> {
   if (Capacitor.isNativePlatform()) {
@@ -36,6 +37,7 @@ export async function registerPush(userId: string, options: { requestPermission?
       await PushNotifications.removeAllListeners();
 
       PushNotifications.addListener("registration", async (token) => {
+        currentNativeToken = token.value;
         const sb = getSupabase();
         await sb.from("fcm_tokens").upsert(
           {
@@ -151,8 +153,14 @@ export async function clearDeliveredNotifications(): Promise<void> {
 export async function unregisterPush(userId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
-      const sb = getSupabase();
-      await sb.from("fcm_tokens").delete().eq("user_id", userId);
+      if (currentNativeToken) {
+        const sb = getSupabase();
+        const { error } = await sb.from("fcm_tokens").delete().eq("user_id", userId).eq("token", currentNativeToken);
+        if (error) throw error;
+      }
+      currentNativeToken = null;
+      await PushNotifications.removeAllListeners();
+      await PushNotifications.removeAllDeliveredNotifications();
     } catch (e) {
       console.warn("Native token removal failed:", e);
     }

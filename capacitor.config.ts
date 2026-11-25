@@ -67,6 +67,7 @@ const config: CapacitorConfig = {
       // The non-medical Android release must boot its bundled code. An older
       // OTA may still include healthcare features. iOS sync keeps its OTA lane.
       autoUpdate: isIosSync ? 'atBackground' : false,
+      statsUrl: '',
       resetWhenUpdate: true,
       // The plugin POSTs the update check (a static Storage file rejects POST
       // with 400), so updateUrl points at an edge function that returns the

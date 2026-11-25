@@ -21,6 +21,13 @@ interface QueryState<T> {
 // this is what makes navigating back to an already-visited screen feel
 // instant instead of re-showing a skeleton every time.
 const queryCache = new Map<string, unknown>();
+let queryCacheEpoch = 0;
+
+/** Remove data fetched for the previous account before another user signs in. */
+export function clearQueryCache(): void {
+  queryCacheEpoch += 1;
+  queryCache.clear();
+}
 
 /** Drop a cached entry (e.g. after a mutation). Optional bust clears in-flight
  *  coalesced GETs in businessService/providerService so refetch is fresh. */
@@ -47,6 +54,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey
 
   const run = useCallback((isInitial = false) => {
     let active = true;
+    const requestEpoch = queryCacheEpoch;
     const key = keyRef.current;
     const hit = key ? queryCache.has(key) : false;
     if (hit) {
@@ -63,7 +71,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey
       fnRef
         .current()
         .then((res) => {
-          if (active) {
+          if (active && requestEpoch === queryCacheEpoch) {
             setData(res);
             if (key) queryCache.set(key, res);
           }
