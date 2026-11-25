@@ -1,6 +1,13 @@
 {
   "headers": [
     {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {
@@ -106,7 +113,7 @@
       "destination": "/legal/account-deletion.html"
     },
     {
-      "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|version\\.json|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
+      "source": "/((?!\\.well-known/.*|stryt\\.apk|sw\\.js|workbox-.*|version\\.json|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
       "destination": "/index.html"
     }
   ]
