@@ -126,6 +126,8 @@ export default function ProviderDetail() {
     );
   }
   const saved = isBookmarked("PROVIDER", p.id);
+  // Older or partially populated provider rows can carry a null relationship.
+  const portfolio = Array.isArray(p.portfolio) ? p.portfolio : [];
   const following = isFollowing("PROVIDER", p.id);
   const isOwner = p.userId === user.id;
   // The customer is beyond the provider's own service radius — surface a
@@ -161,7 +163,7 @@ export default function ProviderDetail() {
   })();
   const avail = (availList ?? []).find((a) => a.providerId === p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
-  const heroPhoto = p.portfolio[0]?.url;
+  const heroPhoto = portfolio[0]?.url;
   // Business Packages (Phase 3) — providers previously got nothing (this
   // screen shares zero code with BusinessDetail.tsx). Unlike a business,
   // whose untouched/"generic" identity is already brand purple (the same
@@ -183,7 +185,7 @@ export default function ProviderDetail() {
       <div className="screen-scroll" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {/* Header */}
         <div
-          onClick={heroPhoto ? () => setViewingPhotos({ photos: p.portfolio.map((i) => ({ url: i.url, caption: i.caption })), startIndex: 0 }) : undefined}
+          onClick={heroPhoto ? () => setViewingPhotos({ photos: portfolio.map((i) => ({ url: i.url, caption: i.caption })), startIndex: 0 }) : undefined}
           style={{
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
@@ -313,7 +315,7 @@ export default function ProviderDetail() {
 
         {/* Tabs */}
         <div className="row page-pad detail-tabs" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
-          {([["about", t("tab_about")], ["posts", tf("tab_posts_count", { count: (provPosts ?? []).length })], ["portfolio", tf("tab_work_count", { count: p.portfolio.length })], ["reviews", t("tab_reviews")]] as const).map(([tabKey, label]) => (
+          {([["about", t("tab_about")], ["posts", tf("tab_posts_count", { count: (provPosts ?? []).length })], ["portfolio", tf("tab_work_count", { count: portfolio.length })], ["reviews", t("tab_reviews")]] as const).map(([tabKey, label]) => (
             <button key={tabKey} onClick={() => setTab(tabKey)} className="semi detail-tab"
           style={{ color: tab === tabKey ? accent : "var(--ink-500)", borderBottom: tab === tabKey ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
               {label}
@@ -525,18 +527,18 @@ export default function ProviderDetail() {
 
         {tab === "portfolio" && (
           <div className="page-pad" style={{ paddingTop: 18 }}>
-            {p.portfolio.length === 0 ? (
+            {portfolio.length === 0 ? (
               <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("provider_no_portfolio_desc")} />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-                {p.portfolio.map((item, i) => (
+                {portfolio.map((item, i) => (
                   <div key={item.id}>
                     <SafeImg
                       src={item.url}
                       alt={item.caption}
                       className="thumb"
                       style={{ width: "100%", height: 140, borderRadius: 14, cursor: "pointer" }}
-                      onClick={() => setViewingPhotos({ photos: p.portfolio.map((it) => ({ url: it.url, caption: it.caption })), startIndex: i })}
+                      onClick={() => setViewingPhotos({ photos: portfolio.map((it) => ({ url: it.url, caption: it.caption })), startIndex: i })}
                     />
                     {item.caption && <p className="tiny muted" style={{ marginTop: 6 }}>{item.caption}</p>}
                   </div>
@@ -712,7 +714,7 @@ export default function ProviderDetail() {
             viewerManages: ownedProviderId === p.id,
             title: safeName(p.displayName, t("local_provider_fallback")),
             subtitle: `${p.categoryName} • from ${inr(p.startingPrice)}`,
-            image: p.portfolio[0]?.url ?? p.avatar,
+            image: portfolio[0]?.url ?? p.avatar,
             meta: [p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || t("new_provider_badge"),
           }}
           onClose={() => setShare(false)}

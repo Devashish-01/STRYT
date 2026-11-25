@@ -21,7 +21,7 @@ export default function QrScannerSheet({ onClose, onScan, title }: Props) {
   const [inputText, setInputText] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const lastStopRef = useRef<Promise<void>>(Promise.resolve());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleScanResult = (data: string) => {
@@ -115,62 +115,78 @@ export default function QrScannerSheet({ onClose, onScan, title }: Props) {
 
   useEffect(() => {
     if (tab !== "camera") {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        void scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-          setIsScanning(false);
-        });
-      }
+      setIsScanning(false);
       return;
     }
 
-    let isMounted = true;
+    let active = true;
+    let handled = false;
+    let scanner: Html5Qrcode | null = null;
+    let startPromise: Promise<unknown> | null = null;
+    let stopPromise: Promise<void> | null = null;
+    const previousStop = lastStopRef.current;
     const scannerId = "live-qr-reader";
 
-    const timer = setTimeout(() => {
-      if (!document.getElementById(scannerId)) return;
-      const html5QrCode = new Html5Qrcode(scannerId);
-      scannerRef.current = html5QrCode;
+    // html5-qrcode rejects a second stop while start/stop is in transition.
+    // Queue teardown after start and share the same promise across scan,
+    // tab-switch, and unmount callbacks.
+    const stopOnce = (): Promise<void> => {
+      if (stopPromise) return stopPromise;
+      stopPromise = (async () => {
+        try {
+          await startPromise?.catch(() => {});
+          if (scanner?.isScanning) await scanner.stop();
+        } catch { /* Camera may already have stopped. */ }
+        finally {
+          try { scanner?.clear(); } catch { /* Already cleared. */ }
+          if (active) setIsScanning(false);
+        }
+      })();
+      lastStopRef.current = stopPromise;
+      return stopPromise;
+    };
 
-      html5QrCode
-        .start(
+    const timer = setTimeout(() => {
+      void (async () => {
+        await previousStop.catch(() => {});
+        if (!active || !document.getElementById(scannerId)) return;
+        const currentScanner = new Html5Qrcode(scannerId);
+        scanner = currentScanner;
+        startPromise = Promise.resolve().then(() => currentScanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText) => {
-            if (!isMounted) return;
-            void html5QrCode.stop().then(() => {
-              html5QrCode.clear();
-              setIsScanning(false);
-              handleScanResult(decodedText);
-            });
+            if (!active || handled) return;
+            handled = true;
+            void stopOnce().then(() => { if (active) handleScanResult(decodedText); });
           },
           () => {
             // Frame parse noise — ignore
           }
-        )
-        .then(() => {
-          if (isMounted) {
+        ));
+        try {
+          await startPromise;
+          if (active) {
             setIsScanning(true);
             setCameraError(null);
+          } else {
+            await stopOnce();
           }
-        })
-        .catch((err) => {
-          if (isMounted) {
+        } catch (err) {
+          if (active) {
             setIsScanning(false);
-            const msg = typeof err === "string" ? err : err?.message || "Could not access camera hardware";
+            const msg = typeof err === "string" ? err : err instanceof Error ? err.message : "Could not access camera hardware";
             setCameraError(msg);
           }
-        });
+          await stopOnce();
+        }
+      })();
     }, 150);
 
     return () => {
-      isMounted = false;
+      active = false;
       clearTimeout(timer);
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        void scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-        }).catch(() => {/* ignore */});
-      }
+      void stopOnce();
     };
     // handleScanResult is a plain (non-memoized) function recreated every
     // render, and this effect's own callbacks call setIsScanning/setCameraError

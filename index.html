@@ -73,6 +73,8 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- MapLibre uses Object.hasOwn; load this before the app module on older Android WebViews. -->
+    <script src="/polyfills/object-has-own.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

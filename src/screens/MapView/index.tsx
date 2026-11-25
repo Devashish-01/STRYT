@@ -40,6 +40,7 @@ import { loadMapboxStyle, makeMapboxTransformRequest } from "./mapboxFallback";
 // maplibre itself stays in the chunk react-map-gl loads when a map mounts.
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useMapViewport } from "./useMapViewport";
+import { mapRadiusBounds } from "./mapRadiusBounds";
 import { track, EVENTS } from "@/lib/analytics";
 import { paletteFor, retintFor } from "./mapPalette";
 import { RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
@@ -389,10 +390,8 @@ export default function MapView() {
     // trigger for a redundant "Search this area" button with no way back to
     // Filters short of tapping it.
     suppressViewportMoveRef.current = true;
-    const latDelta = km / 111;
-    const lngDelta = km / (111 * Math.cos((centerLat * Math.PI) / 180) || 1);
     map.fitBounds(
-      [[centerLng - lngDelta, centerLat - latDelta], [centerLng + lngDelta, centerLat + latDelta]],
+      mapRadiusBounds(centerLat, centerLng, km),
       { padding: 48, duration: 600 },
     );
     map.once("moveend", () => { suppressViewportMoveRef.current = false; });
@@ -420,10 +419,8 @@ export default function MapView() {
     const framingKm = radiusOverride ?? 2;
     const map = mapRef.current?.getMap();
     if (map) {
-      const latDelta = framingKm / 111;
-      const lngDelta = framingKm / (111 * Math.cos((lat * Math.PI) / 180) || 1);
       map.fitBounds(
-        [[lng - lngDelta, lat - latDelta], [lng + lngDelta, lat + latDelta]],
+        mapRadiusBounds(lat, lng, framingKm),
         { padding: 48, duration: 800 },
       );
     }

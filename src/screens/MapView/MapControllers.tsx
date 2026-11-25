@@ -1,30 +1,16 @@
 import { useEffect, useRef } from "react";
 import { Navigation } from "@/components/Icons";
 import { useMap } from "react-map-gl/maplibre";
-import type { LngLatBoundsLike } from "maplibre-gl";
 import { useApp } from "@/store";
 import { config } from "@/config";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useI18n } from "@/lib/i18n";
+import { mapRadiusBounds } from "./mapRadiusBounds";
 
 // MapLibre (like every GL map) takes coordinates as [lng, lat] — the
 // opposite order from Leaflet's [lat, lng]. Mixing these up silently points
 // the map at the wrong hemisphere rather than erroring, so every conversion
 // point in this file is commented.
-
-// Approximates Leaflet's `L.latLng(lat,lng).toBounds(radiusKm*2000)` (a box
-// centered on the point, side = 2×radius) using the standard ~111km/degree
-// latitude approximation, adjusted by cos(lat) for longitude at that
-// latitude. Good enough for map framing — not survey-grade, doesn't need
-// to be.
-function boundsForRadius(lat: number, lng: number, radiusKm: number): LngLatBoundsLike {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-  return [
-    [lng - lngDelta, lat - latDelta], // southwest [lng, lat]
-    [lng + lngDelta, lat + latDelta], // northeast [lng, lat]
-  ];
-}
 
 // RadiusController lived here. Its only job was re-framing the map when the
 // radius strip changed; the strip retired with the map redesign (zoom now
@@ -55,7 +41,7 @@ export function RecenterButton({
     if (radiusKm >= 5000) {
       map.flyTo({ center: [targetLng, targetLat], zoom: 5, duration: 800 });
     } else {
-      map.fitBounds(boundsForRadius(targetLat, targetLng, radiusKm), { padding: 60, duration: 800 });
+      map.fitBounds(mapRadiusBounds(targetLat, targetLng, radiusKm), { padding: 60, duration: 800 });
     }
   };
 
