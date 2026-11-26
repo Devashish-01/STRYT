@@ -1,10 +1,12 @@
-// P06: point a local app at STAGING and give each synthetic persona a test phone number.
+// P06: point a local app at STAGING and configure the legacy Supabase SMS test path.
+// The current app uses Firebase Phone Auth; register these same numbers and OTP in
+// Firebase Authentication test phone numbers before running browser sign-in tests.
 //
 // - Writes .env.staging (gitignored via `.env*`): staging URL, staging publishable key (public by
 //   design — it ships inside every client), the staging ref, and a generated test OTP shared by the
 //   synthetic persona numbers. Values are never printed.
-// - Configures STAGING auth (never production): phone sign-in with those test numbers (no SMS is sent
-//   for test numbers), email sign-in auto-confirmed for the admin persona, localhost site URL.
+// - Configures STAGING Supabase auth (never production) for API-level checks:
+//   phone test numbers, email auto-confirmation, and localhost site URL.
 //
 // Hard guard: refuses unless the ref is the staging ref in archive/docs/plan/DECISIONS.md (D6) and not production.
 // Usage: node scripts/staging/setup-staging-auth.mjs

@@ -36,6 +36,33 @@ export function invalidateQueryCache(key: string, bustInflight?: () => void) {
   bustInflight?.();
 }
 
+/** Drop every cached entry whose key starts with `prefix` (e.g. "notif:"). */
+export function invalidateQueryCacheByPrefix(prefix: string) {
+  for (const key of Array.from(queryCache.keys())) {
+    if (key.startsWith(prefix)) queryCache.delete(key);
+  }
+}
+
+/** Read a query cache entry synchronously if present (distinguishing cached undefined via hasQueryCache). */
+export function hasQueryCache(key: string): boolean {
+  return queryCache.has(key);
+}
+
+/** Read a query cache entry synchronously without triggering a fetch. */
+export function peekQueryCache<T>(key: string): T | undefined {
+  return queryCache.get(key) as T | undefined;
+}
+
+/** Find the first match across cached entries sharing a prefix (e.g. "my-businesses:"). */
+export function findInQueryCacheByPrefix<T>(prefix: string, picker: (value: unknown) => T | undefined): T | undefined {
+  for (const [key, value] of queryCache.entries()) {
+    if (!key.startsWith(prefix)) continue;
+    const hit = picker(value);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
 export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey?: string): QueryState<T> {
   const initialHit = cacheKey && queryCache.has(cacheKey);
   const [data, setData] = useState<T | undefined>(initialHit ? (queryCache.get(cacheKey!) as T) : undefined);

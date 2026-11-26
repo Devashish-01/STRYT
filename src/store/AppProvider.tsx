@@ -22,6 +22,7 @@ import { useSocialSlice } from "@/store/useSocialSlice";
 import { useCommerceSlice } from "@/store/useCommerceSlice";
 import { useNotificationBadges } from "@/store/useNotificationBadges";
 import { AppContext, type ActiveContext, type AppState } from "@/store";
+import { roleForContextType } from "@/lib/partNavigation";
 
 // Blank placeholder user shown before auth hydrates. No hardcoded identity —
 // the real profile is loaded from Supabase once signed in.
@@ -88,7 +89,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lists, setLists, createList, addToList, deleteList, removeFromList, isInAnyList,
   } = useCommerceSlice(showToast);
 
-  const { chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
+  const {
+    chatUnread,
+    setChatUnread,
+    notifUnread,
+    refreshBadges: refreshNotifBadges,
+    liveAlert: liveNotification,
+    dismissLiveAlert: dismissLiveNotification,
+  } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
 
@@ -252,6 +260,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (ctx.type === "customer") {
           const next: ActiveContext = { type: "customer", id: null, name: me.name };
           localStorage.setItem("activeContext", JSON.stringify(next));
+          setActiveRole("customer");
+          localStorage.setItem("activeRole", "customer");
           return next;
         }
         return ctx;
@@ -274,16 +284,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const syncKey = `loc_synced_${uid}`;
     if (sessionStorage.getItem(syncKey) === "1") return;
     sessionStorage.setItem(syncKey, "1");
+    let hasFine = false;
     try {
       if (Capacitor.isNativePlatform()) {
         const perm = await Geolocation.checkPermissions();
-        if (perm.location !== "granted" && perm.coarseLocation !== "granted") return;
+        hasFine = perm.location === "granted";
+        if (!hasFine && perm.coarseLocation !== "granted") return;
       } else {
         const perm = await navigator.permissions?.query({ name: "geolocation" });
         if (perm?.state !== "granted") return;
+        hasFine = true;
       }
     } catch { return; }
-    nativeGeolocation.getCurrentPosition(
+    const fetchPos = hasFine ? nativeGeolocation.getCurrentPosition : nativeGeolocation.getQuickPosition;
+    fetchPos(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         const prev = userLocRef.current;
@@ -383,8 +397,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPersistedContext = useCallback((ctx: ActiveContext) => {
+    const nextRole = roleForContextType(ctx.type);
     setActiveContext(ctx);
     localStorage.setItem("activeContext", JSON.stringify(ctx));
+    setActiveRole(nextRole);
+    localStorage.setItem("activeRole", nextRole);
   }, []);
 
   const manageableBusinessIds = useMemo(
@@ -536,6 +553,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       offerNotificationPermission,
       chatUnread,
       setChatUnread,
+      notifUnread,
+      refreshNotifBadges,
+      liveNotification,
+      dismissLiveNotification,
       toast,
       showToast,
       isAuthed,
@@ -605,7 +626,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, deleteList, removeFromList, isInAnyList, showToast,
-      setPersistedActiveRole, setPersistedContext, setChatUnread, setIsAuthed,
+      setPersistedActiveRole, setPersistedContext, setChatUnread, refreshNotifBadges, dismissLiveNotification, setIsAuthed, notifUnread, liveNotification,
       attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshEntityPasswordStatus,
       confirmNotifExplainer, dismissNotifExplainer,
     ]

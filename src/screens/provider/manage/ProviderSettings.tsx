@@ -328,7 +328,7 @@ export default function ProviderSettings() {
           <SettingsToggleRow label={t("pset_show_profile")} on={ownerEnabled} disabled={savingOwnerEnabled} onChange={handleToggleVisibility} />
         </SettingsSection>
 
-        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>{t("pset_exit_provider")}</button>
+        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: user.name || "Personal" }); nav("/home"); }}>{t("pset_exit_provider")}</button>
 
         <AccessibleSheet
           isOpen={packagePicking}

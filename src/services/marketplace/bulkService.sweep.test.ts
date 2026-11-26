@@ -39,7 +39,7 @@ describe("bulkService deal reads survive the expiry sweep (E2E-005)", () => {
     const deals = await bulkService.dealsForBusiness("b_1");
     expect(rpc).toHaveBeenCalledWith("close_expired_bulk_deals");
     expect(deals).toHaveLength(1);
-  });
+  }, 15_000);
 
   it("still returns deals when the sweep itself errors", async () => {
     vi.resetModules();

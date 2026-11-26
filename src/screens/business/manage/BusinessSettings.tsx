@@ -661,7 +661,7 @@ export default function BusinessSettings() {
           <SettingsRow icon={<BadgeCheck size={18} />} label={t("bset_verification")} hint={t("bset_verification_hint")} onClick={() => nav(`/business/${id}/manage/verify`)} />
         </SettingsSection>
 
-        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
+        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: user.name || "Personal" }); nav("/home"); }}>
           Exit business mode
         </button>
 
@@ -704,7 +704,7 @@ export default function BusinessSettings() {
               try {
                 await businessService.delete(id);
                 showToast(t("bset_business_deleted"));
-                setContext({ type: "customer", id: null, name: "Personal" });
+                setContext({ type: "customer", id: null, name: user.name || "Personal" });
                 await refreshUser();
                 nav("/home");
               } catch (e: any){

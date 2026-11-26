@@ -39,17 +39,16 @@ export function persona(key: PersonaKey) {
 }
 
 /**
- * Signs a persona in through the app's real OTP screen (/auth/otp): the phone is handed over the same way
- * the app does it (sessionStorage "otp_phone"), the 6-digit staging test code is typed, and the app
- * navigates away once Supabase returns a session.
+ * Signs a persona in through the real phone and OTP screens so an OTP challenge
+ * exists before verification. The app navigates away once Supabase returns a session.
  */
 export async function signIn(page: Page, key: PersonaKey) {
   const env = loadStagingEnv();
   const p = persona(key);
-  await page.goto("/auth/otp?e2e=1");
-  // The screen reads the phone from sessionStorage when there is no router state; set it and reload.
-  await page.evaluate((phone) => sessionStorage.setItem("otp_phone", phone), p.phone);
-  await page.goto("/auth/otp");
+  await page.goto("/auth/phone");
+  await page.locator('input[type="tel"]').fill(p.phone.replace(/^\+91/, ""));
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page).toHaveURL(/\/auth\/otp/, { timeout: 30_000 });
   const boxes = page.locator('input[inputmode="numeric"]');
   await expect(boxes).toHaveCount(6);
   // Put the whole code into the first box, like SMS autofill / paste (the screen spreads it over all six).

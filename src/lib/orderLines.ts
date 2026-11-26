@@ -39,6 +39,17 @@ export function isAutoOrderNote(note: string | null | undefined, hasItems: boole
   return hasItems && /^Order:\s/i.test((note ?? "").trim());
 }
 
+/** Returns only genuine customer instructions, suppressing blank strings and synthetic "Order: …" item echoes. */
+export function customOrderNote(
+  note: string | null | undefined,
+  items?: readonly unknown[] | null,
+): string | undefined {
+  const trimmed = (note ?? "").trim();
+  if (!trimmed) return undefined;
+  if (isAutoOrderNote(trimmed, (items?.length ?? 0) > 0)) return undefined;
+  return trimmed;
+}
+
 /** What the customer owes for an order: the items plus the delivery fee. */
 export function amountDue(apt: { packagePrice?: number | null; deliveryFee?: number | null }): number {
   return (apt.packagePrice ?? 0) + (apt.deliveryFee ?? 0);

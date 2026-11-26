@@ -11,24 +11,21 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin, Package, ChevronRight } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin, ChevronRight } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
-import { OrderLines } from "@/components/OrderLines";
 import { amountDue, isAutoOrderNote } from "@/lib/orderLines";
-import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
-import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatOrderDateTime } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
 
 // A booking counts as "upcoming" while it is still live (in progress). Once completed, delivered, or cancelled, it moves to Past.
@@ -130,12 +127,11 @@ interface RebookTarget {
   targetPackageKey: BusinessPackageKey;
 }
 
-export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initialSwimlane?: "ALL" | "ORDERS" | "SERVICES" }) {
+export default function MyAppointments() {
   const nav = useNavigate();
   const { user, showToast } = useApp();
   const { t, tf, lang } = useI18n();
   const [tab, setTab] = useState<"UPCOMING" | "PAST">("UPCOMING");
-  const [swimlane, setSwimlane] = useState<"ALL" | "ORDERS" | "SERVICES">(initialSwimlane);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [rebook, setRebook] = useState<RebookTarget | null>(null);
@@ -156,41 +152,29 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
     user.id ? `customer_user_id=eq.${user.id}` : undefined
   );
 
-  const { upcomingList, pastList, ordersUpcomingCount, servicesUpcomingCount } = useMemo(() => {
+  const { upcomingList, pastList, ordersUpcomingCount, ordersTotalCount } = useMemo(() => {
     const all = data ?? [];
-    // Upcoming = strictly future live bookings (slot is ahead of now, status PENDING or ACCEPTED).
-    // Chronological order: earliest upcoming appointment first.
-    // Orders still in progress come first (the thing to look at), earliest first; one just delivered follows, most recent first.
-    const upcoming = all
-      .filter((a) => isUpcoming(a))
-      .sort((a, b) => {
-        const la = isLiveOrder(a) ? 0 : 1;
-        const lb = isLiveOrder(b) ? 0 : 1;
-        if (la !== lb) return la - lb;
-        const d = new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime();
-        return la === 0 ? d : -d;
-      });
+    const bookings = all.filter((a) => !isOrderActivity(a));
+    const storeOrders = all.filter(isOrderActivity);
 
-    // Past = all appointments whose slot time has passed or that are COMPLETED/CANCELLED/REJECTED/NO_SHOW.
-    // Reverse chronological order: most recent visit first.
-    // Unpaid past bookings remain visible here with full payment actions, or can be dismissed locally.
-    const past = all
+    // Upcoming = still-live scheduled bookings/services (slot is ahead of now, status PENDING or ACCEPTED).
+    // Store orders live in My Deals → Store Orders.
+    const upcoming = bookings
+      .filter((a) => isUpcoming(a))
+      .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+
+    // Past = all bookings whose slot time has passed or that are COMPLETED/CANCELLED/REJECTED/NO_SHOW.
+    const past = bookings
       .filter((a) => !isUpcoming(a) && !dismissedIds.has(a.id))
       .sort((a, b) => new Date(b.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-    const filterBySwimlane = (items: AppointmentRecord[]) => {
-      if (swimlane === "ORDERS") return items.filter(isOrderActivity);
-      if (swimlane === "SERVICES") return items.filter((a) => !isOrderActivity(a));
-      return items;
-    };
-
     return {
-      upcomingList: filterBySwimlane(upcoming),
-      pastList: filterBySwimlane(past),
-      ordersUpcomingCount: upcoming.filter((a) => isLiveOrder(a) && isOrderActivity(a)).length,
-      servicesUpcomingCount: upcoming.filter((a) => isLiveOrder(a) && !isOrderActivity(a)).length,
+      upcomingList: upcoming,
+      pastList: past,
+      ordersUpcomingCount: storeOrders.filter(isLiveOrder).length,
+      ordersTotalCount: storeOrders.length,
     };
-  }, [data, dismissedIds, swimlane]);
+  }, [data, dismissedIds]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
   const upcomingCount = upcomingList.length;
 
@@ -325,18 +309,8 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
           "go find who you want to book with" — Explore is the honest target,
           not a form. */}
       <AppBar
-        title={
-          swimlane === "ORDERS"
-            ? t("orders_and_deliveries")
-            : swimlane === "SERVICES"
-            ? t("bookings_and_services")
-            : t("my_activity_title")
-        }
-        subtitle={
-          swimlane === "ORDERS"
-            ? "Track retail & food deliveries"
-            : t("my_appointments_subtitle")
-        }
+        title={t("bookings_and_services")}
+        subtitle={t("my_appointments_subtitle")}
         right={
           <button className="icon-btn" onClick={() => nav("/explore")} aria-label={t("book_new_appointment")} title={t("book_an_appointment")}>
             <Plus size={20} />
@@ -344,21 +318,8 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
         }
       />
 
-      {/* Dual Swimlane Category Filter (Orders vs Services) */}
-      <div className="hscroll gap-8" style={{ paddingTop: 10, paddingBottom: 2 }}>
-        <button className={`chip ${swimlane === "ALL" ? "active" : ""}`} onClick={() => setSwimlane("ALL")}>
-          {t("all_activity")}
-        </button>
-        <button className={`chip ${swimlane === "ORDERS" ? "active" : ""}`} onClick={() => setSwimlane("ORDERS")}>
-          🛍️ {t("orders_and_deliveries")}{ordersUpcomingCount > 0 ? ` (${ordersUpcomingCount})` : ""}
-        </button>
-        <button className={`chip ${swimlane === "SERVICES" ? "active" : ""}`} onClick={() => setSwimlane("SERVICES")}>
-          📅 {t("bookings_and_services")}{servicesUpcomingCount > 0 ? ` (${servicesUpcomingCount})` : ""}
-        </button>
-      </div>
-
-      {swimlane === "SERVICES" && ordersUpcomingCount > 0 && (
-        <div className="page-pad" style={{ paddingTop: 4, paddingBottom: 0 }}>
+      {ordersUpcomingCount > 0 && (
+        <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
           <button
             type="button"
             className="card row between center-v"
@@ -371,12 +332,12 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
               textAlign: "left",
               cursor: "pointer",
             }}
-            onClick={() => nav("/agreements?section=orders")}
+            onClick={() => nav("/agreements?section=orders&tab=active")}
           >
             <div className="row gap-8 center-v">
               <span>🛍️</span>
               <span className="tiny semi" style={{ color: "var(--brand-900)" }}>
-                You have {ordersUpcomingCount} active store {ordersUpcomingCount === 1 ? "order" : "orders"}. View in My Deals →
+                You have {ordersUpcomingCount} active store {ordersUpcomingCount === 1 ? "order" : "orders"} · {t("track_in_my_deals")}
               </span>
             </div>
             <ChevronRight size={16} color="var(--brand-600)" />
@@ -385,7 +346,7 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
       )}
 
       {/* Upcoming / Past tabs */}
-      <div className="hscroll" style={{ paddingTop: 6, paddingBottom: 6 }}>
+      <div className="hscroll" style={{ paddingTop: 10, paddingBottom: 6 }}>
         <button className={`chip ${tab === "UPCOMING" ? "active" : ""}`} onClick={() => setTab("UPCOMING")}>
           {t("upcoming_tab")}{upcomingCount > 0 ? ` (${upcomingCount})` : ""}
         </button>
@@ -403,14 +364,29 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
             {list.length === 0 ? (
               <EmptyState
                 illustration={<NoAppointmentsIllustration />}
-                emoji={swimlane === "ORDERS" ? "🛍️" : "📅"}
-                title={tab === "UPCOMING" ? (swimlane === "ORDERS" ? "No active orders" : t("no_upcoming_appointments")) : t("nothing_here_yet")}
-                text={tab === "UPCOMING" ? (swimlane === "ORDERS" ? "Orders from shops and restaurants will appear here with live tracking." : t("book_slot_shows_here")) : t("past_bookings_appear_here")}
-                action={tab === "UPCOMING" ? (
-                  <button className="btn btn-primary row gap-6 center" onClick={() => nav("/explore")}>
-                    <Store size={16} /> {swimlane === "ORDERS" ? "Browse Shops & Food" : t("find_place_to_book")}
-                  </button>
-                ) : undefined}
+                emoji="📅"
+                title={tab === "UPCOMING" ? t("no_upcoming_appointments") : t("nothing_here_yet")}
+                text={tab === "UPCOMING" ? t("book_slot_shows_here") : t("past_bookings_appear_here")}
+                action={
+                  <div className="col gap-8 center" style={{ width: "100%" }}>
+                    {tab === "UPCOMING" && (
+                      <button className="btn btn-primary row gap-6 center" onClick={() => nav("/explore")}>
+                        <Store size={16} /> {t("find_place_to_book")}
+                      </button>
+                    )}
+                    {ordersTotalCount > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm row gap-6 center"
+                        style={{ color: "var(--brand-700)" }}
+                        onClick={() => nav(`/agreements?section=orders&tab=${ordersUpcomingCount > 0 ? "active" : "completed"}`)}
+                      >
+                        <span>🛍️ {t("orders_and_deliveries")} ({ordersTotalCount}) · {t("view_in_my_deals")}</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                }
               />
             ) : (
               list.map((apt) => {
@@ -431,21 +407,16 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
                 const payable = isPayable(apt.status);
                 const pastDueUnpaid = false;
-                const isOrder = isOrderActivity(apt);
                 return (
                   <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14, border: pastDueUnpaid ? "1px solid var(--amber-300)" : undefined }}>
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          {isOrder ? <Package size={12} color="var(--delivery-600)" /> : <Calendar size={12} color="var(--brand-600)" />}{" "}
-                          {isOrder
-                            ? (apt.isAsap
-                                ? `${t("dlv_asap_tag")} · by ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                                : `${formatAppointmentDate(apt, lang, t)} · Order Delivery/Pickup at ${apt.timeLabel}`)
-                            : (apt.isAsap
-                                ? `${t("dlv_asap_tag")} · ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                                : `${formatAppointmentDate(apt, lang, t)} at ${apt.timeLabel}`)}
+                          <Calendar size={12} color="var(--brand-600)" />{" "}
+                          {apt.isAsap
+                            ? `${t("dlv_asap_tag")} · ${formatOrderDateTime(apt.createdAtISO || apt.scheduledForISO, lang, t)}`
+                            : `${formatAppointmentDate(apt, lang, t)} at ${apt.timeLabel}`}
                         </div>
                         {apt.isAsap && apt.status === "PENDING" && Date.now() - new Date(apt.createdAtISO).getTime() >= 15 * 60_000 && (
                           <div className="tiny semi" style={{ marginTop: 3, color: "var(--amber-700)", lineHeight: 1.4 }}>
@@ -487,30 +458,15 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
                       </div>
                     )}
 
-                    {/* Delivery tracking comes first: it is the thing a customer opens this screen to look at.
-                        Feature-gated, and only for bookings the customer actually asked to have delivered. */}
-                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "PENDING" || apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} orderStatus={apt.status} readyAt={apt.readyAt} />
-                    )}
-
                     {(apt.packageName || apt.notes || apt.photoUrl) && (
                       <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
-                        {apt.items && apt.items.length > 0 ? (
-                          <OrderLines lines={apt.items} fee={apt.fulfillmentType === "DELIVERY" ? apt.deliveryFee : undefined} />
-                        ) : (
-                          apt.packageName && (
-                            <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
-                              📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
-                              {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
-                            </div>
-                          )
-                        )}
-                        {apt.fulfillmentType === "DELIVERY" && apt.deliveryAddressLine && (
-                          <div className="tiny" style={{ color: "var(--ink-700)" }}>
-                            📍 <strong>{t("ord_deliver_to")}</strong> {apt.deliveryAddressLine}
+                        {apt.packageName && (
+                          <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
+                            📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+                            {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
                           </div>
                         )}
-                        {apt.notes && !isAutoOrderNote(apt.notes, !!apt.items?.length) && (
+                        {apt.notes && !isAutoOrderNote(apt.notes, false) && (
                           <div className="tiny" style={{ color: "var(--ink-700)" }}>
                             📝 <strong>{t("your_note_label")}</strong> {apt.notes}
                           </div>
@@ -530,19 +486,19 @@ export default function MyAppointments({ initialSwimlane = "SERVICES" }: { initi
 
                     <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />
 
-                    {/* Payment status — shown for PENDING too (seller may require
-                        payment before accepting) and COMPLETED too (an accepted
-                        appointment auto-completes once its slot passes; the payment
-                        step must not disappear just because that housekeeping ran). */}
-                    {payable && (
-                      <PaymentStatusCard
-                        paymentStatus={apt.paymentStatus}
-                        paymentMethod={apt.paymentMethod}
-                        paymentAmount={apt.paymentAmount}
-                        paymentReference={apt.paymentReference}
-                        claimantName="You"
-                        viewerIsPayer
-                      />
+                    {/* Payment status — inline strip instead of nested card */}
+                    {payable && apt.paymentStatus && apt.paymentStatus !== "UNPAID" && (
+                      <div style={{ background: "var(--ink-50)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 10px" }}>
+                        <PaymentStatusCard
+                          variant="inline"
+                          paymentStatus={apt.paymentStatus}
+                          paymentMethod={apt.paymentMethod}
+                          paymentAmount={apt.paymentAmount}
+                          paymentReference={apt.paymentReference}
+                          claimantName="You"
+                          viewerIsPayer
+                        />
+                      </div>
                     )}
                     {payable && (!apt.paymentStatus || apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (
                       <button

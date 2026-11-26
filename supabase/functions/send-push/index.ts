@@ -219,7 +219,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { userId, title, body, deepLink, type } = await req.json();
+    const { userId, title, body, deepLink, type, notificationId, entityType, entityId } = await req.json();
     if (!userId) return json({ error: "userId required" }, 400, cors);
 
     // Load the recipient's push preferences once, up front. These columns were
@@ -257,7 +257,10 @@ Deno.serve(async (req: Request) => {
       if (subs && subs.length > 0) {
         // `type` lets the service worker group/tag notifications so a burst
         // of the same kind coalesces instead of stacking dozens of banners.
-        const notification = JSON.stringify({ title, body, url: deepLink || "/", type: type || "SYSTEM" });
+        const notification = JSON.stringify({
+          id: notificationId, title, body, url: deepLink || "/", type: type || "SYSTEM",
+          entity_type: entityType, entity_id: entityId,
+        });
         await Promise.all(
           subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
             try {
@@ -327,7 +330,12 @@ Deno.serve(async (req: Request) => {
                         apns: {
                           payload: { aps: silent ? {} : { sound: "default" } },
                         },
-                        data: { url: deepLink || "/", type: type || "SYSTEM" },
+                        data: {
+                          url: deepLink || "/", type: type || "SYSTEM",
+                          ...(notificationId ? { id: String(notificationId) } : {}),
+                          ...(entityType ? { entity_type: String(entityType) } : {}),
+                          ...(entityId ? { entity_id: String(entityId) } : {}),
+                        },
                       },
                     }),
                   }

@@ -16,7 +16,8 @@ import HatSwitcherCard from "@/components/HatSwitcherCard";
 import AvatarRing from "@/components/AvatarRing";
 import AvatarActionSheet from "@/components/AvatarActionSheet";
 import PhotoViewer from "@/components/PhotoViewer";
-import { requestService, socialService, businessService, notificationService, appointmentService } from "@/services";
+import { requestService, socialService, businessService, appointmentService } from "@/services";
+import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import ShareCard from "@/components/ShareCard";
@@ -38,7 +39,7 @@ type Tile = {
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread, notifUnread } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "customer");
   const { t } = useI18n();
   const [share, setShare] = useState(false);
@@ -119,8 +120,12 @@ export default function Profile() {
   // descriptor rather than a number we haven't actually loaded.
   const { data: myAppointments } = useQuery(() => user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([]), [user.id], `home:appointments:${user.id}`);
   const upcomingCount = (myAppointments ?? []).filter(
-    (a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now()
+    (a) => !isOrderActivity(a) && isLiveOrder(a)
   ).length;
+  const activeOrdersCount = (myAppointments ?? []).filter(
+    (a) => isOrderActivity(a) && isLiveOrder(a)
+  ).length;
+  const totalOrdersCount = (myAppointments ?? []).filter(isOrderActivity).length;
 
   const { data: myRequests } = useQuery(() => user.id ? requestService.mine() : Promise.resolve([]), [user.id], `profile:my-requests:${user.id}`);
   const openRequestCount = (myRequests ?? []).filter((r) => r.status === "OPEN").length;
@@ -131,8 +136,6 @@ export default function Profile() {
   const badgeSub = achievementsData
     ? `${achievementsData.filter((a) => a.unlocked).length} of ${achievementsData.length} unlocked`
     : "Your achievements";
-
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:customer:${user.id || "guest"}`);
 
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id], `profile:highlights:${user.id}`);
   const highlights = highlightsData ?? [];
@@ -217,7 +220,7 @@ export default function Profile() {
       { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
       { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
       { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
-      { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
+      { n: totalAgreements + totalOrdersCount, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length + activeOrdersCount },
     ] as const;
 
     return (
@@ -341,9 +344,9 @@ export default function Profile() {
                   <MessageSquare size={18} />
                   {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
                 </button>
-                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications")} aria-label={t("notifications")}>
                   <Bell size={18} />
-                  {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+                  {notifUnread > 0 && <span className="count-badge btn-badge count-badge-accent">{notifUnread > 9 ? "9+" : notifUnread}</span>}
                 </button>
               </div>
 
@@ -437,9 +440,9 @@ export default function Profile() {
                 <MessageSquare size={18} />
                 {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
               </button>
-              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
+              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications")} aria-label={t("notifications")}>
                 <Bell size={18} />
-                {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+                {notifUnread > 0 && <span className="count-badge btn-badge count-badge-accent">{notifUnread > 9 ? "9+" : notifUnread}</span>}
               </button>
             </div>
           </div>

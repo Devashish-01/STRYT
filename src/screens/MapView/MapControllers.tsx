@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "react";
-import { Navigation } from "@/components/Icons";
+import { useEffect, useRef, useState } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useApp } from "@/store";
-import { config } from "@/config";
-import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { MapLocateButton } from "@/components/MapLocateButton";
+import { locateWithCalibration } from "@/lib/mapLocate";
 import { useI18n } from "@/lib/i18n";
 import { mapRadiusBounds } from "./mapRadiusBounds";
+import type { PreciseIssueMode } from "@/components/PreciseLocationSheet";
 
 // MapLibre (like every GL map) takes coordinates as [lng, lat] — the
 // opposite order from Leaflet's [lat, lng]. Mixing these up silently points
@@ -16,24 +16,23 @@ import { mapRadiusBounds } from "./mapRadiusBounds";
 // radius strip changed; the strip retired with the map redesign (zoom now
 // defines the searched area), so it had nothing left to react to.
 
-// Flies to the current user location and updates their DB coordinates to GPS coords on tap
+// Flies to the calibrated user GPS location on tap; prompts directly for Precise
+// permission when missing or surfaces the friendly PreciseLocationSheet if locked.
 export function RecenterButton({
   radiusKm,
   onRecentered,
+  onPermissionIssue,
 }: {
   radiusKm: number;
-  /** Fired with the fresh GPS fix once the camera has moved — lets the
-   *  caller also re-run its live query (viewport.searchAt), which this
-   *  button used to only look like it did: it panned the map, but the
-   *  results underneath stayed keyed to wherever was last searched until a
-   *  second tap on the "Search this area" pill that then popped up. */
-  onRecentered?: (lat: number, lng: number) => void;
+  /** Fired with the calibrated GPS fix once the camera has moved. */
+  onRecentered?: (lat: number, lng: number, accuracy?: number) => void;
+  /** Fired when Precise GPS is locked to Approximate, denied, or device GPS is off. */
+  onPermissionIssue?: (issue: PreciseIssueMode) => void;
 }) {
   const { current: mapRef } = useMap();
-  const { user, showToast } = useApp();
-  const { t } = useI18n();
-  const lat = user.lat || config.defaultLocation.lat;
-  const lng = user.lng || config.defaultLocation.lng;
+  const { showToast } = useApp();
+  const { t, tf } = useI18n();
+  const [calibrating, setCalibrating] = useState(false);
 
   const recenterMap = (targetLat: number, targetLng: number) => {
     const map = mapRef?.getMap();
@@ -45,43 +44,40 @@ export function RecenterButton({
     }
   };
 
+  const handleLocate = async () => {
+    setCalibrating(true);
+    const hintTimer = window.setTimeout(() => showToast(t("map_precise_asking")), 700);
+    try {
+      const res = await locateWithCalibration();
+      window.clearTimeout(hintTimer);
+      if (res.status === "calibrated" && res.fix) {
+        recenterMap(res.fix.lat, res.fix.lng);
+        onRecentered?.(res.fix.lat, res.fix.lng, res.fix.accuracy);
+        if (typeof res.fix.accuracy === "number") {
+          showToast(tf("map_precise_updated", { m: Math.max(1, Math.round(res.fix.accuracy)) }));
+        }
+        return;
+      }
+      if (res.status === "approximate_locked" || res.status === "denied" || res.status === "gps_off") {
+        onPermissionIssue?.(res.status);
+        return;
+      }
+      showToast(t("map_gps_unavailable"));
+    } finally {
+      window.clearTimeout(hintTimer);
+      setCalibrating(false);
+    }
+  };
+
   return (
-    <button
-      type="button"
+    <MapLocateButton
+      icon="navigation"
+      busy={calibrating}
       className="icon-btn map-glass-panel map-fab-recenter"
-      /* `title` is a hover tooltip and shows nothing on a touch device, so it
-         cannot be the only label. The arrow-in-a-circle is the one map control
-         people already know, so it stays icon-only — but it still needs a real
-         name for screen readers, and one that says what it does rather than
-         what it is called. */
-      aria-label={t("map_recenter_aria")}
-      title={t("map_recenter_title")}
-      onClick={() => {
-        nativeGeolocation.getCurrentPosition(
-          (pos) => {
-            const { latitude, longitude } = pos.coords;
-            // Recentring is a VIEW action. It used to reverse-geocode, call
-            // userService.setLocation() and refreshUser() — permanently moving
-            // the user's stored home location because they panned the map and
-            // wanted to get back. For a guest it was worse: setLocation throws
-            // 401, so the catch fired and every recentre showed a failure toast
-            // even though the map had recentred perfectly well.
-            //
-            // Setting your location is a deliberate act with its own control
-            // (LocationPickerSheet). Looking at the map is not that act.
-            recenterMap(latitude, longitude);
-            onRecentered?.(latitude, longitude);
-          },
-          (error) => {
-            showToast(t("map_gps_unavailable"));
-            recenterMap(lat, lng);
-          },
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
-      }}
-    >
-      <Navigation size={18} color="var(--brand-500)" />
-    </button>
+      ariaLabel={t("map_recenter_aria")}
+      title={t("map_locate_hint")}
+      onLocate={handleLocate}
+    />
   );
 
 }

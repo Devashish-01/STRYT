@@ -860,9 +860,11 @@ export const deliveryService = {
   /** Owner/manager assigns (or reassigns) a delivery for an appointment. */
   async assignDelivery(appointmentId: string, agentUserId: string): Promise<void> {
     const sb = getSupabase();
+    const resolvedId = agentUserId === "self" ? await currentUserId() : agentUserId;
+    if (!resolvedId) throw toApiError(new Error("UNAUTHENTICATED"));
     const { error } = await sb.rpc("assign_delivery", {
       p_appointment_id: appointmentId,
-      p_agent_user_id: agentUserId,
+      p_agent_user_id: resolvedId,
     });
     if (error) throw friendlyDeliveryError(toApiError(error));
   },
@@ -871,9 +873,11 @@ export const deliveryService = {
    *  must accept the whole batch or decline it, there's no per-stop assignment here. */
   async assignBatch(appointmentIds: string[], agentUserId: string): Promise<void> {
     const sb = getSupabase();
+    const resolvedId = agentUserId === "self" ? await currentUserId() : agentUserId;
+    if (!resolvedId) throw toApiError(new Error("UNAUTHENTICATED"));
     const { error } = await sb.rpc("assign_delivery_batch", {
       p_appointment_ids: appointmentIds,
-      p_agent_user_id: agentUserId,
+      p_agent_user_id: resolvedId,
     });
     if (error) throw friendlyDeliveryError(toApiError(error));
   },

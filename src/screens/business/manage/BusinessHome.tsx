@@ -38,7 +38,7 @@ import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
 export default function BusinessHome() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { user } = useApp();
+  const { user, notifUnread } = useApp();
   const { t, tf } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
   // No RequireScope on this route: it self-filters by scope. Anything added here is visible to every grantee unless it is
@@ -139,6 +139,7 @@ export default function BusinessHome() {
         ambient={ambient}
         subtitle={headerSubtitle}
         notificationUnread={notificationUnread ?? 0}
+        totalNotificationUnread={notifUnread}
         chatUnread={chatUnread ?? 0}
         onShare={() => setShare(true)}
       />

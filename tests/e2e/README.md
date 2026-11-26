@@ -4,7 +4,7 @@ These tests drive the real app in a browser as synthetic personas, against the *
 
 ## One-time setup
 
-1. `node scripts/staging/setup-staging-auth.mjs` — writes `.env.staging` (gitignored) and gives each persona a test phone number on staging.
+1. `node scripts/staging/setup-staging-auth.mjs` — writes `.env.staging` (gitignored) and configures the legacy Supabase SMS test path used by API checks. Browser sign-in now uses Firebase Phone Auth, so the persona numbers and `STAGING_TEST_OTP` must also be configured as Firebase test phone numbers in the Firebase project selected by `VITE_FIREBASE_*`.
 2. `npm run seed:staging -- --reset` — synthetic personas, one business, one provider, team sessions.
 3. `npm run check:staging-signin` — every persona can sign in (API level).
 
@@ -25,7 +25,7 @@ These tests drive the real app in a browser as synthetic personas, against the *
 | `provider1` | owns provider **Test Plumber One** (2 packages) |
 | `admin1` | admin role |
 
-Sign in with `signIn(page, "owner1")` or `personaPage(browser, "owner1")` from `fixtures/staging.ts`. It uses the app's real OTP screen (`/auth/otp`) with the staging test code. Production login is Google-only, so the phone entry screen doesn't exist; the OTP screen is the app's own phone sign-in path.
+Sign in with `signIn(page, "owner1")` or `personaPage(browser, "owner1")` from `fixtures/staging.ts`. It follows the real phone entry and OTP screens using the Firebase test code. Production supports both Google and phone sign-in. Browser runs also require Firebase's reCAPTCHA service to be reachable.
 
 ## Rules
 

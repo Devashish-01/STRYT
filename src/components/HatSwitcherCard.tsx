@@ -5,6 +5,7 @@ import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { businessService, providerService } from "@/services";
 import AccountSwitcher from "@/components/AccountSwitcher";
+import { roleForContextType } from "@/lib/partNavigation";
 import type { Role } from "@/types";
 
 function themed(tint: string, accent: string): React.CSSProperties {
@@ -17,12 +18,6 @@ const roleMeta: Record<Role, { label: string; icon: typeof Heart; tint: string; 
   provider:       { label: "Provider",  icon: Briefcase, tint: "var(--green-100)",  accent: "var(--green-600)" },
 };
 
-function activeRoleFromContext(type: string): Role {
-  if (type === "business") return "business_owner";
-  if (type === "provider") return "provider";
-  return "customer";
-}
-
 /**
  * "I'm using STRYT as a…" role tiles + account switcher link.
  * Used on customer Profile, business Profile hub, and provider Profile hub.
@@ -31,9 +26,9 @@ export default function HatSwitcherCard({ showManageLink = true }: { showManageL
   const nav = useNavigate();
   const [switcher, setSwitcher] = useState(false);
   const {
+    user,
     roles,
     activeContext,
-    setActiveRole,
     attemptSwitchContext,
     ownedBusinessIds,
     ownedProviderId,
@@ -41,7 +36,7 @@ export default function HatSwitcherCard({ showManageLink = true }: { showManageL
 
   const manageBizId = ownedBusinessIds[0];
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
-  const activeRole = activeRoleFromContext(activeContext.type);
+  const activeRole = roleForContextType(activeContext.type);
 
   const { data: myBizList } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
   const { data: myProvList } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
@@ -111,7 +106,7 @@ export default function HatSwitcherCard({ showManageLink = true }: { showManageL
                     );
                     if (ready) nav(dest);
                   } else {
-                    setActiveRole(r);
+                    attemptSwitchContext({ type: "customer", id: null, name: user.name || "Personal" }, "/home");
                     nav("/home");
                   }
                 }}

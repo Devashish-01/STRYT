@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import { Navigation, MapPin, Loader, X } from "@/components/Icons";
+import { MapLocateButton } from "@/components/MapLocateButton";
+import { locateWithCalibration } from "@/lib/mapLocate";
+import PreciseLocationSheet, { type PreciseIssueMode } from "@/components/PreciseLocationSheet";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { makePinIcon } from "@/lib/leafletIcon";
@@ -68,6 +71,8 @@ export default function LocationPicker({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeoPlace[]>([]);
   const [searching, setSearching] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
+  const [preciseIssue, setPreciseIssue] = useState<PreciseIssueMode | null>(null);
   // Debounced and token-guarded for the same reason the onboarding location
   // beat is: Nominatim allows about one request a second and answers a burst
   // with HTTP 429, whose symptom is an empty result list that looks exactly
@@ -136,10 +141,22 @@ export default function LocationPicker({
   const hasPin = hasRealPin;
 
   async function detect() {
-    // force=true: this is an explicit user tap asking for a fresh GPS fix,
-    // not the auto-detect-on-mount call — never just re-serve stored coords.
-    const coords = await request(true);
-    if (coords) onChange(coords.lat, coords.lng);
+    setCalibrating(true);
+    try {
+      const res = await locateWithCalibration();
+      if (res.status === "calibrated" && res.fix) {
+        onChange(res.fix.lat, res.fix.lng);
+        return;
+      }
+      if (res.status === "approximate_locked" || res.status === "denied" || res.status === "gps_off") {
+        setPreciseIssue(res.status);
+        return;
+      }
+      const coords = await request(true);
+      if (coords) onChange(coords.lat, coords.lng);
+    } finally {
+      setCalibrating(false);
+    }
   }
 
   return (
@@ -226,6 +243,14 @@ export default function LocationPicker({
             </>
           )}
         </MapContainer>
+        <div style={{ position: "absolute", right: 8, bottom: 8, zIndex: 1000 }}>
+          <MapLocateButton
+            compact
+            icon="target"
+            busy={calibrating}
+            onLocate={detect}
+          />
+        </div>
         {!hasPin && loading && (
           <span
             className="tiny semi"
@@ -248,11 +273,11 @@ export default function LocationPicker({
         type="button"
         className="btn btn-ghost btn-block row center gap-8"
         style={{ padding: "10px 12px" }}
-        disabled={loading}
+        disabled={loading || calibrating}
         onClick={() => void detect()}
       >
         <Navigation size={16} />
-        {loading ? "Detecting…" : hasPin ? "Re-detect my location" : "Detect my location"}
+        {loading || calibrating ? "Detecting…" : hasPin ? "Re-detect my location" : "Detect my location"}
       </button>
       {hasPin && (
         <span className="tiny muted" style={{ textAlign: "center" }}>
@@ -263,6 +288,13 @@ export default function LocationPicker({
         <span className="tiny muted" style={{ textAlign: "center" }}>
           Not at the shop? Search the address above instead.
         </span>
+      )}
+      {preciseIssue && (
+        <PreciseLocationSheet
+          mode={preciseIssue}
+          onRetry={() => void detect()}
+          onClose={() => setPreciseIssue(null)}
+        />
       )}
     </div>
   );

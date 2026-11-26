@@ -40,6 +40,7 @@ import { isLiveOrder } from "@/lib/orderLists";
 import { visitOutcomeActions } from "@/lib/machines/appointment";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import DeliveryOwnerPanels from "@/components/delivery/DeliveryOwnerPanels";
+import { LiveBoardContent } from "@/components/delivery/LiveBoardContent";
 import { deliveryService } from "@/services";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { useBusinessAccess } from "@/lib/businessAccess";
@@ -49,7 +50,7 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
-  const { showToast } = useApp();
+  const { user, showToast } = useApp();
   const { t, tf } = useI18n();
   const { isOwner, hasScope } = useBusinessAccess();
   const canSeeMoney = isOwner || hasScope("money");
@@ -82,9 +83,24 @@ export default function BusinessAppointments() {
     refetchBlocked();
   });
 
-  // ?tab=deliveries lands straight on the dispatch list (the dashboard's Delivery tile uses it).
+  // ?tab=deliveries lands straight on the dispatch list (the dashboard's Delivery tile uses it);
+  // ?view=live|dispatch|finished selects the sub-view inside Deliveries.
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<ConsoleTab>(DELIVERY_AGENT_ENABLED && searchParams.get("tab") === "deliveries" ? "DELIVERIES" : "UPCOMING");
+  const tabParam = searchParams.get("tab");
+  const viewParam = searchParams.get("view");
+  const [tab, setTab] = useState<ConsoleTab>(DELIVERY_AGENT_ENABLED && tabParam === "deliveries" ? "DELIVERIES" : "UPCOMING");
+  const [deliveryView, setDeliveryView] = useState<"dispatch" | "live" | "finished">(
+    viewParam === "live" ? "live" : viewParam === "finished" ? "finished" : "dispatch"
+  );
+  const [liveCount, setLiveCount] = useState(0);
+  useEffect(() => {
+    if (DELIVERY_AGENT_ENABLED && tabParam === "deliveries") {
+      setTab("DELIVERIES");
+    }
+    if (viewParam === "live" || viewParam === "dispatch" || viewParam === "finished") {
+      setDeliveryView(viewParam);
+    }
+  }, [tabParam, viewParam]);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
@@ -160,7 +176,10 @@ export default function BusinessAppointments() {
     [appointments],
   );
   const { data: deliveryMap, refetch: refetchDeliveryMap } = useQuery(
-    () => (DELIVERY_AGENT_ENABLED && deliveryOrderIds.length > 0 ? deliveryService.forAppointments(deliveryOrderIds) : Promise.resolve({})),
+    () =>
+      DELIVERY_AGENT_ENABLED && deliveryOrderIds.length > 0
+        ? deliveryService.forAppointments(deliveryOrderIds)
+        : Promise.resolve({} as Record<string, import("@/services/engagement/deliveryService").AppointmentDelivery>),
     [deliveryOrderIds.join(",")],
     `delivery:for-appointments:${id}`,
   );
@@ -356,6 +375,8 @@ export default function BusinessAppointments() {
       setDeliverySelectMode(false);
       setBatchAgentPicking(false);
       refetch();
+      refetchDeliveryMap();
+      refetchAwaiting();
     } catch (e) {
       showToast(errorMessage(e, "Couldn't assign — try again"));
     } finally {
@@ -773,9 +794,8 @@ export default function BusinessAppointments() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
-  // Deliveries tab: every home-delivery booking that's been accepted or completed —
-  // matches DeliveryAssignControl's own render gate. Only ACCEPTED ones are selectable
-  // for a fresh batch (a COMPLETED one is a past order, nothing left to dispatch).
+  // Deliveries tab: split cleanly into active dispatch (ACCEPTED), live fleet, and finished (COMPLETED).
+  // Only ACCEPTED orders with no active rider (unassigned or previous rider cancelled) are batch-eligible.
   const deliveryList = appointments
     .filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED"))
     .sort((a, c) => {
@@ -785,6 +805,17 @@ export default function BusinessAppointments() {
       return new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime();
     });
 
+  const dispatchDeliveries = deliveryList.filter((a) => a.status === "ACCEPTED");
+  const finishedDeliveries = deliveryList.filter((a) => a.status === "COMPLETED");
+  const batchEligibleIds = new Set<string>(
+    dispatchDeliveries
+      .filter((a) => {
+        const d = deliveryMap?.[a.id];
+        return !d || d.status === "CANCELLED";
+      })
+      .map((a) => a.id),
+  );
+
   const packageOptions = (b?.catalog ?? []).map((item) => ({
     id: item.id, name: item.name, price: item.salePrice ?? item.price,
     slotCapacity: item.slotCapacity, maxPartySize: item.maxPartySize,
@@ -792,23 +823,25 @@ export default function BusinessAppointments() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title={nounPluralCap} subtitle={`Bookings for ${b?.name ?? "your shop"}`} />
+      <div style={{ position: "sticky", top: 0, zIndex: 25, background: "var(--surface)", borderBottom: "1px solid var(--line)" }}>
+        <AppBar title={nounPluralCap} subtitle={`Bookings for ${b?.name ?? "your shop"}`} />
 
-      {/* Tabs */}
-      <div className="hscroll chip-fade" style={{ paddingTop: 10, paddingBottom: 6 }}>
-        {(
-          [
-            { key: "UPCOMING" as const, label: `⏭️ Upcoming (${upcomingList.length})` },
-            { key: "TODAY" as const, label: "📅 Day view" },
-            ...(DELIVERY_AGENT_ENABLED
-              ? [{ key: "DELIVERIES" as const, label: `🛵 Deliveries (${deliveryList.length})` }]
-              : []),
-            { key: "HISTORY" as const, label: "🕘 History" },
-            { key: "CANCELLED" as const, label: `🚫 Cancelled (${cancelledList.length})` },
-          ]
-        ).map(({ key: t, label }) => (
-          <button key={t} className={`chip ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>{label}</button>
-        ))}
+        {/* Tabs */}
+        <div className="hscroll chip-fade" style={{ paddingTop: 10, paddingBottom: 8 }}>
+          {(
+            [
+              { key: "UPCOMING" as const, label: `⏭️ Upcoming (${upcomingList.length})` },
+              { key: "TODAY" as const, label: "📅 Day view" },
+              ...(DELIVERY_AGENT_ENABLED
+                ? [{ key: "DELIVERIES" as const, label: `🛵 Deliveries (${dispatchDeliveries.length})` }]
+                : []),
+              { key: "HISTORY" as const, label: "🕘 History" },
+              { key: "CANCELLED" as const, label: `🚫 Cancelled (${cancelledList.length})` },
+            ]
+          ).map(({ key: tk, label }) => (
+            <button key={tk} type="button" className={`chip ${tab === tk ? "active" : ""}`} onClick={() => setTab(tk)}>{label}</button>
+          ))}
+        </div>
       </div>
 
       <div className="screen-scroll" ref={containerRef}>
@@ -860,52 +893,160 @@ export default function BusinessAppointments() {
         )}
 
         {!loading && !error && tab === "DELIVERIES" && (
-          <div className="page-pad col gap-12" style={{ paddingTop: 12, paddingBottom: selectedForBatch.size > 0 ? 90 : 12 }}>
-            <DeliveryOwnerPanels businessId={id} awaitingCount={awaitingIds.size} />
-            {deliveryList.length > 0 && (
-              <div className="row between center-v">
-                <span className="tiny muted">{deliveryList.length} {deliveryList.length === 1 ? "delivery" : "deliveries"}</span>
+          <div className="col gap-12" style={{ paddingTop: 10, paddingBottom: selectedForBatch.size > 0 ? 90 : 16 }}>
+            {/* Unified Deliveries Sub-Switcher: Dispatch | Live board | Finished */}
+            <div className="page-pad" style={{ paddingTop: 0, paddingBottom: 0 }}>
+              <div className="row gap-6" style={{ background: "var(--ink-100)", padding: 4, borderRadius: 12 }}>
                 <button
                   type="button"
-                  className="tiny semi"
-                  style={{ color: "var(--delivery-600)" }}
-                  onClick={() => nav(`/business/${id}/manage/deliveries`)}
+                  onClick={() => { setDeliveryView("dispatch"); }}
+                  className="tiny semi grow center"
+                  style={{
+                    padding: "8px 6px",
+                    borderRadius: 9,
+                    background: deliveryView === "dispatch" ? "var(--surface)" : "transparent",
+                    color: deliveryView === "dispatch" ? "var(--ink-900)" : "var(--ink-500)",
+                    boxShadow: deliveryView === "dispatch" ? "var(--shadow-sm)" : "none",
+                  }}
                 >
-                  {t("dlv_live_board")}
+                  📦 {t("dlv_view_dispatch")} ({dispatchDeliveries.length})
                 </button>
                 <button
                   type="button"
-                  className="tiny semi"
-                  style={{ color: "var(--delivery-600)" }}
-                  onClick={() => { setDeliverySelectMode((v) => !v); setSelectedForBatch(new Set()); }}
+                  onClick={() => { setDeliveryView("live"); setDeliverySelectMode(false); setSelectedForBatch(new Set()); }}
+                  className="tiny semi grow center"
+                  style={{
+                    padding: "8px 6px",
+                    borderRadius: 9,
+                    background: deliveryView === "live" ? "var(--surface)" : "transparent",
+                    color: deliveryView === "live" ? "var(--delivery-600)" : "var(--ink-500)",
+                    boxShadow: deliveryView === "live" ? "var(--shadow-sm)" : "none",
+                  }}
                 >
-                  {deliverySelectMode ? "Cancel" : "Select multiple"}
+                  🛵 {t("dlv_live_board")}{liveCount > 0 ? ` (${liveCount})` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeliveryView("finished"); setDeliverySelectMode(false); setSelectedForBatch(new Set()); }}
+                  className="tiny semi grow center"
+                  style={{
+                    padding: "8px 6px",
+                    borderRadius: 9,
+                    background: deliveryView === "finished" ? "var(--surface)" : "transparent",
+                    color: deliveryView === "finished" ? "var(--ink-900)" : "var(--ink-500)",
+                    boxShadow: deliveryView === "finished" ? "var(--shadow-sm)" : "none",
+                  }}
+                >
+                  ✓ {t("dlv_view_finished")} ({finishedDeliveries.length})
                 </button>
               </div>
-            )}
-            {deliveryList.length === 0 ? (
-              <EmptyState emoji="🛵" title={t("bapt_no_deliveries")} text={`${nounPluralCap} booked for home delivery will appear here once accepted.`} />
+            </div>
+
+            {deliveryView === "live" ? (
+              <LiveBoardContent
+                businessId={id}
+                onGoDispatch={() => setDeliveryView("dispatch")}
+                showFinished={false}
+                onActiveCountChange={setLiveCount}
+              />
+            ) : deliveryView === "finished" ? (
+              <div className="page-pad col gap-12" style={{ paddingTop: 0 }}>
+                {finishedDeliveries.length === 0 ? (
+                  <EmptyState emoji="📦" title={t("explore_empty_title")} text="Completed deliveries will appear here." />
+                ) : (
+                  finishedDeliveries.map(renderAppointmentCard)
+                )}
+              </div>
             ) : (
-              deliveryList.map((apt) => (
-                <div key={apt.id} className="row gap-8" style={{ alignItems: "flex-start" }}>
-                  {deliverySelectMode && apt.status === "ACCEPTED" && (
-                    <button
-                      type="button"
-                      onClick={() => toggleSelectedForBatch(apt.id)}
-                      aria-label={t("bapt_select_batch")}
-                      style={{
-                        marginTop: 14, width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                        border: selectedForBatch.has(apt.id) ? "none" : "2px solid var(--ink-300)",
-                        background: selectedForBatch.has(apt.id) ? "var(--delivery-600)" : "var(--surface)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
-                      {selectedForBatch.has(apt.id) && <Check size={13} color="var(--white)" />}
-                    </button>
-                  )}
-                  <div className="grow">{renderAppointmentCard(apt)}</div>
-                </div>
-              ))
+              <div className="page-pad col gap-12" style={{ paddingTop: 0 }}>
+                <DeliveryOwnerPanels businessId={id} awaitingCount={awaitingIds.size} />
+
+                {dispatchDeliveries.length > 0 && (
+                  <div className="row between center-v gap-8">
+                    <span className="tiny muted">
+                      {dispatchDeliveries.length} {dispatchDeliveries.length === 1 ? "active order" : "active orders"}
+                      {batchEligibleIds.size > 0 ? ` · ${batchEligibleIds.size} awaiting rider` : ""}
+                    </span>
+                    <div className="row gap-6 center-v">
+                      {deliverySelectMode && batchEligibleIds.size > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ fontSize: 11.5, padding: "4px 10px", minHeight: 30 }}
+                          onClick={() => {
+                            if (selectedForBatch.size === batchEligibleIds.size) {
+                              setSelectedForBatch(new Set());
+                            } else {
+                              setSelectedForBatch(new Set(batchEligibleIds));
+                            }
+                          }}
+                        >
+                          {selectedForBatch.size === batchEligibleIds.size
+                            ? t("dlv_deselect_all")
+                            : tf("dlv_select_all", { n: batchEligibleIds.size })}
+                        </button>
+                      )}
+                      {batchEligibleIds.size >= 2 && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{
+                            fontSize: 11.5,
+                            padding: "4px 10px",
+                            minHeight: 30,
+                            borderColor: deliverySelectMode ? "var(--ink-300)" : "var(--delivery-600)",
+                            color: deliverySelectMode ? "var(--ink-700)" : "var(--delivery-600)",
+                          }}
+                          onClick={() => { setDeliverySelectMode((v) => !v); setSelectedForBatch(new Set()); }}
+                        >
+                          {deliverySelectMode ? t("cancel") : t("dlv_batch_assign")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {dispatchDeliveries.length === 0 ? (
+                  <EmptyState
+                    emoji="🛵"
+                    title={t("bapt_no_deliveries")}
+                    text={`${nounPluralCap} booked for home delivery will appear here once accepted.`}
+                    action={
+                      finishedDeliveries.length > 0 ? (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setDeliveryView("finished")}>
+                          {t("dlv_view_finished")} ({finishedDeliveries.length})
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  dispatchDeliveries.map((apt) => {
+                    const eligible = batchEligibleIds.has(apt.id);
+                    return (
+                      <div key={apt.id} className="row gap-8" style={{ alignItems: "flex-start" }}>
+                        {deliverySelectMode && eligible && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectedForBatch(apt.id)}
+                            aria-label={t("bapt_select_batch")}
+                            style={{
+                              marginTop: 14, width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                              border: selectedForBatch.has(apt.id) ? "none" : "2px solid var(--ink-300)",
+                              background: selectedForBatch.has(apt.id) ? "var(--delivery-600)" : "var(--surface)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}
+                          >
+                            {selectedForBatch.has(apt.id) && <Check size={13} color="var(--white)" />}
+                          </button>
+                        )}
+                        <div className="grow" style={{ opacity: deliverySelectMode && !eligible ? 0.6 : 1 }}>
+                          {renderAppointmentCard(apt)}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
         )}
@@ -1122,7 +1263,7 @@ export default function BusinessAppointments() {
       {/* Delivery batch-select bar — slides up over the nav, iOS Mail-style */}
       {selectedForBatch.size > 0 && (
         <div
-          className="row between center-v"
+          className="row between center-v gap-8"
           style={{
             position: "fixed", left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "var(--maxw)",
             bottom: "calc(var(--nav-h) + var(--safe-area-bottom))",
@@ -1131,14 +1272,24 @@ export default function BusinessAppointments() {
           }}
         >
           <span className="semi small">{selectedForBatch.size} selected</span>
-          <button
-            type="button"
-            className="btn btn-sm"
-            style={{ background: "var(--surface)", color: "var(--delivery-600)" }}
-            onClick={() => setBatchAgentPicking(true)}
-          >
-            Assign to…
-          </button>
+          <div className="row gap-8 center-v">
+            <button
+              type="button"
+              className="tiny semi"
+              style={{ color: "var(--white)", opacity: 0.9, padding: "4px 8px" }}
+              onClick={() => setSelectedForBatch(new Set())}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ background: "var(--surface)", color: "var(--delivery-600)" }}
+              onClick={() => setBatchAgentPicking(true)}
+            >
+              Assign to…
+            </button>
+          </div>
         </div>
       )}
 
@@ -1149,28 +1300,44 @@ export default function BusinessAppointments() {
         title={`Assign ${selectedForBatch.size} ${selectedForBatch.size === 1 ? "delivery" : "deliveries"} to…`}
         variant="bottom-sheet"
       >
-        <div className="col gap-14">
+        <div className="col gap-12">
           <div className="tiny muted">{t("bapt_whole_run")}</div>
-          {(deliveryTeam ?? []).length === 0 ? (
-            <div className="tiny muted">{t("bapt_no_delivery_team")}</div>
-          ) : (
-            <div className="col gap-8">
-              {(deliveryTeam ?? []).map((m) => (
-                <button
-                  key={m.userId}
-                  type="button"
-                  className="row gap-10 center-v"
-                  disabled={batchAssigning}
-                  onClick={() => assignBatchToAgent(m.userId)}
-                  style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--ink-200)", textAlign: "left" }}
-                >
-                  <Package size={16} color="var(--delivery-600)" />
-                  <span className="semi small grow">{m.name}</span>
-                  {batchAssigning && <span className="tiny muted">…</span>}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="col gap-8">
+            <button
+              type="button"
+              className="row gap-10 center-v"
+              disabled={batchAssigning}
+              onClick={() => assignBatchToAgent((deliveryTeam ?? []).find((m) => m.isSelf)?.userId ?? user.id ?? "self")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1.5px solid var(--delivery-300)",
+                background: "var(--delivery-50)",
+                textAlign: "left",
+              }}
+            >
+              <span>🛵</span>
+              <span className="semi small grow" style={{ color: "var(--delivery-800)" }}>
+                {t("dlv_deliver_myself") || "Deliver Myself"}
+              </span>
+              {batchAssigning && <span className="tiny muted">…</span>}
+            </button>
+            {(deliveryTeam ?? []).filter((m) => !m.isSelf).map((m) => (
+              <button
+                key={m.userId}
+                type="button"
+                className="row gap-10 center-v"
+                disabled={batchAssigning}
+                onClick={() => assignBatchToAgent(m.userId)}
+                style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--ink-200)", textAlign: "left" }}
+              >
+                <Package size={16} color="var(--delivery-600)" />
+                <span className="semi small grow">{m.name}</span>
+                {!m.onDuty && <span className="tiny muted">Off duty</span>}
+                {batchAssigning && <span className="tiny muted">…</span>}
+              </button>
+            ))}
+          </div>
           <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>{t("cancel")}</button>
         </div>
       </AccessibleSheet>

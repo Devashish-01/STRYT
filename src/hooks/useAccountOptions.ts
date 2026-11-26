@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
+import { effectivePartForLocation } from "@/lib/partNavigation";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService, providerService, businessAccessService } from "@/services";
 import { deliveryService } from "@/services/engagement/deliveryService";
@@ -31,6 +32,7 @@ export interface AccountOption {
  */
 export function useAccountOptions() {
   const nav = useNavigate();
+  const loc = useLocation();
   const { t } = useI18n();
   const { user, activeContext, setContext, attemptSwitchContext, ownedBusinessIds, ownedProviderId, ownedEntitiesLoaded, roles, showToast } = useApp();
 
@@ -64,7 +66,9 @@ export function useAccountOptions() {
       || (activeDeliveryCount ?? 0) > 0
     );
 
-  const isActive = (type: string, id: string | null) => activeContext.type === type && activeContext.id === id;
+  const effectivePart = effectivePartForLocation(activeContext, loc.pathname, loc.search);
+  const effectiveId = effectivePart.type === "business" || effectivePart.type === "provider" ? effectivePart.id : null;
+  const isActive = (type: string, id: string | null) => effectivePart.type === type && effectiveId === id;
 
   const options: AccountOption[] = [
     {

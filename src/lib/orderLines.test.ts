@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linesFromRows, orderTotal, summarizeLines, type OrderLine } from "./orderLines";
+import { customOrderNote, linesFromRows, orderTotal, summarizeLines, type OrderLine } from "./orderLines";
 
 const atta: OrderLine = { catalogItemId: "ci_1", name: "Atta 5 kg", price: 265, quantity: 2 };
 const milk: OrderLine = { catalogItemId: "ci_2", name: "Milk", price: 70, quantity: 1 };
@@ -43,5 +43,18 @@ describe("linesFromRows", () => {
 
   it("copes with a missing catalog id (the item was later deleted)", () => {
     expect(linesFromRows([{ catalog_item_id: null, item_name: "Gone", unit_price: 5, quantity: 1 }])?.[0].catalogItemId).toBe("");
+  });
+});
+
+describe("customOrderNote", () => {
+  it("hides auto-generated 'Order: ...' summary notes when structured items exist", () => {
+    expect(customOrderNote("Order: Toned Milk 1 L x1, Sandwich Bread x1", [milk])).toBeUndefined();
+    expect(customOrderNote("  order: Milk x1  ", [milk])).toBeUndefined();
+  });
+
+  it("keeps real customer instructions and keeps Order notes if no items are attached", () => {
+    expect(customOrderNote("Leave at security gate", [milk])).toBe("Leave at security gate");
+    expect(customOrderNote("Order: Milk x1", [])).toBe("Order: Milk x1");
+    expect(customOrderNote("   ", [milk])).toBeUndefined();
   });
 });

@@ -55,25 +55,34 @@ export function RiderWhere({ d, onNavigate }: { d: DeliveryItem; onNavigate: (la
   const phone = toShop ? d.businessPhone : d.customerPhone;
   const lat = toShop ? d.businessLat : d.deliveryLat;
   const lng = toShop ? d.businessLng : d.deliveryLng;
+  const dropoffSummary = toShop ? (d.deliveryAddressLine || d.customerArea) : null;
   return (
-    <div className="rw">
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div className="tiny semi muted">{toShop ? t("dlv_w_pickup_from") : t("dlv_w_deliver_to")}</div>
-        <div className="small semi">{name}</div>
-        {address && <div className="rw-addr">{address}</div>}
+    <div className="col gap-6">
+      <div className="rw">
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="tiny semi muted">{toShop ? t("dlv_w_pickup_from") : t("dlv_w_deliver_to")}</div>
+          <div className="small semi">{name}</div>
+          {address && <div className="rw-addr">{address}</div>}
+        </div>
+        <div className="rw-btns">
+          {lat != null && lng != null && (
+            <button type="button" className="trk-round" aria-label={t("dlv_c_navigate")} onClick={() => onNavigate(lat, lng)}>
+              <Navigation size={18} />
+            </button>
+          )}
+          {phone && (
+            <a className="trk-round ghost" href={`tel:${phone}`} aria-label={toShop ? t("dlv_call_shop") : t("dlv_call_customer")}>
+              <Phone size={18} />
+            </a>
+          )}
+        </div>
       </div>
-      <div className="rw-btns">
-        {lat != null && lng != null && (
-          <button type="button" className="trk-round" aria-label={t("dlv_c_navigate")} onClick={() => onNavigate(lat, lng)}>
-            <Navigation size={18} />
-          </button>
-        )}
-        {phone && (
-          <a className="trk-round ghost" href={`tel:${phone}`} aria-label={toShop ? t("dlv_call_shop") : t("dlv_call_customer")}>
-            <Phone size={18} />
-          </a>
-        )}
-      </div>
+      {toShop && (d.customerName || dropoffSummary) && (
+        <div className="tiny muted" style={{ padding: "0 2px" }}>
+          <strong style={{ color: "var(--ink-700)" }}>{t("dlv_dropoff_label")}:</strong>{" "}
+          {[d.customerName, dropoffSummary].filter(Boolean).join(" · ")}
+        </div>
+      )}
     </div>
   );
 }

@@ -31,10 +31,12 @@ import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { CustomPaySheet } from "@/components/CustomPaySheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
+import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { appointmentService } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
-import { inr, distanceLabel } from "@/lib/format";
+import { inr, distanceLabel, formatOrderDateTime } from "@/lib/format";
+import { isOrderActivity, myDealsOrderUrl } from "@/lib/orderLists";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import { MAX_QUEUE_PARTY_SIZE, isQueuePayable } from "@/lib/queueMath";
@@ -56,7 +58,20 @@ export default function BusinessDetail() {
     isFollowing, toggleFollow, notifySubs, toggleNotify,
     queuesJoined, joinQueue, isGuest, manageableBusinessIds,
   } = useApp();
-  const { t, tf } = useI18n();
+  const { t, tf, lang } = useI18n();
+  const [scrolledPastCover, setScrolledPastCover] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateScroll = () => {
+      const containerTop = scrollContainerRef.current?.scrollTop ?? 0;
+      const winTop = typeof window !== "undefined" ? window.scrollY : 0;
+      setScrolledPastCover(Math.max(containerTop, winTop) > 150);
+    };
+    updateScroll();
+    window.addEventListener("scroll", updateScroll, { passive: true });
+    return () => window.removeEventListener("scroll", updateScroll);
+  }, []);
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
@@ -257,12 +272,48 @@ export default function BusinessDetail() {
     ? [
         ...(myAppointments ?? [])
           .filter((a) => a.targetId === b.id && a.targetType === "BUSINESS")
-          .map((apt): MineRow => ({ kind: "appointment", ts: new Date(apt.scheduledForISO).getTime(), apt })),
+          .map((apt): MineRow => ({
+            kind: "appointment",
+            ts: new Date(apt.createdAtISO || apt.scheduledForISO).getTime(),
+            apt,
+          })),
         ...(myQueueEntries ?? [])
           .filter((q) => q.businessId === b.id)
           .map((q): MineRow => ({ kind: "queue", ts: new Date(q.joinedAtISO).getTime(), q })),
       ].sort((a, c) => c.ts - a.ts)
     : [];
+
+  function reorderFromMine(apt: AppointmentRecord) {
+    if (!b) return;
+    if (apt.items && apt.items.length > 0) {
+      const nextCart: Record<string, number> = {};
+      let skipped = 0;
+      for (const line of apt.items) {
+        const catItem = b.catalog.find((c) => c.id === line.catalogItemId);
+        if (!catItem || catItem.stockStatus === "OUT_OF_STOCK") {
+          skipped++;
+          continue;
+        }
+        const cap = catItem.inventoryType === "FINITE" ? Math.max(0, catItem.quantity ?? 0) : Infinity;
+        const qty = Math.min(cap, line.quantity);
+        if (qty > 0) {
+          nextCart[catItem.id] = (nextCart[catItem.id] ?? 0) + qty;
+        } else {
+          skipped++;
+        }
+      }
+      if (Object.keys(nextCart).length > 0) {
+        setCart(nextCart);
+        setCartSheet(true);
+        if (skipped > 0) showToast(t("ord_reorder_partial"));
+        return;
+      }
+      showToast(t("ord_reorder_unavailable"));
+      setTab("catalog");
+      return;
+    }
+    setTab("catalog");
+  }
 
   function add(itemId: string, delta: number) {
     setCart((c) => {
@@ -327,7 +378,82 @@ export default function BusinessDetail() {
 
   return (
     <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
-      <div className="screen-scroll" style={{ paddingBottom: cartCount ? "calc(88px + var(--safe-area-bottom))" : 24 }}>
+      {/* Fixed safe-area top bar: floats transparently over cover at y=0, turns solid --surface when scrolled so nothing overlaps the OS status bar */}
+      <div className={`detail-top-bar ${scrolledPastCover ? "scrolled" : ""}`}>
+        <div className="row gap-10 center-v" style={{ minWidth: 0, flex: 1 }}>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={t("back_word")}
+            style={{
+              background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)",
+              flexShrink: 0,
+            }}
+            onClick={() => nav(-1)}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          {scrolledPastCover && (
+            <div className="row gap-6 center-v" style={{ minWidth: 0 }}>
+              <span className="bold small ellipsis" style={{ color: "var(--ink-900)" }}>
+                {b.name}
+              </span>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-500)",
+                  flexShrink: 0,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+          )}
+        </div>
+        {!isGuest && (
+          <div className="row gap-8" style={{ flexShrink: 0 }}>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t("share_word")}
+              style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
+              onClick={() => setShare(true)}
+            >
+              <Share2 size={18} />
+            </button>
+            {!isOwner && (
+              <>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={t("save_word")}
+                  style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
+                  onClick={() => setAddList(true)}
+                >
+                  <Bookmark size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={t("save_word")}
+                  style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
+                  onClick={() => toggleBookmark("BUSINESS", b.id)}
+                >
+                  <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div
+        ref={scrollContainerRef}
+        onScroll={(e) => setScrolledPastCover(Math.max(e.currentTarget.scrollTop, window.scrollY) > 150)}
+        className="screen-scroll"
+        style={{ paddingBottom: cartCount ? "calc(88px + var(--safe-area-bottom))" : 24 }}
+      >
         {/* Cover */}
         <div style={{ position: "relative" }}>
           <SafeImg
@@ -337,24 +463,6 @@ export default function BusinessDetail() {
             onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: 0 })}
           />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))", pointerEvents: "none" }} />
-          <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
-            <button className="icon-btn" aria-label={t("back_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
-            {/* Guests view only — save/list/share all write to an account they
-                don't have, so the controls are hidden rather than gated. */}
-            {!isGuest && (
-              <div className="row gap-8">
-                <button className="icon-btn" aria-label={t("share_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
-                {!isOwner && (
-                  <>
-                    <button className="icon-btn" aria-label={t("save_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
-                    <button className="icon-btn" aria-label={t("save_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                      <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
           {b.gallery.length > 0 && (
             <div className="row gap-6" style={{ position: "absolute", bottom: 12, right: 12 }}>
               {galleryPhotos.slice(0, 3).map((g, i) => (
@@ -670,19 +778,41 @@ export default function BusinessDetail() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="row page-pad detail-tabs" style={{ paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
+        {/* Tabs — Mine is promoted right next to Catalog whenever the customer has prior activity here */}
+        <div
+          className="row page-pad detail-tabs"
+          style={{
+            paddingBottom: 0,
+            paddingTop: 8,
+            borderBottom: "1px solid var(--line)",
+            position: "sticky",
+            top: "calc(56px + var(--safe-area-top))",
+            background: "var(--bg)",
+            zIndex: 15,
+          }}
+        >
           {([
-            // #10 — was hardcoded "Menu", so salons and chemists advertised one too.
             ["catalog", `${bizTheme.catalogNoun} (${b.catalog.length})`],
+            ...(!isOwner && !isGuest && mineRows.length > 0 ? [["mine", tf("tab_mine_count", { count: mineRows.length })]] : []),
+            ["reviews", t("tab_reviews")],
+            ["about", t("tab_about")],
             ["posts", tf("tab_posts_count", { count: (bizPosts ?? []).length })],
             ...((b.portfolio ?? []).length > 0 ? [["work", tf("tab_work_count", { count: (b.portfolio ?? []).length })]] : []),
-            ["about", t("tab_about")],
-            ["reviews", t("tab_reviews")],
-            ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? tf("tab_mine_count", { count: mineRows.length }) : t("tab_mine")]] : []),
-          ] as [typeof tab, string][]).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)} className="semi detail-tab"
-              style={{ color: tab === t ? "var(--biz-accent-strong)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent" }}>
+            ...(!isOwner && !isGuest && mineRows.length === 0 ? [["mine", t("tab_mine")]] : []),
+          ] as [typeof tab, string][]).map(([tabKey, label]) => (
+            <button
+              key={tabKey}
+              type="button"
+              onClick={(e) => {
+                setTab(tabKey);
+                e.currentTarget.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+              }}
+              className="semi detail-tab"
+              style={{
+                color: tab === tabKey ? "var(--biz-accent-strong)" : "var(--ink-500)",
+                borderBottom: tab === tabKey ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent",
+              }}
+            >
               {label}
             </button>
           ))}
@@ -1003,46 +1133,77 @@ export default function BusinessDetail() {
             {mineRows.length === 0 ? (
               <EmptyState emoji="🧾" title={t("nothing_here_yet")} text={t("biz_mine_empty_desc")} />
             ) : (
-              mineRows.map((row) =>
-                row.kind === "appointment" ? (
-                  <div key={`a:${row.apt.id}`} className="card col gap-8" style={{ padding: 14 }}>
-                    <div className="row between">
-                      <div>
-                        <div className="bold small">{row.apt.packageName || "Appointment"}</div>
-                        <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          <Calendar size={12} color="var(--brand-600)" /> {row.apt.dateLabel} at {row.apt.timeLabel}
+              mineRows.map((row) => {
+                if (row.kind === "appointment") {
+                  if (isOrderActivity(row.apt)) {
+                    return (
+                      <CompactOrderCard
+                        key={`a:${row.apt.id}`}
+                        apt={row.apt}
+                        titleMode="items"
+                        hideViewShop
+                        alwaysShowActions
+                        onRebook={reorderFromMine}
+                        onPay={(a) => setPayingApt(a)}
+                        onViewInDeals={(a) => nav(myDealsOrderUrl(a))}
+                      />
+                    );
+                  }
+                  const aptWhen = formatOrderDateTime(
+                    row.apt.scheduledForISO || row.apt.createdAtISO,
+                    lang,
+                    t,
+                    { dateLabel: row.apt.dateLabel, timeLabel: row.apt.timeLabel }
+                  );
+                  return (
+                    <div key={`a:${row.apt.id}`} className="card col gap-8" style={{ padding: 14 }}>
+                      <div className="row between">
+                        <div>
+                          <div className="bold small">{row.apt.packageName || "Appointment"}</div>
+                          <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                            <Calendar size={12} color="var(--brand-600)" /> {aptWhen}
+                          </div>
                         </div>
+                        <span
+                          className={`badge ${
+                            row.apt.status === "ACCEPTED" || row.apt.status === "COMPLETED" ? "badge-green"
+                            : row.apt.status === "REJECTED" || row.apt.status === "CANCELLED" || row.apt.status === "NO_SHOW" ? "badge-gray"
+                            : "badge-purple"
+                          }`}
+                          style={{ fontSize: 10, padding: "3px 9px", flexShrink: 0 }}
+                        >
+                          {row.apt.status === "ACCEPTED" ? "CONFIRMED" : row.apt.status.replace("_", " ")}
+                        </span>
                       </div>
-                      <span
-                        className={`badge ${
-                          row.apt.status === "ACCEPTED" || row.apt.status === "COMPLETED" ? "badge-green"
-                          : row.apt.status === "REJECTED" || row.apt.status === "CANCELLED" || row.apt.status === "NO_SHOW" ? "badge-gray"
-                          : "badge-purple"
-                        }`}
-                        style={{ fontSize: 10, padding: "3px 9px", flexShrink: 0 }}
-                      >
-                        {row.apt.status === "ACCEPTED" ? "CONFIRMED" : row.apt.status.replace("_", " ")}
-                      </span>
+                      {row.apt.paymentStatus && row.apt.paymentStatus !== "UNPAID" && (
+                        <div style={{ background: "var(--ink-50)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 10px" }}>
+                          <PaymentStatusCard
+                            variant="inline"
+                            paymentStatus={row.apt.paymentStatus}
+                            paymentMethod={row.apt.paymentMethod}
+                            paymentAmount={row.apt.paymentAmount}
+                            paymentReference={row.apt.paymentReference}
+                            claimantName="You"
+                            viewerIsPayer
+                          />
+                        </div>
+                      )}
+                      <button type="button" className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/appointments")}>
+                        {t("view_in_my_appointments")}
+                      </button>
                     </div>
-                    <PaymentStatusCard
-                      paymentStatus={row.apt.paymentStatus}
-                      paymentMethod={row.apt.paymentMethod}
-                      paymentAmount={row.apt.paymentAmount}
-                      paymentReference={row.apt.paymentReference}
-                      claimantName="You"
-                      viewerIsPayer
-                    />
-                    <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/appointments")}>
-                      {t("view_in_my_appointments")}
-                    </button>
-                  </div>
-                ) : (
+                  );
+                }
+
+                const qWhen = formatOrderDateTime(row.q.joinedAtISO, lang, t);
+                return (
                   <div key={`q:${row.q.tokenId}`} className="card col gap-8" style={{ padding: 14 }}>
                     <div className="row between">
                       <div>
                         <div className="bold small">Live queue</div>
-                        <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          <Users size={12} /> {row.q.partySize}
+                        <div className="tiny muted row gap-6 center-v" style={{ marginTop: 2 }}>
+                          <span className="row gap-4 center-v"><Users size={12} /> {row.q.partySize}</span>
+                          {qWhen && <span>· {qWhen}</span>}
                         </div>
                       </div>
                       <span
@@ -1057,20 +1218,25 @@ export default function BusinessDetail() {
                         {row.q.status === "WAITING" ? t("queue_status_waiting") : row.q.status === "CALLED" ? t("queue_status_called") : row.q.status === "SERVED" ? t("queue_status_served") : row.q.status === "LEFT" ? t("queue_status_left") : t("closed_status")}
                       </span>
                     </div>
-                    <PaymentStatusCard
-                      paymentStatus={row.q.paymentStatus}
-                      paymentMethod={row.q.paymentMethod}
-                      paymentAmount={row.q.paymentAmount}
-                      paymentReference={row.q.paymentReference}
-                      claimantName="You"
-                      viewerIsPayer
-                    />
-                    <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/queues")}>
+                    {row.q.paymentStatus && row.q.paymentStatus !== "UNPAID" && (
+                      <div style={{ background: "var(--ink-50)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 10px" }}>
+                        <PaymentStatusCard
+                          variant="inline"
+                          paymentStatus={row.q.paymentStatus}
+                          paymentMethod={row.q.paymentMethod}
+                          paymentAmount={row.q.paymentAmount}
+                          paymentReference={row.q.paymentReference}
+                          claimantName="You"
+                          viewerIsPayer
+                        />
+                      </div>
+                    )}
+                    <button type="button" className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/queues")}>
                       {t("view_in_my_queues")}
                     </button>
                   </div>
-                )
-              )
+                );
+              })
             )}
           </div>
         )}

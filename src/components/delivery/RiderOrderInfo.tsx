@@ -1,17 +1,18 @@
-import { Phone } from "@/components/Icons";
+import { CheckCircle2, Phone } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { isAutoOrderNote } from "@/lib/orderLines";
 import type { DeliveryItem } from "@/services/engagement/deliveryService";
 
 /**
- * What a rider needs at hand besides an address: who to call, what is in the bag, and what the customer asked for.
+ * What a rider needs at hand besides an address: who to call, what is in the bag, payment state, and what the customer asked for.
  * Shown on every live stop. The customer's number only exists once the rider is on the way to them (the database
  * withholds it earlier), so before that only the shop's number appears.
  */
 export default function RiderOrderInfo({ d, hideContact = false }: { d: DeliveryItem; /** The where-to-go block already carries the call buttons. */ hideContact?: boolean }) {
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const hasContact = !hideContact && (!!d.customerPhone || !!d.businessPhone);
-  const hasDetails = d.items.length > 0 || !!d.orderNotes || !!d.requestedWindow;
+  const isPaid = d.paymentStatus === "PAID" || !!d.cashCollectedAt;
+  const hasDetails = d.items.length > 0 || !!d.orderNotes || !!d.requestedWindow || isPaid;
   if (!hasContact && !hasDetails) return null;
 
   return (
@@ -41,6 +42,12 @@ export default function RiderOrderInfo({ d, hideContact = false }: { d: Delivery
                   <span className="semi">{i.quantity} ×</span> {i.name}
                 </span>
               ))}
+            </div>
+          )}
+          {isPaid && (
+            <div className="tiny semi row gap-4 center-v" style={{ color: "var(--green-700)", paddingTop: d.items.length > 0 ? 4 : 0, borderTop: d.items.length > 0 ? "1px solid var(--line)" : undefined }}>
+              <CheckCircle2 size={13} color="var(--green-600)" />
+              <span>{tf("dlv_paid_via_badge", { method: d.paymentMethod || (d.cashCollectedAt ? "CASH" : "Online") })}</span>
             </div>
           )}
           {d.requestedWindow && (

@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ native: true, get: vi.fn() }));
+const mocks = vi.hoisted(() => ({ native: true, get: vi.fn(), watch: vi.fn(), clearWatch: vi.fn() }));
 vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => mocks.native } }));
-vi.mock("@capacitor/geolocation", () => ({ Geolocation: { getCurrentPosition: mocks.get } }));
+vi.mock("@capacitor/geolocation", () => ({
+  Geolocation: {
+    getCurrentPosition: mocks.get,
+    watchPosition: mocks.watch,
+    clearWatch: mocks.clearWatch,
+  },
+}));
 
 import { FRESH_FIX_MS, nativeGeolocation, phase2Opts, resetGeolocationForTests, totalBudgetMs } from "./nativeGeolocation";
 
-const fix = (lat = 18.5, lng = 73.9) => ({ coords: { latitude: lat, longitude: lng, accuracy: 20, altitude: null, altitudeAccuracy: null, heading: null, speed: null }, timestamp: 1 });
+const fix = (lat = 18.5, lng = 73.9, accuracy = 20) => ({ coords: { latitude: lat, longitude: lng, accuracy, altitude: null, altitudeAccuracy: null, heading: null, speed: null }, timestamp: 1 });
 const never = () => new Promise(() => {});
 
 function ask(options?: PositionOptions) {
@@ -20,6 +26,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   mocks.native = true;
   mocks.get.mockReset();
+  mocks.watch.mockReset();
+  mocks.clearWatch.mockReset().mockResolvedValue(undefined);
   resetGeolocationForTests();
 });
 afterEach(() => vi.useRealTimers());
@@ -73,6 +81,21 @@ describe("failing fast where waiting cannot help", () => {
 });
 
 describe("a plugin that never answers", () => {
+  it("times out a quick position request and ignores a late native fix", async () => {
+    let late!: (p: unknown) => void;
+    mocks.get.mockImplementation(() => new Promise((resolve) => { late = resolve; }));
+    const ok = vi.fn();
+    const err = vi.fn();
+    nativeGeolocation.getQuickPosition(ok, err);
+    await vi.advanceTimersByTimeAsync(4501);
+    expect(err).toHaveBeenCalledTimes(1);
+    expect(err.mock.calls[0][0].code).toBe(3);
+    late(fix());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ok).not.toHaveBeenCalled();
+    expect(err).toHaveBeenCalledTimes(1);
+  });
+
   it("still gets the caller an answer, once, within the budget", async () => {
     mocks.get.mockImplementation(never);
     const { ok, err } = ask();
@@ -192,5 +215,58 @@ describe("in a browser", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(err.mock.calls[0][0].code).toBe(2);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("high accuracy and calibration", () => {
+  it("skips coarse PHASE1 and coarse cache when enableHighAccuracy is true", async () => {
+    mocks.get.mockResolvedValueOnce(fix(18.1, 73.1, 800));
+    ask();
+    await vi.advanceTimersByTimeAsync(0);
+
+    mocks.get.mockResolvedValueOnce(fix(18.52, 73.93, 12));
+    const { ok } = ask({ enableHighAccuracy: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(mocks.get.mock.calls[1][0]).toMatchObject({ enableHighAccuracy: true, maximumAge: 0 });
+    expect(ok.mock.calls[0][0].coords).toMatchObject({ latitude: 18.52, longitude: 73.93 });
+  });
+
+  it("picks the sharpest accuracy sample and discards an initial coarse jump", async () => {
+    let cb!: (pos: any, err?: any) => void;
+    mocks.watch.mockImplementation(async (_opts: unknown, handler: (pos: any, err?: any) => void) => {
+      cb = handler;
+      return "w1";
+    });
+    const ok = vi.fn();
+    const err = vi.fn();
+    nativeGeolocation.getCalibratedPosition(ok, err, { maxDurationMs: 4000, targetAccuracyM: 25 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    cb(fix(18.4, 73.8, 1200));
+    expect(ok).not.toHaveBeenCalled();
+
+    cb(fix(18.521, 73.931, 45));
+    expect(ok).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(ok).toHaveBeenCalledTimes(1);
+    expect(err).not.toHaveBeenCalled();
+    expect(ok.mock.calls[0][0].coords).toMatchObject({ latitude: 18.521, longitude: 73.931, accuracy: 45 });
+  });
+
+  it("resolves immediately when target accuracy (<= 25m) is reached", async () => {
+    let cb!: (pos: any, err?: any) => void;
+    mocks.watch.mockImplementation(async (_opts: unknown, handler: (pos: any, err?: any) => void) => {
+      cb = handler;
+      return "w2";
+    });
+    const ok = vi.fn();
+    nativeGeolocation.getCalibratedPosition(ok, null, { maxDurationMs: 4000, targetAccuracyM: 25 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    cb(fix(18.525, 73.935, 14));
+    expect(ok).toHaveBeenCalledTimes(1);
+    expect(ok.mock.calls[0][0].coords).toMatchObject({ latitude: 18.525, longitude: 73.935, accuracy: 14 });
   });
 });

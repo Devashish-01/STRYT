@@ -16,7 +16,7 @@ import type { Business } from "@/types";
  * the console colours that tell them they are working inside someone else's business.
  */
 export default function BusinessConsoleHeader({
-  id, business, isOwner, consoleMode, ambient, subtitle, notificationUnread, chatUnread, onShare,
+  id, business, isOwner, consoleMode, ambient, subtitle, notificationUnread, totalNotificationUnread = 0, chatUnread, onShare,
 }: {
   id: string;
   business: Business | undefined;
@@ -25,11 +25,14 @@ export default function BusinessConsoleHeader({
   ambient: ReturnType<typeof useAmbientTheme>;
   subtitle: string;
   notificationUnread: number;
+  totalNotificationUnread?: number;
   chatUnread: number;
   onShare: () => void;
 }) {
   const nav = useNavigate();
   const { t } = useI18n();
+  const hasScopedNotif = notificationUnread > 0;
+  const hasCrossHatNotif = !hasScopedNotif && totalNotificationUnread > 0;
   return (
     <header className="living-sky-header" style={{
       background: isOwner
@@ -54,7 +57,12 @@ export default function BusinessConsoleHeader({
           <BrandHome color="#fff" glow={ambient.lampGlow} />
           <div className="row gap-8 center-v" style={{ minWidth: 0 }}>
             <RoleSwitcher theme="dark-pill" enableLongPress />
-            <HeaderIcon label={t("notifications")} count={notificationUnread} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
+            <HeaderIcon
+              label={t("notifications")}
+              count={notificationUnread}
+              secondaryDot={hasCrossHatNotif}
+              onClick={() => nav(hasCrossHatNotif ? "/notifications" : `/notifications?scope=BUSINESS&id=${id}`)}
+            >
               <Bell size={16} />
             </HeaderIcon>
             <HeaderIcon label={t("messages_header")} count={chatUnread} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
@@ -89,11 +97,13 @@ export default function BusinessConsoleHeader({
   );
 }
 
-function HeaderIcon({ label, count, onClick, children }: { label: string; count: number; onClick: () => void; children: ReactNode }) {
+function HeaderIcon({ label, count, secondaryDot = false, onClick, children }: { label: string; count: number; secondaryDot?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button className="icon-btn-sm" aria-label={label} onClick={onClick} style={{ background: "rgba(255,255,255,.16)", color: "#fff", position: "relative" }}>
       {children}
-      {count > 0 && <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: "var(--red-500)" }} />}
+      {(count > 0 || secondaryDot) && (
+        <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: count > 0 ? "var(--red-500)" : "var(--accent-500)" }} />
+      )}
     </button>
   );
 }

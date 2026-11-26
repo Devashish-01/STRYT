@@ -238,7 +238,6 @@ export default function CommunityPostDetail() {
     return () => { sb.removeChannel(channel); };
   }, [id, isPoll]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
   useEffect(() => {
     if (likeOverride === null) return;
     if (post?.liked === likeOverride) setLikeOverride(null);
@@ -267,10 +266,12 @@ export default function CommunityPostDetail() {
   // composer's spot neutral instead of asserting a guess.
   const policy = resolveCommentPolicy(safePost);
   const gatePending = gateReason === undefined && !isAuthor && (policy === "NEIGHBORS" || policy === "MUTUALS");
-  const canComment = gateReason
+  const canComment = policy === "OFF"
+    ? false
+    : gateReason
     ? gateReason === "OK"
     : localGate({ policy, isAuthor, isMutual: false }).ok || isAuthor;
-  const gate = gateCopy(gateReason ?? "OK");
+  const gate = gateCopy(policy === "OFF" ? "OFF" : (gateReason ?? "OK"));
   const liked = likeOverride ?? safePost.liked;
   const likeCount = Math.max(0, safePost.likes + (likeOverride === true && !safePost.liked ? 1 : 0) - (likeOverride === false && safePost.liked ? 1 : 0));
   const showLikeCount = !safePost.hideLikeCount || isAuthor;
@@ -496,6 +497,7 @@ export default function CommunityPostDetail() {
       setSharePhone(false);
       setReplyingTo(null);
       setCommentListing(null);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60);
     } catch (e) {
       // addComment throws clear, user-facing reasons ("Comments are turned
       // off…" / "You both need to follow each other…") — surface them so the
@@ -514,7 +516,17 @@ export default function CommunityPostDetail() {
   }
 
   return (
-    <div className="screen" style={{ display: "flex", flexDirection: "column" }}>
+    <div
+      className="screen"
+      style={{
+        height: "100dvh",
+        maxHeight: "100dvh",
+        overflow: "hidden",
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)} aria-label={t("go_back")}><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>{t("post_word")}</span>
@@ -562,7 +574,7 @@ export default function CommunityPostDetail() {
         )}
       </header>
 
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "calc(130px + var(--safe-area-bottom))" }}>
         {/* Post body */}
         <div className="page-pad" style={{ paddingBottom: 0 }}>
           <div className="row gap-12 center-v" style={{ marginBottom: 14 }}>

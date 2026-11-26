@@ -18,12 +18,14 @@ import ProviderAccessGuard from "./components/ProviderAccessGuard";
 import RequireDeliveryAgent from "./components/RequireDeliveryAgent";
 import PinGateSheet from "./components/PinGateSheet";
 import BatteryOptimizationSheet from "./components/BatteryOptimizationSheet";
+import LiveNotificationBanner from "./components/LiveNotificationBanner";
 import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
 import { usePartNavigation } from "./hooks/usePartNavigation";
 import { returnTo } from "./lib/returnTo";
-import { clearDeliveredNotifications } from "./lib/pushNotifications";
+import { notificationService } from "./services/engagement/notificationService";
 import { contextHomePath } from "./lib/contextHome";
+import { isPersonalOnlyRoute } from "./lib/partNavigation";
 import { accountGate, isAuthCallbackUrl } from "./lib/machines/accountGate";
 import { schedulePrefetch } from "./lib/prefetchRoutes";
 import { useI18n, type Lang } from "./lib/i18n";
@@ -531,9 +533,42 @@ function getRouteDocumentTitle(pathname: string): string {
 
 export default function App() {
   const location = useLocation();
-  const { toast, notifExplainerPending, confirmNotifExplainer, dismissNotifExplainer } = useApp();
+  const {
+    toast,
+    notifExplainerPending,
+    confirmNotifExplainer,
+    dismissNotifExplainer,
+    isAuthed,
+    profileReady,
+    user,
+    activeContext,
+    pendingContextSwitch,
+    setContext,
+    liveNotification,
+    dismissLiveNotification,
+    refreshNotifBadges,
+  } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
+
+  // One-way console adoption leaves activeContext stuck on Business/Provider/Delivery
+  // after hardware/browser Back, deep-links, or dismissing a PIN sheet onto /home or /profile.
+  // Exlusively-personal routes are never pinned to a seller hat, so reconcile back to Customer.
+  useEffect(() => {
+    if (!isAuthed || !profileReady || pendingContextSwitch) return;
+    if (activeContext.type === "customer") return;
+    if (!isPersonalOnlyRoute(location.pathname, location.search)) return;
+    setContext({ type: "customer", id: null, name: user.name || "Personal" });
+  }, [
+    isAuthed,
+    profileReady,
+    pendingContextSwitch,
+    activeContext.type,
+    location.pathname,
+    location.search,
+    user.name,
+    setContext,
+  ]);
 
   const navigate = useNavigate();
   useEffect(() => {
@@ -644,18 +679,6 @@ export default function App() {
       navigator.serviceWorker?.removeEventListener("message", onSwMessage);
     };
   }, [goGuarded]);
-
-  // Once the app is in the foreground, tray copies of push notifications are
-  // stale — the in-app Notifications screen is the live source of truth.
-  // Nothing cleared them before, so the OS tray accumulated indefinitely.
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void clearDeliveredNotifications();
-    };
-    onVisible();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
 
   return (
     <div className="desktop-layout">
@@ -782,8 +805,8 @@ export default function App() {
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
             <Route path="/agreement/:id" element={<AgreementScreen />} />
             <Route path="/agreements" element={<Agreements />} />
-            <Route path="/appointments" element={<MyAppointments initialSwimlane="SERVICES" />} />
-            <Route path="/orders" element={<MyAppointments initialSwimlane="ORDERS" />} />
+            <Route path="/appointments" element={<MyAppointments />} />
+            <Route path="/orders" element={<Navigate to="/agreements?section=orders" replace />} />
             <Route path="/rate/:id" element={<RateScreen />} />
 
             <Route path="/onboard/business" element={<BusinessOnboard />} />
@@ -925,6 +948,19 @@ export default function App() {
       {/* Delivery location sharing outlives any one screen (it used to stop when the rider left the console). */}
       <DeliveryTrackingRunner />
       {partSheet}
+      {liveNotification && (
+        <LiveNotificationBanner
+          alert={liveNotification}
+          onDismiss={dismissLiveNotification}
+          onOpen={(alert) => {
+            dismissLiveNotification();
+            if (alert.id && !alert.id.startsWith("push:")) {
+              void notificationService.markRead(alert.id).then(() => refreshNotifBadges()).catch(() => {});
+            }
+            goGuarded(alert.deepLink || "/notifications");
+          }}
+        />
+      )}
       {toast && <div className="toast">{toast}</div>}
       {notifExplainerPending && location.pathname === "/home" && (
         <NotificationPermissionExplainer onConfirm={confirmNotifExplainer} onClose={dismissNotifExplainer} />

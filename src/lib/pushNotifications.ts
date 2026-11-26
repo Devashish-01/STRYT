@@ -66,13 +66,6 @@ export async function registerPush(userId: string, options: { requestPermission?
         console.warn("FCM registration error:", error);
       });
 
-      PushNotifications.addListener("pushNotificationReceived", (notification) => {
-        // DEV only: the payload carries the notification title/body and deep
-        // link, which can name a customer or a booking. Not something to write
-        // to a production device log.
-        if (import.meta.env.DEV) console.log("FCM notification received:", notification);
-      });
-
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
         // Tapping one notification only dismisses that one; anything else this
         // app queued stays in the tray. The user is now looking at the app, so
@@ -86,6 +79,25 @@ export async function registerPush(userId: string, options: { requestPermission?
           // forced a full reload (splash, lost state) on every notification tap.
           window.dispatchEvent(new CustomEvent("push-nav", { detail: data.url }));
         }
+      });
+
+      PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        // DEV only: the payload carries the notification title/body and deep
+        // link, which can name a customer or a booking. Not something to write
+        // to a production device log.
+        if (import.meta.env.DEV) console.log("FCM notification received:", notification);
+        const data = notification.data ?? {};
+        const payload = {
+          id: typeof data.id === "string" ? data.id : undefined,
+          title: notification.title ?? "",
+          body: notification.body ?? "",
+          url: typeof data.url === "string" ? data.url : typeof data.deepLink === "string" ? data.deepLink : "/notifications",
+          type: String(data.type ?? "SYSTEM"),
+          entity_type: typeof data.entity_type === "string" ? data.entity_type : undefined,
+          entity_id: typeof data.entity_id === "string" ? data.entity_id : undefined,
+        };
+        // Android FCM hides OS banners while the app is foregrounded, so surface it to the in-app realtime bus.
+        window.dispatchEvent(new CustomEvent("push-received", { detail: payload }));
       });
 
       // Attach listeners BEFORE register() — see the ordering comment above.
