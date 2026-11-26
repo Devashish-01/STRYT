@@ -16,6 +16,7 @@ interface Props {
   label?: string;
   /** Called when the card is tapped, before Google Maps opens (analytics, lead counters). */
   onDirections?: () => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -23,7 +24,7 @@ interface Props {
  * and a one-tap Directions overlay. Interaction is intentionally disabled so
  * the page keeps scrolling naturally — tapping anywhere opens Google Maps.
  */
-export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", height = 160, label, onDirections }: Props) {
+export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", height = 160, label, onDirections, readOnly = false }: Props) {
   if (!lat || !lng) return null;
   const openDirections = () => {
     onDirections?.();
@@ -31,10 +32,17 @@ export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", heigh
   };
   return (
     <div
-      style={{ position: "relative", height, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", cursor: "pointer" }}
-      onClick={openDirections}
-      role="button"
-      aria-label="Open directions in Google Maps"
+      style={{ position: "relative", height, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", cursor: readOnly ? undefined : "pointer" }}
+      onClick={readOnly ? undefined : openDirections}
+      role={readOnly ? "img" : "button"}
+      aria-label={readOnly ? label : "Open directions in Google Maps"}
+      tabIndex={readOnly ? undefined : 0}
+      onKeyDown={readOnly ? undefined : (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDirections();
+        }
+      }}
     >
       <MapContainer
         center={[lat, lng]}
@@ -51,7 +59,7 @@ export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", heigh
         <TileLayer {...RASTER_TILES} />
         <Marker position={[lat, lng]} icon={makePinIcon(pinColor)} />
       </MapContainer>
-      <div
+      {!readOnly && <div
         className="row gap-6"
         style={{
           position: "absolute", bottom: 10, right: 10, zIndex: 1000,
@@ -61,7 +69,7 @@ export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", heigh
         }}
       >
         <Navigation size={13} /> Directions
-      </div>
+      </div>}
       {label && (
         <div
           style={{

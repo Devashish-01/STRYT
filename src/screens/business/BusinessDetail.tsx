@@ -1,8 +1,8 @@
 import { termsFromBusiness } from "@/lib/deliveryTerms";
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, type ReactNode } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
+  ArrowLeft, Heart, Share2, Phone, Navigation, Clock,
   BadgeCheck, Star, Plus, Minus, MessageCircle, Flag,
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet, Calendar,
   Package, Store,
@@ -14,7 +14,7 @@ import ReviewSheet from "@/components/ReviewSheet";
 import { StoryViewer } from "@/components/Stories";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, VegDot, EmptyState, SafeImg, Pill } from "@/components/common";
+import { StarRow, VegDot, EmptyState, SafeImg } from "@/components/common";
 import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { BizCatalogGrid } from "./BizCatalogGrid";
@@ -26,7 +26,6 @@ import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import CartCheckoutSheet from "@/components/CartCheckoutSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
-import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { CustomPaySheet } from "@/components/CustomPaySheet";
@@ -35,7 +34,7 @@ import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { appointmentService } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
-import { inr, distanceLabel, formatOrderDateTime } from "@/lib/format";
+import { inr, formatOrderDateTime } from "@/lib/format";
 import { isOrderActivity, myDealsOrderUrl } from "@/lib/orderLists";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
@@ -48,8 +47,17 @@ import { openExternal } from "@/lib/openExternal";
 import { errorMessage } from "@/lib/errorMessage";
 import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 import { track, EVENTS } from "@/lib/analytics";
+import BusinessStorefrontIdentity from "./BusinessStorefrontIdentity";
+import "./BusinessStorefront.css";
 
-export default function BusinessDetail() {
+type BusinessDetailProps = {
+  view?: "public" | "owner" | "preview";
+  ownerActions?: ReactNode;
+  toolbarActions?: ReactNode;
+  footer?: ReactNode;
+};
+
+export default function BusinessDetail({ view = "public", ownerActions, toolbarActions, footer }: BusinessDetailProps) {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const {
@@ -59,24 +67,31 @@ export default function BusinessDetail() {
     queuesJoined, joinQueue, isGuest, manageableBusinessIds,
   } = useApp();
   const { t, tf, lang } = useI18n();
-  const [scrolledPastCover, setScrolledPastCover] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const updateScroll = () => {
-      const containerTop = scrollContainerRef.current?.scrollTop ?? 0;
-      const winTop = typeof window !== "undefined" ? window.scrollY : 0;
-      setScrolledPastCover(Math.max(containerTop, winTop) > 150);
-    };
-    updateScroll();
-    window.addEventListener("scroll", updateScroll, { passive: true });
-    return () => window.removeEventListener("scroll", updateScroll);
-  }, []);
+  const ownerView = view === "owner";
+  const preview = view === "preview";
+  const profilePath = `/business/${encodeURIComponent(id)}/manage/profile`;
+  const screenClass = footer ? "screen storefront-screen with-nav" : "screen storefront-screen";
+  const toolbarTitle = preview ? t("business_profile_customer_preview") : ownerView ? t("profile") : t("nav_business");
+  const back = preview ? (
+    <Link to={profilePath} replace className="storefront-toolbar-icon" aria-label={t("business_profile_back")}>
+      <ArrowLeft size={21} />
+    </Link>
+  ) : !ownerView ? (
+    <button type="button" className="storefront-toolbar-icon" aria-label={t("back_word")} onClick={() => nav(-1)}>
+      <ArrowLeft size={21} />
+    </button>
+  ) : null;
+  const toolbar = (actions?: ReactNode) => (
+    <div className="storefront-toolbar">
+      <div className="storefront-toolbar-title">{back}<span>{toolbarTitle}</span></div>
+      {actions && <div className="storefront-toolbar-actions">{actions}</div>}
+    </div>
+  );
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
-  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
+  const { data: reviewData, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
   // What this viewer wrote before, so the review sheet edits it instead of starting blank (CRAT-8).
-  const { data: myReview, refetch: refetchMyReview } = useQuery(() => businessService.myReview(id), [id, user.id], `business:${id}:my-review:${user.id}`);
+  const { data: myReview, refetch: refetchMyReview } = useQuery(() => view === "public" ? businessService.myReview(id) : Promise.resolve(null), [id, user.id, view], `business:${id}:my-review:${user.id}:${view}`);
   // Live via queue_settings, not queue_tokens: a trigger bumps its
   // line_changed_at whenever this line moves, and visitors can't read other
   // customers' tokens (migration 20260957). Also refreshes on open/close.
@@ -84,16 +99,18 @@ export default function BusinessDetail() {
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`);
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`, `business:${id}:posts`);
   const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id], `business:${id}:highlights`);
-  const highlights = highlightsData ?? [];
+  const highlights = (highlightsData ?? []).filter((story) => view === "public" || (!story.hiddenAt && story.visibility !== "close_friends"));
+  const storefrontPosts = (bizPosts ?? []).filter((post) => view === "public" || !post.hiddenAt);
+  const reviews = (reviewData ?? []).filter((review) => view === "public" || !review.hiddenAt);
   const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
-    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
-    [user.id],
-    `home:appointments:${user.id}`
+    () => (view === "public" && user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id, view],
+    view === "public" ? `home:appointments:${user.id}` : undefined
   );
   const { data: myQueueEntries, refetch: refetchMyQueues } = useQuery(
-    () => (user.id ? businessService.myQueues() : Promise.resolve([])),
-    [user.id],
-    `home:queues:${user.id}`
+    () => (view === "public" && user.id ? businessService.myQueues() : Promise.resolve([])),
+    [user.id, view],
+    view === "public" ? `home:queues:${user.id}` : undefined
   );
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
@@ -121,24 +138,17 @@ export default function BusinessDetail() {
   const [checkoutNotes, setCheckoutNotes] = useState("");
   const [checkoutItems, setCheckoutItems] = useState<AppointmentRecord["items"]>(undefined);
 
-  // Count a profile view once per business open.
+  // Console visits and previews are excluded from customer reach.
   useEffect(() => {
-    businessService.recordView(id).catch(() => {});
-  }, [id]);
-
-  // Track for the "recently viewed" rail on Home once details are loaded.
-  useEffect(() => {
-    if (!b) return;
+    if (view !== "public" || !b) return;
+    businessService.recordView(b.id).catch(() => {});
     pushRecentlyViewed({ type: "business", id: b.id, name: b.name, image: b.coverImage });
-    // The shop's own owner and team looking at their page is not reach.
     if (b.ownerUserId !== user.id && !manageableBusinessIds.includes(b.id)) {
       track(EVENTS.SELLER_VIEWED, { is_guest: isGuest }, { type: "business", id: b.id });
     }
-    // `b` is excluded deliberately — a fresh object reference every refetch
-    // even when nothing meaningful changed; `b?.id` is the correct identity
-    // check so this doesn't re-push on every render.
+    // A refetch of the same business should not count as a second view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [b?.id]);
+  }, [b?.id, view]);
 
   async function submitQuestion() {
     if (question.trim().length < 5) return;
@@ -167,33 +177,37 @@ export default function BusinessDetail() {
 
   if (loading) {
     return (
-      <div className="screen">
-        <div className="screen-scroll">
-          <Skeleton h={230} r={0} />
-          <div className="page-pad col gap-12" style={{ marginTop: -22 }}>
-            <div className="card col gap-10" style={{ padding: 16 }}>
-              <Skeleton h={24} w="60%" />
-              <Skeleton h={14} w="40%" />
-              <Skeleton h={44} mb={0} />
-            </div>
-          </div>
+      <div className={screenClass}>
+        {toolbar(ownerView ? toolbarActions : undefined)}
+        <div className="screen-scroll page-pad col gap-12">
+          <Skeleton h={150} r={18} />
+          <Skeleton h={24} w="60%" />
+          <Skeleton h={14} w="40%" />
+          <Skeleton h={44} />
         </div>
+        {footer}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="screen">
-        <ErrorView error={error} onRetry={refetch} />
+      <div className={screenClass}>
+        {toolbar(ownerView ? toolbarActions : undefined)}
+        <div className="screen-scroll"><ErrorView error={error} onRetry={refetch} /></div>
+        {footer}
       </div>
     );
   }
 
   if (!b) {
     return (
-      <div className="screen">
-        <EmptyState emoji="🏪" title={t("shop_not_found")} text={t("shop_not_found_desc")} />
+      <div className={screenClass}>
+        {toolbar(ownerView ? toolbarActions : undefined)}
+        <div className="screen-scroll">
+          <EmptyState emoji="🏪" title={t("shop_not_found")} text={t("shop_not_found_desc")} />
+        </div>
+        {footer}
       </div>
     );
   }
@@ -201,7 +215,8 @@ export default function BusinessDetail() {
   // Presence ("open right now") is driven by the owner's toggle + working
   // hours — the same evaluator providers use. Booking is NOT gated on this.
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
-  const isOwner = b.ownerUserId === user.id;
+  const isOwner = view !== "public" || (Boolean(user.id) && b.ownerUserId === user.id);
+  const showCustomerActions = !isOwner || preview;
   // Business Packages (src/lib/businessPackages.ts) — every category resolves
   // to exactly one package, so this single lookup now drives everything that
   // used to be split between catalogLabel() (the tab word) and the old
@@ -232,7 +247,7 @@ export default function BusinessDetail() {
   const activeQueueEntry = (myQueueEntries ?? []).find(
     (q) => q.businessId === b.id && (q.status === "WAITING" || q.status === "CALLED")
   );
-  const inQueue = !!activeQueueEntry || queuesJoined.includes(b.id);
+  const inQueue = view === "public" && (!!activeQueueEntry || queuesJoined.includes(b.id));
   const notifyKey = `OPENS:${b.id}`;
   const notifying = notifySubs.includes(notifyKey);
   const cartCount = Object.values(cart).reduce((a, c) => a + c, 0);
@@ -328,13 +343,15 @@ export default function BusinessDetail() {
     });
   }
 
-  // Cover + gallery strip both open the same photo array, just at different
-  // starting positions — computed once so the two tap targets stay in sync.
-  // b.gallery isn't guaranteed to be an array for every record (demo/seed
-  // data in particular can leave it null), so guard the spread.
-  const galleryPhotos: PhotoViewerItem[] = [b.coverImage, ...(b.gallery ?? [])]
-    .filter((url): url is string => !!url)
-    .map((url) => ({ url }));
+  const photos = new Map<string, PhotoViewerItem>();
+  for (const photo of b.portfolio ?? []) {
+    if (photo.url) photos.set(photo.url, { url: photo.url, caption: photo.caption });
+  }
+  for (const url of [b.coverImage, ...(b.gallery ?? [])]) {
+    if (url && !photos.has(url)) photos.set(url, { url });
+  }
+  const galleryPhotos = [...photos.values()];
+  const openPhoto = (startIndex: number) => setViewingPhotos({ photos: galleryPhotos, startIndex });
 
   function cartLines() {
     return Object.entries(cart)
@@ -377,144 +394,44 @@ export default function BusinessDetail() {
   }
 
   return (
-    <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
-      {/* Fixed safe-area top bar: floats transparently over cover at y=0, turns solid --surface when scrolled so nothing overlaps the OS status bar */}
-      <div className={`detail-top-bar ${scrolledPastCover ? "scrolled" : ""}`}>
-        <div className="row gap-10 center-v" style={{ minWidth: 0, flex: 1 }}>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={t("back_word")}
-            style={{
-              background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)",
-              flexShrink: 0,
-            }}
-            onClick={() => nav(-1)}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          {scrolledPastCover && (
-            <div className="row gap-6 center-v" style={{ minWidth: 0 }}>
-              <span className="bold small ellipsis" style={{ color: "var(--ink-900)" }}>
-                {b.name}
-              </span>
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-500)",
-                  flexShrink: 0,
-                }}
-                aria-hidden="true"
-              />
-            </div>
-          )}
-        </div>
-        {!isGuest && (
-          <div className="row gap-8" style={{ flexShrink: 0 }}>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label={t("share_word")}
-              style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
-              onClick={() => setShare(true)}
-            >
-              <Share2 size={18} />
+    <div className={screenClass} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
+      {toolbar(<>
+        {!isGuest && !preview && (
+          <>
+            <button type="button" className="storefront-toolbar-icon" aria-label={t("share_word")} onClick={() => setShare(true)}>
+              <Share2 size={19} />
             </button>
             {!isOwner && (
               <>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={t("save_word")}
-                  style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
-                  onClick={() => setAddList(true)}
-                >
-                  <Bookmark size={18} />
+                <button type="button" className="storefront-toolbar-icon" aria-label={t("save_word")} onClick={() => setAddList(true)}>
+                  <Bookmark size={19} />
                 </button>
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label={t("save_word")}
-                  style={{ background: scrolledPastCover ? "var(--ink-50)" : "rgba(255,255,255,0.92)" }}
-                  onClick={() => toggleBookmark("BUSINESS", b.id)}
-                >
-                  <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+                <button type="button" className="storefront-toolbar-icon" aria-label={t("save_word")}
+                  aria-pressed={saved} onClick={() => toggleBookmark("BUSINESS", b.id)}>
+                  <Heart size={19} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : undefined} />
                 </button>
               </>
             )}
-          </div>
+          </>
         )}
-      </div>
+        {ownerView && toolbarActions}
+      </>)}
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={(e) => setScrolledPastCover(Math.max(e.currentTarget.scrollTop, window.scrollY) > 150)}
-        className="screen-scroll"
-        style={{ paddingBottom: cartCount ? "calc(88px + var(--safe-area-bottom))" : 24 }}
-      >
-        {/* Cover */}
-        <div style={{ position: "relative" }}>
-          <SafeImg
-            src={b.coverImage}
-            alt={b.name}
-            style={{ width: "100%", height: 230, objectFit: "cover", cursor: "pointer" }}
-            onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: 0 })}
+      <div className="screen-scroll" style={{ paddingBottom: cartCount ? "calc(88px + var(--safe-area-bottom))" : 24 }}>
+        <div className="page-pad storefront-intro">
+          <BusinessStorefrontIdentity
+            business={b}
+            open={evalRes.isOpenNow}
+            coverIndex={galleryPhotos.findIndex((photo) => photo.url === b.coverImage)}
+            onOpenPhoto={openPhoto}
+            onBrowsePhotos={galleryPhotos.length ? () => {
+              setTab("work");
+              document.getElementById("business-storefront-sections")?.scrollIntoView({ block: "start" });
+            } : undefined}
+            photoCount={galleryPhotos.length}
           />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))", pointerEvents: "none" }} />
-          {b.gallery.length > 0 && (
-            <div className="row gap-6" style={{ position: "absolute", bottom: 12, right: 12 }}>
-              {galleryPhotos.slice(0, 3).map((g, i) => (
-                <SafeImg
-                  key={i}
-                  src={g.url}
-                  alt={g.caption || tf("photo_n_of_m", { n: i + 1, m: galleryPhotos.length })}
-                  style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid var(--surface)", objectFit: "cover", cursor: "pointer" }}
-                  onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: i })}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Info card */}
-        <div className="page-pad" style={{ marginTop: -22, position: "relative" }}>
-          <div className="card">
-            <div className="row between" style={{ alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="row gap-6 center-v">
-                  <h1 className="bold h2">{b.name}</h1>
-                  {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
-                  {isOwner && <Pill tone="purple">{t("owner_badge")}</Pill>}
-                </div>
-                {bizThemeKey === "generic" ? (
-                  <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
-                ) : (
-                  <div style={{ marginTop: 4 }}><Pill tone={bizTheme.badgeTone}>{bizTheme.icon} {b.subCategory}</Pill></div>
-                )}
-              </div>
-              <div className="col" style={{ alignItems: "center", gap: 2 }}>
-                <Rating value={b.ratingAvg} size={14} />
-                <span className="tiny muted">{b.ratingCount} {t(b.ratingCount === 1 ? "review_suffix_one" : "reviews_suffix")}</span>
-              </div>
-            </div>
-
-            {b.isNew && <span className="badge badge-new" style={{ marginTop: 10 }}>● Opened {daysAgo(b.openingDate)}</span>}
-
-            <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
-              <span className="row gap-4"><MapPin size={14} /> {distanceLabel(b.distanceKm)}</span>
-              <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
-                <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? t("open_now") : t("closed_status")}</span>
-                {evalRes.isOpenNow && <LivePulseDot style={{ marginLeft: 2 }} />}
-              </span>
-            </div>
-            <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {formatHoursForDisplay(b.hours)}</p>
-
-            <div className="row wrap gap-6" style={{ marginTop: 14 }}>
-              {(b.tags ?? []).map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
-            </div>
-
+          {ownerView && ownerActions && <div className="storefront-owner-actions">{ownerActions}</div>}
+          <div className="storefront-actions">
             {/* Call + Directions stay available to guests. They're the whole
                 point of finding a shop nearby, they only use contact details the
                 owner already published, and they create nothing on the account
@@ -523,11 +440,15 @@ export default function BusinessDetail() {
                 still tick, which is correct — the owner's phone really did ring.
                 Everything that needs an *account* (book/message/follow/save) is
                 what's replaced by the prompt below. */}
-            <div className="row gap-10" style={{ marginTop: 16 }}>
-              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => { businessService.recordInteraction(b.id, "CALL").catch(() => {}); track(EVENTS.SELLER_CONTACTED, { contact_method: "call" }, { type: "business", id: b.id }); }}><Phone size={17} /> {t("call")}</a>}
-              {!isOwner && (
+            <div className="storefront-contact-actions">
+              {showCustomerActions && b.phone && b.showPhonePublicly !== false && (
+                preview ? <button type="button" className="btn btn-outline grow" disabled><Phone size={17} /> {t("call")}</button>
+                  : <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => { businessService.recordInteraction(b.id, "CALL").catch(() => {}); track(EVENTS.SELLER_CONTACTED, { contact_method: "call" }, { type: "business", id: b.id }); }}><Phone size={17} /> {t("call")}</a>
+              )}
+              {showCustomerActions && (
               <button
                 className="btn btn-outline grow"
+                disabled={preview}
                 onClick={() => {
                   businessService.recordInteraction(b.id, "DIRECTIONS").catch(() => {});
                   track(EVENTS.SELLER_CONTACTED, { contact_method: "directions" }, { type: "business", id: b.id });
@@ -542,11 +463,12 @@ export default function BusinessDetail() {
               )}
               {/* Messaging needs a real identity on both sides — guests don't
                   get a chat thread, so no button. */}
-              {!isGuest && b.ownerUserId !== user.id && (
+              {!isGuest && showCustomerActions && (
                 <button
                   className="icon-btn"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", width: 48, border: "1.5px solid var(--brand-200)" }}
-                  title={t("message")}
+                  aria-label={t("message")}
+                  disabled={preview}
                   onClick={async () => {
                     if (!b.ownerUserId) { showToast("Owner info unavailable"); return; }
                     try {
@@ -568,9 +490,10 @@ export default function BusinessDetail() {
                 needs a way to pay (walk-in tip, deposit, ad-hoc amount). The
                 first three branches below cover an existing claimable
                 relationship; customPaySheet is the fallback with none. */}
-            {!isOwner && !isGuest && (
+            {showCustomerActions && !isGuest && (
               <button
                 className="row gap-10"
+                disabled={preview}
                 style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
                 onClick={() => {
                   if (payableApt) setPayingApt(payableApt);
@@ -592,10 +515,11 @@ export default function BusinessDetail() {
               <GuestSignInPrompt message="Sign in to book, message or follow" />
             ) : (
             <div className="biz-secondary-actions" style={{ marginTop: 12 }}>
-              {!isOwner && (
+              {showCustomerActions && (
                 <>
                   <button
                     className="btn grow btn-sm"
+                    disabled={preview}
                     style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
                     onClick={() => toggleFollow("BUSINESS", b.id, b.name)}
                   >
@@ -604,13 +528,14 @@ export default function BusinessDetail() {
                   <button
                     className="btn grow btn-sm"
                     style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
+                    disabled={preview}
                     onClick={() => toggleNotify(notifyKey)}
                   >
                     <Bell size={16} weight={notifying ? "fill" : "regular"} /> {notifying ? t("alerts_on") : t("notify_me")}
                   </button>
                 </>
               )}
-              {isOwner ? (
+              {isOwner && !preview ? (
                 <button
                   className="btn grow btn-sm biz-book-cta"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
@@ -627,6 +552,7 @@ export default function BusinessDetail() {
                   <button
                     className="btn grow btn-sm biz-book-cta"
                     style={{ background: "var(--biz-accent-soft)", color: "var(--biz-accent-strong)", border: "1px solid var(--brand-200)" }}
+                    disabled={preview}
                     onClick={() => {
                       if (cartCount > 0) {
                         setCartSheet(true);
@@ -648,6 +574,7 @@ export default function BusinessDetail() {
                 <button
                   className="btn grow btn-sm biz-book-cta"
                   style={{ background: "var(--biz-accent-soft)", color: "var(--biz-accent-strong)", border: "1px solid var(--brand-200)" }}
+                  disabled={preview}
                   onClick={() => setScheduling(true)}
                 >
                   <Clock size={16} /> {bizTheme.primaryCtaLabel}
@@ -679,7 +606,7 @@ export default function BusinessDetail() {
                   </div>
                   <div className="tiny muted">{ahead === 0 ? t("walk_in_anytime") : tf("min_wait", { min: waitMin })}</div>
                 </div>
-                {isOwner ? (
+                {isOwner && !preview ? (
                   <button
                     className="btn btn-sm"
                     style={{ flexShrink: 0, background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
@@ -699,6 +626,7 @@ export default function BusinessDetail() {
                   <button
                     className="btn btn-primary btn-sm"
                     style={{ flexShrink: 0 }}
+                    disabled={preview}
                     onClick={() => { setPartySize(1); setJoiningQueue(true); }}
                   >{t("join_queue")}</button>
                 ) : null}
@@ -768,7 +696,14 @@ export default function BusinessDetail() {
         {highlights.length > 0 && (
           <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
             {highlights.map((h, i) => (
-              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+              <button type="button" key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }}
+                onClick={() => {
+                  if (preview) {
+                    setViewingPhotos({ photos: highlights.map((story) => ({ url: story.image, caption: story.caption })), startIndex: i });
+                  } else {
+                    setViewingHighlight(i);
+                  }
+                }}>
                 <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
                   <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--surface)" }} />
                 </div>
@@ -779,25 +714,14 @@ export default function BusinessDetail() {
         )}
 
         {/* Tabs — Mine is promoted right next to Catalog whenever the customer has prior activity here */}
-        <div
-          className="row page-pad detail-tabs"
-          style={{
-            paddingBottom: 0,
-            paddingTop: 8,
-            borderBottom: "1px solid var(--line)",
-            position: "sticky",
-            top: "calc(56px + var(--safe-area-top))",
-            background: "var(--bg)",
-            zIndex: 15,
-          }}
-        >
+        <nav id="business-storefront-sections" className="storefront-sections" aria-label={t("business_profile_sections")}>
           {([
             ["catalog", `${bizTheme.catalogNoun} (${b.catalog.length})`],
             ...(!isOwner && !isGuest && mineRows.length > 0 ? [["mine", tf("tab_mine_count", { count: mineRows.length })]] : []),
+            ["work", t("bon_step_photos")],
             ["reviews", t("tab_reviews")],
+            ["posts", tf("tab_posts_count", { count: storefrontPosts.length })],
             ["about", t("tab_about")],
-            ["posts", tf("tab_posts_count", { count: (bizPosts ?? []).length })],
-            ...((b.portfolio ?? []).length > 0 ? [["work", tf("tab_work_count", { count: (b.portfolio ?? []).length })]] : []),
             ...(!isOwner && !isGuest && mineRows.length === 0 ? [["mine", t("tab_mine")]] : []),
           ] as [typeof tab, string][]).map(([tabKey, label]) => (
             <button
@@ -807,16 +731,13 @@ export default function BusinessDetail() {
                 setTab(tabKey);
                 e.currentTarget.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
               }}
-              className="semi detail-tab"
-              style={{
-                color: tab === tabKey ? "var(--biz-accent-strong)" : "var(--ink-500)",
-                borderBottom: tab === tabKey ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent",
-              }}
+              className="storefront-section-button"
+              aria-pressed={tab === tabKey}
             >
               {label}
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* Tab content */}
         {tab === "catalog" && (
@@ -917,15 +838,17 @@ export default function BusinessDetail() {
 
         {tab === "posts" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
-            {(bizPosts ?? []).length === 0 ? (
+            {storefrontPosts.length === 0 ? (
               <EmptyState emoji="📣" title={t("no_posts_yet")} text={t("biz_no_posts_desc")} />
             ) : (
-              (bizPosts ?? []).map((p) => (
-                <button
+              storefrontPosts.map((p) => {
+                const PostCard = preview ? "article" : "button";
+                return (
+                <PostCard
                   key={p.id}
                   className="card col gap-6"
                   style={{ padding: 14, textAlign: "left" }}
-                  onClick={() => nav(`/community/${p.id}`, { state: { post: p } })}
+                  onClick={preview ? undefined : () => nav(`/community/${p.id}`, { state: { post: p } })}
                 >
                   <div className="row between">
                     <span className="semi small">{p.title || p.type}</span>
@@ -934,28 +857,29 @@ export default function BusinessDetail() {
                   {p.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{p.body}</p>}
                   {p.image && <SafeImg src={p.image} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />}
                   <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
-                    <span className="row gap-4"><Heart size={13} /> {p.likes}</span>
+                    {!p.hideLikeCount && <span className="row gap-4"><Heart size={13} /> {p.likes}</span>}
                     <span className="row gap-4"><MessageCircle size={13} /> {p.commentsCount}</span>
                   </div>
-                </button>
-              ))
+                </PostCard>
+                );
+              })
             )}
           </div>
         )}
 
         {tab === "work" && (
-          <div style={{ paddingTop: 18, paddingBottom: 18 }}>
-            {(b.portfolio ?? []).length === 0 ? (
-              <div className="page-pad">
-                <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("no_portfolio_desc")} />
+          <section className="page-pad">
+            {galleryPhotos.length ? (
+              <div className="storefront-photo-grid">
+                {galleryPhotos.map((photo, index) => (
+                  <button type="button" key={photo.url} onClick={() => openPhoto(index)}
+                    aria-label={photo.caption || tf("photo_n_of_m", { n: index + 1, m: galleryPhotos.length })}>
+                    <SafeImg src={photo.url} alt="" variant="photo" />
+                  </button>
+                ))}
               </div>
-            ) : (
-              <PhotoAutoScroll
-                items={b.portfolio ?? []}
-                onOpen={(i) => setViewingPhotos({ photos: (b.portfolio ?? []).map((p) => ({ url: p.url, caption: p.caption })), startIndex: i })}
-              />
-            )}
-          </div>
+            ) : <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("no_portfolio_desc")} />}
+          </section>
         )}
 
         {tab === "about" && (
@@ -970,6 +894,7 @@ export default function BusinessDetail() {
             {/* Real location map — one tap opens turn-by-turn directions */}
             <MiniMap
               lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city}
+              readOnly={preview}
               onDirections={isOwner ? undefined : () => track(EVENTS.SELLER_CONTACTED, { contact_method: "directions" }, { type: "business", id: b.id })}
             />
 
@@ -1084,8 +1009,8 @@ export default function BusinessDetail() {
               <div className="grow col gap-4">
                 {[5, 4, 3, 2, 1].map((s) => {
                   // Real distribution from the loaded reviews; empty when none.
-                  const total = (reviews ?? []).length;
-                  const pct = total === 0 ? 0 : Math.round(((reviews ?? []).filter((rv) => Math.round(rv.rating) === s).length / total) * 100);
+                  const total = reviews.length;
+                  const pct = total === 0 ? 0 : Math.round((reviews.filter((rv) => Math.round(rv.rating) === s).length / total) * 100);
                   return (
                     <div key={s} className="row gap-6 tiny">
                       <span style={{ width: 8 }}>{s}</span>
@@ -1098,10 +1023,10 @@ export default function BusinessDetail() {
                 })}
               </div>
             </div>
-            {(reviews ?? []).length === 0 && (
+            {reviews.length === 0 && (
               <EmptyState emoji="⭐" title={t("no_reviews_yet")} text={isGuest ? t("no_one_reviewed") : t("be_first_review")} />
             )}
-            {(reviews ?? []).map((rv) => (
+            {reviews.map((rv) => (
               <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
                 <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
@@ -1254,6 +1179,8 @@ export default function BusinessDetail() {
         )}
       </div>
 
+      {footer}
+
       {/* Cart bar — opens the buy-now vs book-later fork rather than jumping
           straight into scheduling. */}
       {!isOwner && cartCount > 0 && (
@@ -1397,104 +1324,6 @@ export default function BusinessDetail() {
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutDelivery(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />
-      )}
-    </div>
-  );
-}
-
-function daysAgo(iso: string) {
-  const days = Math.round((Date.now() - new Date(iso).getTime()) / 86400000);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} days ago`;
-}
-
-interface PortfolioItem { id: string; url: string; caption?: string; }
-
-function PhotoAutoScroll({ items, onOpen }: { items: PortfolioItem[]; onOpen: (index: number) => void }) {
-  const [active, setActive] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stripRef = useRef<HTMLDivElement>(null);
-  const CARD_W = 220;
-  const GAP = 12;
-
-  const goTo = (idx: number) => {
-    const next = (idx + items.length) % items.length;
-    setActive(next);
-    stripRef.current?.scrollTo({ left: next * (CARD_W + GAP), behavior: "smooth" });
-  };
-
-  // Auto-advance every 3 s; pause on user touch
-  useEffect(() => {
-    timerRef.current = setTimeout(() => goTo(active + 1), 3000);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div>
-      {/* Scrollable strip */}
-      <div
-        ref={stripRef}
-        onTouchStart={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
-        style={{
-          display: "flex",
-          gap: GAP,
-          overflowX: "auto",
-          scrollSnapType: "x mandatory",
-          scrollbarWidth: "none",
-          paddingLeft: 16,
-          paddingRight: 16,
-        }}
-      >
-        {items.map((item, i) => (
-          <div
-            key={item.id}
-            style={{
-              flex: `0 0 ${CARD_W}px`,
-              scrollSnapAlign: "start",
-              cursor: "pointer",
-            }}
-            onClick={() => { goTo(i); onOpen(i); }}
-          >
-            <SafeImg
-              src={item.url}
-              alt={item.caption}
-              style={{
-                width: CARD_W,
-                height: 200,
-                borderRadius: 16,
-                objectFit: "cover",
-                display: "block",
-                border: i === active ? "2.5px solid var(--brand-500)" : "2.5px solid transparent",
-                transition: "border-color .25s",
-              }}
-            />
-            {item.caption && (
-              <div className="tiny muted" style={{ marginTop: 5, paddingLeft: 2, maxWidth: CARD_W }}>{item.caption}</div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Dot indicators */}
-      {items.length > 1 && (
-        <div className="row center-v" style={{ justifyContent: "center", gap: 6, marginTop: 12 }}>
-          {items.map((_, i) => (
-            <button
-              key={i}
-              aria-label={`Photo ${i + 1}`}
-              onClick={() => goTo(i)}
-              style={{
-                width: i === active ? 18 : 6,
-                height: 6,
-                borderRadius: 999,
-                background: i === active ? "var(--brand-500)" : "var(--ink-200)",
-                transition: "width .25s, background .25s",
-                padding: 0,
-              }}
-            />
-          ))}
-        </div>
       )}
     </div>
   );

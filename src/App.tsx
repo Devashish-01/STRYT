@@ -880,6 +880,7 @@ export default function App() {
               {/* Owner-only — FULL delegates and scoped team members are bounced. */}
               <Route element={<RequireOwner />}>
                 <Route path="/business/:id/manage/profile" element={<BusinessProfileHub />} />
+                <Route path="/business/:id/manage/profile/preview" element={<BusinessProfileHub preview />} />
                 <Route path="/business/:id/manage/edit-profile" element={<ProfileEditor />} />
                 <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
