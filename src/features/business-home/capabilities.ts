@@ -2,7 +2,7 @@ import type { NavigateFunction } from "react-router-dom";
 import type { AppointmentRecord, Business } from "@/types";
 import type { BusinessPackage, ConsoleCapability } from "@/lib/businessPackages";
 import type { CapabilityState } from "@/lib/consoleSteps";
-import type { Scope } from "@/services/marketplace/businessAccessService";
+import type { resolveBusinessToolVisibility } from "@/lib/businessTools";
 import { DEFAULT_ONBOARD_WORKING_HOURS, parseHoursValue, serializeHoursValue } from "@/utils/availability";
 
 /**
@@ -15,7 +15,7 @@ export interface CapabilityInputs {
   nav: NavigateFunction;
   business: Business | undefined;
   pkg: BusinessPackage;
-  hasScope: (scope: Scope) => boolean;
+  tools: ReturnType<typeof resolveBusinessToolVisibility>;
   bookingsOn: boolean;
   deliveryOn: boolean;
   waitingForRider: number;
@@ -33,44 +33,48 @@ export function hoursAreDefault(hours: string | undefined | null): boolean {
 }
 
 export function buildBusinessCapabilities(i: CapabilityInputs): Partial<Record<ConsoleCapability, CapabilityState>> {
-  const { base, nav, business, hasScope } = i;
+  const { base, nav, business, tools } = i;
   const isDefaultHours = hoursAreDefault(business?.hours);
   const listed = business?.catalog?.length ?? 0;
   return {
-    catalog: {
-      done: listed > 0,
-      onClick: () => nav(`${base}/catalog`),
-      value: listed > 0 ? `${listed} listed` : undefined,
-    },
-    photos: {
-      done: (business?.gallery?.length ?? 0) > 0,
-      onClick: () => nav(`${base}/edit-profile`),
-    },
-    hours: { done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
-    verify: { done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
-    promote: {
-      done: i.postsCount > 0,
-      onClick: () => nav("/community/new", { state: i.composeState }),
-    },
-    payments: {
-      onClick: () => nav(`${base}/payments`),
-      value: i.paymentClaims > 0 ? `${i.paymentClaims} to confirm` : undefined,
-    },
-    ...(i.bookingsOn && hasScope("appointments") ? {
+    ...(tools.catalog ? {
+      catalog: {
+        done: listed > 0,
+        onClick: () => nav(`${base}/catalog`),
+        value: listed > 0 ? `${listed} listed` : undefined,
+      },
+      hours: { done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
+    } : {}),
+    ...(tools.owner ? {
+      photos: {
+        done: (business?.gallery?.length ?? 0) > 0,
+        onClick: () => nav(`${base}/edit-profile`),
+      },
+      verify: { done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+      promote: {
+        done: i.postsCount > 0,
+        onClick: () => nav("/community/new", { state: i.composeState }),
+      },
+      payments: {
+        onClick: () => nav(`${base}/payments`),
+        value: i.paymentClaims > 0 ? `${i.paymentClaims} to confirm` : undefined,
+      },
+    } : {}),
+    ...(i.bookingsOn && tools.appointments ? {
       bookings: {
         done: !isDefaultHours,
         onClick: () => nav(`${base}/appointments`),
         value: i.upcomingCount > 0 ? `${i.upcomingCount} upcoming` : undefined,
       },
     } : {}),
-    ...(hasScope("queue") ? {
+    ...(tools.queue ? {
       queue: {
         done: i.queue?.isOpen === true,
         onClick: () => nav(`${base}/queue`),
         value: (i.queue?.waiting.length ?? 0) > 0 ? `${i.queue!.waiting.length} waiting` : undefined,
       },
     } : {}),
-    ...(i.deliveryOn ? {
+    ...(i.deliveryOn && tools.liveDeliveries ? {
       delivery: {
         done: true,
         onClick: () => nav(i.waitingForRider > 0 ? `${base}/appointments?tab=deliveries` : `${base}/deliveries`),

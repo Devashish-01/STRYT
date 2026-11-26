@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Briefcase, CalendarClock, Clock, Home, LayoutDashboard, MessageSquareText, Package, Sparkles, Star, Store, Users, Wallet, X,
+  Briefcase, CalendarClock, Clock, Home, LayoutDashboard, MessageSquareText, Package, Sparkles, Star, Store, UserCircle, Users, Wallet, X,
 } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useBusinessAccess } from "@/lib/businessAccess";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import FooterProfileTab from "@/components/FooterProfileTab";
+import AccountSwitcher from "@/components/AccountSwitcher";
 import QuickDial, { type DialCircle } from "@/components/console/QuickDial";
 import { CAPABILITY_TONE } from "@/components/console/capabilities";
 import { BUSINESS_PACKAGES, resolvePackage, type ConsoleCapability } from "@/lib/businessPackages";
@@ -64,7 +65,11 @@ function markHintSeen() {
  * quick dial — a rotary fan of round shortcuts to everything else the console does (see QuickDial). Which circles appear, in
  * what order and under what names comes from who is looking and what kind of business it is (src/lib/businessDial.ts).
  */
-export default function ManageNav({ bizId, waitingCount }: { bizId: string; waitingCount?: number }) {
+export default function ManageNav({ bizId, waitingCount, hasCurrentWork = false }: {
+  bizId: string;
+  waitingCount?: number;
+  hasCurrentWork?: boolean;
+}) {
   const { t } = useI18n();
   const nav = useNavigate();
   const location = useLocation();
@@ -94,15 +99,16 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     base,
     isOwner,
     hasScope,
-    bookingsOn,
+    bookingsOn: bookingsOn || hasCurrentWork,
     queueUsed: queueUsed || queueWaiting > 0,
     queueWaiting,
     deliveryOn: DELIVERY_AGENT_ENABLED && (business?.deliveryEnabled === true || hasActiveDeliveries),
-    hasActiveDeliveries: DELIVERY_AGENT_ENABLED && hasActiveDeliveries,
+    deliveryEnabled: DELIVERY_AGENT_ENABLED,
+    hasActiveDeliveries,
     storeLabel: consoleCfg.storeTabLabel,
     consoleOrder: consoleCfg.actions.map((a) => a.id),
     consoleLabels: Object.fromEntries(consoleCfg.actions.map((a) => [a.id, a.label])),
-  }), [bizId, base, isOwner, hasScope, bookingsOn, queueUsed, queueWaiting, business?.deliveryEnabled, hasActiveDeliveries, consoleCfg]);
+  }), [bizId, base, isOwner, hasScope, bookingsOn, hasCurrentWork, queueUsed, queueWaiting, business?.deliveryEnabled, hasActiveDeliveries, consoleCfg]);
 
   const circles: DialCircle[] = useMemo(() => items.map((item) => ({
     id: item.id,
@@ -116,11 +122,12 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   const onHome = location.pathname === base;
   const dashboardPath = `${base}/dashboard`;
   const dashboardActive = location.pathname.startsWith(dashboardPath);
-  const profileRoutes = ["/profile", "/edit-profile", "/verify", "/settings", "/payments", "/broadcast"];
+  const profileRoutes = ["/profile", "/edit-profile", "/verify", "/settings", "/payments", "/broadcast", "/reviews", "/community", "/features"];
   const profileActive = profileRoutes.some((path) => location.pathname.startsWith(base + path));
 
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   // Close whenever the screen changes underneath it, so the dim layer can never outlive the page it was opened on.
   useEffect(() => { setOpen(false); }, [location.pathname]);
@@ -215,9 +222,15 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
           </button>
         </div>
 
-        <FooterProfileTab profilePath={`${base}/profile`} active={profileActive} />
+        {isOwner ? <FooterProfileTab profilePath={`${base}/profile`} active={profileActive} /> : (
+          <button type="button" className="nav-item" aria-haspopup="dialog" aria-label={t("console_switch_account")} onClick={() => setSwitcherOpen(true)}>
+            <UserCircle size={22} />
+            <span>{t("part_switch_confirm")}</span>
+          </button>
+        )}
       </nav>
       <QuickDial items={circles} open={open} onClose={closeDial} onSelect={select} label={t("bdial_aria")} turnHint={t("bdial_turn")} />
+      {switcherOpen && <AccountSwitcher onClose={() => setSwitcherOpen(false)} />}
     </>
   );
 }

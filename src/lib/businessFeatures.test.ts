@@ -109,7 +109,7 @@ describe("paths", () => {
 describe("the dial", () => {
   const dial = (over: Partial<DialContext> = {}): DialContext => ({
     businessId: "b1", base: "/business/b1/manage", isOwner: true, hasScope: () => true, bookingsOn: true, queueUsed: true, queueWaiting: 2,
-    deliveryOn: false, hasActiveDeliveries: false, storeLabel: "Menu", consoleOrder: [], ...over,
+    deliveryOn: false, deliveryEnabled: true, hasActiveDeliveries: false, storeLabel: "Menu", consoleOrder: [], ...over,
   });
   const order = (c: DialContext) => buildDialItems(c).map((i) => i.id);
 
@@ -149,5 +149,6 @@ describe("the dial", () => {
   it("lists nothing twice", () => {
     const o = order(dial({ consoleOrder: ["bookings", "bookings", "queue", "delivery", "catalog", "inbox", "payments", "hours"], deliveryOn: true, hasActiveDeliveries: true }));
     expect(new Set(o).size).toBe(o.length);
+    expect(o.length).toBeLessThanOrEqual(9);
   });
 });

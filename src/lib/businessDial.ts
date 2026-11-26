@@ -1,5 +1,6 @@
 import type { ConsoleCapability } from "./businessPackages";
 import type { Scope } from "@/services/marketplace/businessAccessService";
+import { resolveBusinessToolVisibility } from "./businessTools";
 
 /**
  * What the business console's quick dial offers. The owner's tools used to be six tabs, which crowded the bottom bar and
@@ -42,6 +43,7 @@ export interface DialContext {
   queueUsed: boolean;
   queueWaiting: number;
   deliveryOn: boolean;
+  deliveryEnabled: boolean;
   hasActiveDeliveries: boolean;
   storeLabel: string;
   /** The package's own ordering of what matters, from its console config. */
@@ -76,19 +78,20 @@ const CAPABILITY_OF: Partial<Record<DialId, ConsoleCapability>> = {
 const DEFAULT_ORDER: DialId[] = ["appointments", "queue", "deliveries", "my-deliveries", "store", "messages", "payments", "hours", "reviews", "business"];
 
 export function buildDialItems(ctx: DialContext): DialItem[] {
-  const { base, businessId, hasScope, isOwner } = ctx;
+  const { base, businessId } = ctx;
+  const tools = resolveBusinessToolVisibility(ctx, ctx.deliveryEnabled);
   const available: Record<DialId, DialItem | null> = {
-    appointments: hasScope("appointments") && ctx.bookingsOn ? { id: "appointments", to: `${base}/appointments`, labelKey: "nav_appointments" } : null,
-    queue: hasScope("queue") && ctx.queueUsed ? { id: "queue", to: `${base}/queue`, labelKey: "nav_queue", badge: ctx.queueWaiting } : null,
-    deliveries: ctx.deliveryOn && (hasScope("appointments") || hasScope("delivery")) ? { id: "deliveries", to: `${base}/deliveries`, labelKey: "bdial_live_deliveries" } : null,
-    "my-deliveries": ctx.deliveryOn && (ctx.hasActiveDeliveries || hasScope("delivery")) ? { id: "my-deliveries", to: `${base}/my-deliveries`, labelKey: "nav_deliveries" } : null,
-    store: hasScope("catalog") ? { id: "store", to: `${base}/store`, label: ctx.storeLabel } : null,
+    appointments: tools.appointments && ctx.bookingsOn ? { id: "appointments", to: `${base}/appointments`, labelKey: "nav_appointments" } : null,
+    queue: tools.queue && ctx.queueUsed ? { id: "queue", to: `${base}/queue`, labelKey: "nav_queue", badge: ctx.queueWaiting } : null,
+    deliveries: ctx.deliveryOn && tools.liveDeliveries ? { id: "deliveries", to: `${base}/deliveries`, labelKey: "bdial_live_deliveries" } : null,
+    "my-deliveries": tools.myDeliveries ? { id: "my-deliveries", to: `${base}/my-deliveries`, labelKey: "console_my_deliveries" } : null,
+    store: tools.catalog ? { id: "store", to: `${base}/store`, label: ctx.storeLabel } : null,
     business: { id: "business", to: `${base}/business`, labelKey: "nav_business" },
-    messages: hasScope("leads") ? { id: "messages", to: `/chats?scope=BUSINESS&id=${businessId}`, labelKey: "messages_header" } : null,
-    payments: isOwner ? { id: "payments", to: `${base}/payments`, labelKey: "bdial_payments" } : null,
-    hours: hasScope("catalog") ? { id: "hours", to: `${base}/hours`, labelKey: "bdial_hours" } : null,
-    reviews: isOwner ? { id: "reviews", to: `${base}/reviews`, labelKey: "bdial_reviews" } : null,
-    features: isOwner ? { id: "features", to: `${base}/features`, labelKey: "bdial_features" } : null,
+    messages: tools.leads ? { id: "messages", to: `/chats?scope=BUSINESS&id=${businessId}`, labelKey: "messages_header" } : null,
+    payments: tools.owner ? { id: "payments", to: `${base}/payments`, labelKey: "bdial_payments" } : null,
+    hours: tools.catalog ? { id: "hours", to: `${base}/hours`, labelKey: "bdial_hours" } : null,
+    reviews: tools.owner ? { id: "reviews", to: `${base}/reviews`, labelKey: "bdial_reviews" } : null,
+    features: tools.owner ? { id: "features", to: `${base}/features`, labelKey: "bdial_features" } : null,
   };
 
   const order: DialId[] = [];
@@ -101,8 +104,10 @@ export function buildDialItems(ctx: DialContext): DialItem[] {
     const own = cap ? ctx.consoleLabels?.[cap] : undefined;
     return own ? { ...item, label: own } : item;
   };
-  const items = order.flatMap((id) => (available[id] ? [named(available[id] as DialItem)] : []));
-  // "Add features" always closes the ring: it is the way to everything that isn't switched on yet.
-  const features = available.features;
-  return features ? [...items, features] : items;
+  const tail = [available.business, available.features].filter((item): item is DialItem => item !== null);
+  const items = order.flatMap((id) => {
+    const item = available[id];
+    return item && id !== "business" ? [named(item)] : [];
+  });
+  return [...items.slice(0, 9 - tail.length), ...tail];
 }

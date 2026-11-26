@@ -6,12 +6,14 @@ import { ErrorView, Skeleton } from "@/components/states";
 import { AlertTriangle, ChevronRight, Clock, ExternalLink, FileText, Image, Store, Package } from "@/components/Icons";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { useBusinessAccess } from "@/lib/businessAccess";
 
 const LOW_STOCK_THRESHOLD = 5;
 
 export default function BusinessStoreHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { isOwner } = useBusinessAccess();
   const { data: business, loading } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const base = `/business/${id}/manage`;
 
@@ -34,7 +36,7 @@ export default function BusinessStoreHub() {
     ...(showBulkDeals ? [{ icon: <Package size={20} color="var(--amber-700)" />, title: "Bulk-buying campaigns", text: "Pooled pledges, deposits & claim passes", to: `${base}/bulk-deals` }] : []),
     { icon: <Image size={20} color="var(--pink-500)" />, title: "Portfolio", text: "Show customers your best work", to: `${base}/portfolio` },
     { icon: <Clock size={20} color="var(--blue-500)" />, title: "Hours & Availability", text: "Keep availability and booking hours current", to: `${base}/hours` },
-    { icon: <Store size={20} color="var(--orange-500)" />, title: "Edit profile", text: "Name, cover, contact and location", to: `${base}/edit-profile` },
+    ...(isOwner ? [{ icon: <Store size={20} color="var(--orange-500)" />, title: "Edit profile", text: "Name, cover, contact and location", to: `${base}/edit-profile` }] : []),
   ];
 
   return (

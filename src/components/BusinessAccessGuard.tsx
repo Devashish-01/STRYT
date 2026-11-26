@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useParams, useNavigate } from "react-router-dom";
 import { businessAccessService } from "@/services";
 import { deliveryService } from "@/services/engagement/deliveryService";
@@ -7,12 +7,12 @@ import { useApp } from "@/store";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { Skeleton } from "@/components/states";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
-import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
+import { buildScopeLabel, resolveConsoleMode } from "@/lib/teamConsole";
 import { useI18n } from "@/lib/i18n";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
-import { BusinessAccessContext, FULL_ACCESS, type BusinessAccessValue } from "@/lib/businessAccess";
+import { BusinessAccessContext, FULL_ACCESS, SidebarBusinessAccessContext, type BusinessAccessValue } from "@/lib/businessAccess";
 import MarketplaceConsoleScope from "@/components/MarketplaceConsoleScope";
 
 
@@ -21,7 +21,9 @@ import MarketplaceConsoleScope from "@/components/MarketplaceConsoleScope";
  * publishes scope + console mode for child screens.
  */
 export default function BusinessAccessGuard() {
-  return <MarketplaceConsoleScope kind="business"><BusinessPermissions /></MarketplaceConsoleScope>;
+  const { id } = useParams();
+  const { user } = useApp();
+  return <MarketplaceConsoleScope kind="business"><BusinessPermissions key={`${user.id}:${id}`} /></MarketplaceConsoleScope>;
 }
 
 function BusinessPermissions() {
@@ -38,9 +40,10 @@ function BusinessPermissions() {
   const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
   const [attempt, setAttempt] = useState(0);
   const [waitedEnough, setWaitedEnough] = useState(false);
-  const [scope, setScope] = useState<{ accessLevel: AccessLevel; scopes: Scope[] }>({ accessLevel: "FULL", scopes: [] });
-  const [hasActiveDeliveries, setHasActiveDeliveries] = useState(false);
-  useAdoptConsoleContext("business", id, status === "allowed" && (!businessPasswordRequired[id] || pinUnlocked));
+  const [scope, setScope] = useState<{ accessLevel: AccessLevel; scopes: Scope[] }>({ accessLevel: "SCOPED", scopes: [] });
+  const [hasActiveDeliveries, setHasActiveDeliveries] = useState<boolean | null>(null);
+  const unlocked = status === "allowed" && (!businessPasswordRequired[id] || pinUnlocked);
+  useAdoptConsoleContext("business", id, unlocked);
 
   useEffect(() => {
     if (ownedEntitiesLoaded) return;
@@ -91,7 +94,10 @@ function BusinessPermissions() {
         { event: "*", schema: "public", table: "business_access_sessions", filter: `business_id=eq.${id}` },
         (payload: any) => {
           const row = payload?.new ?? payload?.old;
-          if (row?.grantee_user_id === user.id) setAttempt((a) => a + 1);
+          if (row?.grantee_user_id === user.id) {
+            setStatus("checking");
+            setAttempt((a) => a + 1);
+          }
         }
       )
       .subscribe();
@@ -99,7 +105,7 @@ function BusinessPermissions() {
   }, [id, isOwner, user.id]);
 
   useEffect(() => {
-    if (status !== "allowed" || !DELIVERY_AGENT_ENABLED || !id) return;
+    if (!unlocked || !DELIVERY_AGENT_ENABLED || !id) return;
     let active = true;
     deliveryService.countMyActiveDeliveries(id).then((count) => {
       if (active) setHasActiveDeliveries(count > 0);
@@ -107,7 +113,7 @@ function BusinessPermissions() {
       if (active) setHasActiveDeliveries(false);
     });
     return () => { active = false; };
-  }, [status, id]);
+  }, [unlocked, id]);
 
   const { t } = useI18n();
   const value = useMemo((): BusinessAccessValue => {
@@ -120,9 +126,17 @@ function BusinessPermissions() {
       hasScope,
       consoleMode: resolveConsoleMode(false, scope.accessLevel),
       scopeLabel: buildScopeLabel(hasScope, t),
-      hasActiveDeliveries,
+      hasActiveDeliveries: hasActiveDeliveries === true,
+      checkingDeliveries: DELIVERY_AGENT_ENABLED && hasActiveDeliveries === null,
     };
   }, [isOwner, scope, hasActiveDeliveries, t]);
+
+  const publish = useContext(SidebarBusinessAccessContext)?.publish;
+  useLayoutEffect(() => {
+    if (!unlocked || !publish) return;
+    publish({ businessId: id, userId: user.id, access: value });
+    return () => publish(null);
+  }, [id, publish, unlocked, user.id, value]);
 
   if (status === "checking") {
     return (

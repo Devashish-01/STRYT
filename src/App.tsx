@@ -1,6 +1,7 @@
 import ProfileLoadError from "./components/ProfileLoadError";
-import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { Routes, Route, useLocation, useNavigate, Navigate, Outlet, useParams } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { SidebarBusinessAccessContext, type SidebarBusinessAccess } from "./lib/businessAccess";
 import UserProfileSheet from "./components/UserProfileSheet";
 import DeliveryTrackingRunner from "./features/delivery-tracking/DeliveryTrackingRunner";
 import BottomNav from "./components/BottomNav";
@@ -531,7 +532,16 @@ function getRouteDocumentTitle(pathname: string): string {
   return "STRYT";
 }
 
+function ConsoleLeadsRedirect({ kind }: { kind: "business" | "provider" }) {
+  const { id } = useParams();
+  const { search, hash } = useLocation();
+  if (!id) return <Navigate to="/home" replace />;
+  const tool = kind === "business" ? "inbox" : "find-work";
+  return <Navigate to={{ pathname: `/${kind}/${encodeURIComponent(id)}/manage/${tool}`, search, hash }} replace />;
+}
+
 export default function App() {
+  const [sidebarAccess, publishSidebarAccess] = useState<SidebarBusinessAccess | null>(null);
   const location = useLocation();
   const {
     toast,
@@ -681,6 +691,7 @@ export default function App() {
   }, [goGuarded]);
 
   return (
+    <SidebarBusinessAccessContext.Provider value={{ snapshot: sidebarAccess, publish: publishSidebarAccess }}>
     <div className="desktop-layout">
       {showDesktopSidebar && <DesktopSidebar />}
 
@@ -859,6 +870,7 @@ export default function App() {
                 <Route path="/business/:id/manage/qna" element={<QnaManager />} />
                 <Route path="/business/:id/manage/inbox" element={<LeadsInbox entityType="BUSINESS" />} />
                 <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+                <Route path="/business/:id/manage/leads" element={<ConsoleLeadsRedirect kind="business" />} />
               </Route>
 
               {/* Owner-only — FULL delegates and scoped team members are bounced. */}
@@ -889,6 +901,7 @@ export default function App() {
               <Route path="/provider/:id/manage/inbox" element={<LeadsInbox entityType="PROVIDER" />} />
               <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
               <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
+              <Route path="/provider/:id/manage/leads" element={<ConsoleLeadsRedirect kind="provider" />} />
               <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
               <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
               <Route path="/provider/:id/manage/reviews" element={<ReviewsManager />} />
@@ -969,5 +982,6 @@ export default function App() {
         </div>
       </div>
     </div>
+    </SidebarBusinessAccessContext.Provider>
   );
 }

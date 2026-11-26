@@ -16,6 +16,9 @@ import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
+import ConsoleToolsSheet from "@/components/console/ConsoleToolsSheet";
+import AccountSwitcher from "@/components/AccountSwitcher";
+import { businessToolLinks, resolveBusinessToolVisibility } from "@/lib/businessTools";
 import { ConsoleTile, ConsoleTileGrid } from "@/components/console/ConsoleTile";
 import { CAPABILITY_ICON, CAPABILITY_TONE } from "@/components/console/capabilities";
 import { featureIcon, featureTone } from "@/components/console/featureIcons";
@@ -38,14 +41,18 @@ import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
 export default function BusinessHome() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { user, notifUnread } = useApp();
+  const { user, notifUnread, signOut } = useApp();
   const { t, tf } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
   // No RequireScope on this route: it self-filters by scope. Anything added here is visible to every grantee unless it is
   // gated on hasScope()/isOwner explicitly.
-  const { isOwner, hasScope, consoleMode, scopeLabel } = useBusinessAccess();
+  const access = useBusinessAccess();
+  const { isOwner, hasScope, consoleMode, scopeLabel } = access;
+  const tools = resolveBusinessToolVisibility(access, DELIVERY_AGENT_ENABLED);
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const { data: business, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { available, toggle } = useShopOpenToggle(id, business, refetch);
@@ -101,7 +108,7 @@ export default function BusinessHome() {
   const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
 
   const capabilities = buildBusinessCapabilities({
-    base, nav, business, pkg, hasScope, bookingsOn, deliveryOn, waitingForRider: (awaiting ?? []).length, queue,
+    base, nav, business, pkg, tools, bookingsOn: bookingsOn || pending.length + todayCount + upcomingCount > 0, deliveryOn, waitingForRider: (awaiting ?? []).length, queue,
     upcomingCount, paymentClaims, postsCount: 0, composeState: {}, tf,
   });
   const tiles = buildConsoleSteps(consoleCfg.actions, capabilities);
@@ -141,10 +148,15 @@ export default function BusinessHome() {
         notificationUnread={notificationUnread ?? 0}
         totalNotificationUnread={notifUnread}
         chatUnread={chatUnread ?? 0}
+        canOpenMessages={tools.leads}
         onShare={() => setShare(true)}
       />
 
       <div className="screen-scroll">
+        <div className="row gap-8 page-pad" style={{ paddingTop: 12, flexWrap: "wrap" }}>
+          <button type="button" className="btn btn-outline btn-sm" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}>{t("console_all_tools")}</button>
+          {!isOwner && <button type="button" className="btn btn-outline btn-sm" aria-haspopup="dialog" onClick={() => setSwitcherOpen(true)}>{t("console_switch_account")}</button>}
+        </div>
         {isOwner && (
           <div style={{ paddingTop: 12 }}>
             <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} rejectionReason={business?.rejectionReason} />
@@ -261,7 +273,11 @@ export default function BusinessHome() {
         <div style={{ height: 24 }} />
       </div>
 
-      <ManageNav bizId={id} waitingCount={waiting} />
+      <ManageNav bizId={id} waitingCount={waiting} hasCurrentWork={pending.length + todayCount + upcomingCount > 0} />
+      <ConsoleToolsSheet open={toolsOpen} onClose={() => setToolsOpen(false)}
+        items={businessToolLinks(id, tools, !!queue?.hasEverUsedQueue)}
+        onSignOut={() => { signOut(); nav("/"); }} />
+      {switcherOpen && <AccountSwitcher onClose={() => setSwitcherOpen(false)} />}
       {share && (
         <ShareCard
           subjects={{

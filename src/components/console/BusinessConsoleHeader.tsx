@@ -16,7 +16,7 @@ import type { Business } from "@/types";
  * the console colours that tell them they are working inside someone else's business.
  */
 export default function BusinessConsoleHeader({
-  id, business, isOwner, consoleMode, ambient, subtitle, notificationUnread, totalNotificationUnread = 0, chatUnread, onShare,
+  id, business, isOwner, consoleMode, ambient, subtitle, notificationUnread, totalNotificationUnread = 0, chatUnread, canOpenMessages, onShare,
 }: {
   id: string;
   business: Business | undefined;
@@ -27,6 +27,7 @@ export default function BusinessConsoleHeader({
   notificationUnread: number;
   totalNotificationUnread?: number;
   chatUnread: number;
+  canOpenMessages: boolean;
   onShare: () => void;
 }) {
   const nav = useNavigate();
@@ -65,9 +66,9 @@ export default function BusinessConsoleHeader({
             >
               <Bell size={16} />
             </HeaderIcon>
-            <HeaderIcon label={t("messages_header")} count={chatUnread} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
+            {canOpenMessages && <HeaderIcon label={t("messages_header")} count={chatUnread} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
               <MessageSquareText size={16} />
-            </HeaderIcon>
+            </HeaderIcon>}
           </div>
         </div>
         <div className="row gap-12 center-v" style={{ marginTop: 18 }}>

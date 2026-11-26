@@ -62,7 +62,7 @@ describe("businessAccessService & Team Access Scoping", () => {
     expect(rpcCalls[0].args.p_scopes).toEqual(["catalog", "leads"]);
   });
 
-  it("delivery dial shows my-deliveries and deliveries when user holds delivery scope", () => {
+  it("delivery dial shows assigned deliveries even when shop delivery is off, while protecting the Live Board", () => {
     const dial = buildDialItems({
       businessId: "biz-1",
       base: "/business/biz-1/manage",
@@ -71,7 +71,8 @@ describe("businessAccessService & Team Access Scoping", () => {
       bookingsOn: true,
       queueUsed: false,
       queueWaiting: 0,
-      deliveryOn: true,
+      deliveryOn: false,
+      deliveryEnabled: true,
       hasActiveDeliveries: false,
       storeLabel: "Store",
       consoleOrder: ["delivery"],
@@ -79,6 +80,6 @@ describe("businessAccessService & Team Access Scoping", () => {
 
     const ids = dial.map((d) => d.id);
     expect(ids).toContain("my-deliveries");
-    expect(ids).toContain("deliveries");
+    expect(ids).not.toContain("deliveries");
   });
 });

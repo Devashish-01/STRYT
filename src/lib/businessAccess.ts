@@ -10,6 +10,7 @@ export interface BusinessAccessValue {
   consoleMode: ConsoleMode;
   scopeLabel: string;
   hasActiveDeliveries: boolean;
+  checkingDeliveries?: boolean;
 }
 
 export const FULL_ACCESS: BusinessAccessValue = {
@@ -40,6 +41,23 @@ const NO_ACCESS: BusinessAccessValue = {
 };
 
 export const BusinessAccessContext = createContext<BusinessAccessValue>(NO_ACCESS);
+
+export interface SidebarBusinessAccess {
+  businessId: string;
+  userId: string;
+  access: BusinessAccessValue;
+}
+
+export const SidebarBusinessAccessContext = createContext<{
+  snapshot: SidebarBusinessAccess | null;
+  publish: (value: SidebarBusinessAccess | null) => void;
+} | null>(null);
+
+/** The desktop shell sits outside the route guard. Only use the grant the guard confirmed. */
+export function useSidebarBusinessAccess(businessId: string | null, userId: string) {
+  const snapshot = useContext(SidebarBusinessAccessContext)?.snapshot;
+  return snapshot?.businessId === businessId && snapshot.userId === userId ? snapshot.access : null;
+}
 
 /**
  * What can the current user do in THIS business's manage console — owner,

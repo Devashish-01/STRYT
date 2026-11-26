@@ -22,6 +22,7 @@ import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import { claimContextKey, partitionDashboardWork } from "@/lib/dashboardOrders";
 import ManageNav from "./ManageNav";
+import { resolveBusinessToolVisibility } from "@/lib/businessTools";
 import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
 import { buildBusinessCapabilities, todaysAppointments, upcomingAppointments } from "@/features/business-home/capabilities";
 import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
@@ -46,7 +47,9 @@ export default function ManageDashboard() {
   // TMA-006 — no RequireScope on this route: it sits directly under
   // BusinessAccessGuard and self-hides by scope. Anything added here is
   // visible to EVERY grantee unless explicitly gated on hasScope()/isOwner.
-  const { isOwner, hasScope, consoleMode, scopeLabel } = useBusinessAccess();
+  const access = useBusinessAccess();
+  const { isOwner, hasScope, consoleMode, scopeLabel } = access;
+  const tools = resolveBusinessToolVisibility(access, DELIVERY_AGENT_ENABLED);
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [accepting, setAccepting] = useState(true);
@@ -273,7 +276,7 @@ export default function ManageDashboard() {
   };
 
   const capabilities = buildBusinessCapabilities({
-    base, nav, business, pkg, hasScope, bookingsOn, deliveryOn, waitingForRider, queue,
+    base, nav, business, pkg, tools, bookingsOn, deliveryOn, waitingForRider, queue,
     upcomingCount: upcomingList.length, paymentClaims, postsCount: posts?.length ?? 0, composeState, tf,
   });
 
@@ -424,6 +427,7 @@ export default function ManageDashboard() {
         id={id}
         business={business}
         isOwner={isOwner}
+        canOpenMessages={tools.leads}
         consoleMode={consoleMode}
         ambient={ambient}
         subtitle={headerSubtitle}
@@ -723,7 +727,7 @@ export default function ManageDashboard() {
         <div style={{ height: 20 }} />
       </div>
 
-      <ManageNav bizId={id} waitingCount={queue?.waiting.length ?? 0} />
+      <ManageNav bizId={id} waitingCount={queue?.waiting.length ?? 0} hasCurrentWork={ordersRightNow.length + todayAppointments.length + upcomingList.length > 0} />
       {share && (
         <ShareCard
           subjects={{

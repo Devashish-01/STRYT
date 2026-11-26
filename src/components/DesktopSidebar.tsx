@@ -16,6 +16,9 @@ import BrandLockup from "@/components/BrandLockup";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { contextHomePath } from "@/lib/contextHome";
 import { effectivePartForLocation } from "@/lib/partNavigation";
+import { useSidebarBusinessAccess } from "@/lib/businessAccess";
+import { resolveBusinessToolVisibility } from "@/lib/businessTools";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 
 function isNavItemActive(itemTo: string, exact: boolean | undefined, pathname: string, search: string): boolean {
   const [targetPath, targetSearch] = itemTo.split("?");
@@ -67,6 +70,7 @@ export default function DesktopSidebar() {
 
   const isBusiness = effType === "business";
   const isProvider = effType === "provider";
+  const businessAccess = useSidebarBusinessAccess(isBusiness ? effId : null, user.id);
   // "Can this user switch hats at all" — a delegated grant is a hat too, so
   // this is the manageable set, not the ownership set.
   const hasMultipleRoles = manageableBusinessIds.length > 0 || !!ownedProviderId;
@@ -90,17 +94,26 @@ export default function DesktopSidebar() {
   const getNavItems = () => {
     if (isBusiness && effId) {
       const base = `/business/${effId}/manage`;
+      const tools = businessAccess && resolveBusinessToolVisibility(businessAccess, DELIVERY_AGENT_ENABLED);
       return [
-        { to: base, label: "Home", icon: Home, exact: true },
-        { to: `${base}/dashboard`, label: "Dashboard", icon: LayoutDashboard },
-        { to: `${base}/profile`, label: "Profile", icon: User },
-        { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
-        { to: `${base}/inbox`, label: "Inbox", icon: Inbox, badge: chatUnread || undefined },
-        { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },
-        { to: `${base}/queue`, label: "Live Queue", icon: Plus },
-        { to: `${base}/bulk-deals`, label: "Bulk deals", icon: Package },
+        { to: base, label: t("home"), icon: Home, exact: true },
+        ...(tools ? [{ to: `${base}/dashboard`, label: t("nav_dashboard"), icon: LayoutDashboard }] : []),
+        ...(tools?.owner ? [{ to: `${base}/profile`, label: t("profile"), icon: User }] : []),
+        ...(tools?.catalog ? [
+          { to: `${base}/store`, label: t("console_store_tools"), icon: LayoutGrid },
+          { to: `${base}/catalog`, label: t("scope_catalog"), icon: LayoutGrid },
+          { to: `${base}/bulk-deals`, label: t("console_bulk_deals"), icon: Package },
+        ] : []),
+        ...(tools?.leads ? [{ to: `${base}/inbox`, label: t("console_reachouts"), icon: Inbox }] : []),
+        ...(tools?.appointments ? [{ to: `${base}/appointments`, label: t("nav_appointments"), icon: CalendarClock }] : []),
+        ...(tools?.queue ? [{ to: `${base}/queue`, label: t("nav_queue"), icon: Plus }] : []),
+        ...(tools?.liveDeliveries ? [{ to: `${base}/deliveries`, label: t("bdial_live_deliveries"), icon: Package }] : []),
+        ...(tools?.myDeliveries ? [{ to: `${base}/my-deliveries`, label: t("console_my_deliveries"), icon: Package }] : []),
         { to: `/notifications?scope=BUSINESS&id=${effId}`, label: t("notifications"), icon: Bell, badge: notifUnread || undefined },
-        { to: `${base}/settings`, label: "Settings", icon: Settings },
+        ...(tools?.owner ? [
+          { to: `${base}/payments`, label: t("bdial_payments"), icon: Wallet },
+          { to: `${base}/settings`, label: t("settings"), icon: Settings },
+        ] : []),
       ];
     }
 
