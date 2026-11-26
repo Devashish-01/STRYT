@@ -7,6 +7,7 @@ import type { BookingStatus } from "@/lib/consoleStatus";
 type Props = {
   available: boolean;
   availabilityKey: string;
+  labelKey?: string;
   booking: BookingStatus;
   saving?: boolean;
   onAvailability?: () => void;
@@ -16,14 +17,14 @@ type Props = {
 };
 
 export default function ConsoleStatusStrip({
-  available, availabilityKey, booking, saving, onAvailability, onBookings, settingsPath, editPath,
+  available, availabilityKey, labelKey = "console_status_title", booking, saving, onAvailability, onBookings, settingsPath, editPath,
 }: Props) {
   const { t } = useI18n();
   const availability = t(availabilityKey);
   const bookingLabel = t(`console_bookings_${booking}`);
   const accepting = booking === "accepting";
   return (
-    <div className="col gap-8" role="group" aria-label={t("console_status_title")}>
+    <div className="col gap-8" role="group" aria-label={t(labelKey)}>
       <div className="console-status-grid">
         {onAvailability ? (
           <button type="button" className="console-status-item" role="switch" aria-checked={available}

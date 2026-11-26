@@ -7,7 +7,8 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useMessageUser } from "@/hooks/useMessageUser";
 import { appointmentService, providerService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery } from "@/hooks/useApi";
+import { useProviderAppointments } from "@/features/provider-console/providerAppointments";
 import type { AppointmentRecord, BlockedSlot, CancelledBy, PaymentMethod } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
 import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2, CheckCircle2, AlertTriangle, IndianRupee, Package, MessageCircle, MapPin } from "@/components/Icons";
@@ -44,12 +45,7 @@ export default function ProviderJobs() {
   const messageUser = useMessageUser();
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
-  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
-    () => appointmentService.listForTarget(id),
-    "appointments",
-    [id],
-    `target_id=eq.${id}`
-  );
+  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useProviderAppointments();
   const { data: blockedData, refetch: refetchBlocked } = useQuery<BlockedSlot[]>(
     () => slotBlockService.list(id),
     [id]

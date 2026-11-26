@@ -6,6 +6,7 @@ import { providerService, appointmentService, uploadService } from "@/services";
 import { bustProviderGetCache } from "@/services/marketplace/providerService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
+import { useProviderAppointments } from "@/features/provider-console/providerAppointments";
 import { Skeleton } from "@/components/states";
 import type { AppointmentRecord } from "@/types";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
@@ -41,12 +42,7 @@ export default function ProviderMoney() {
     undefined,
     `provider:${id}:earnings-ledger`
   );
-  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
-    () => appointmentService.listForTarget(id),
-    "appointments",
-    [id],
-    `target_id=eq.${id}`
-  );
+  const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useProviderAppointments();
 
   // A booking payment lands in appointments, not settlements, so the ledger is refreshed alongside them (MONEY-6).
   useEffect(() => {

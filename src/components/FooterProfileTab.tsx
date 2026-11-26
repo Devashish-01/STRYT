@@ -43,6 +43,7 @@ export default function FooterProfileTab({
         className={`nav-item ${active ? "active" : ""}`}
         onClick={profileTap}
         {...longPress}
+        aria-current={active ? "page" : undefined}
         aria-label={`${tabLabel} — long-press to switch account`}
       >
         <User size={22} strokeWidth={stroke} />

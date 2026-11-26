@@ -1675,6 +1675,21 @@ textarea.input {
 .console-header-actions { margin-top: 12px; flex-wrap: wrap; }
 .console-header .console-header-icon { width: 44px; height: 44px; flex: 0 0 44px; }
 .console-header .console-header-icon::before { content: none; }
+.console-header .console-header-icon, .provider-console-view, .provider-console-weather {
+  background: rgba(255,255,255,.16); color: var(--white);
+}
+.console-header-unread { position: absolute; inset-block-start: 5px; inset-inline-end: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--red-500); }
+.console-header-unread[data-cross-hat="true"] { background: var(--accent-500); }
+.provider-console-view, .provider-console-weather { display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.provider-console-view { min-height: 44px; }
+.provider-console-avatar { position: relative; width: 58px; height: 58px; flex: 0 0 58px; }
+.provider-console-avatar .avatar { width: 100%; height: 100%; border: 2px solid rgba(255,255,255,.4); }
+.provider-console-avatar[data-available="true"] .avatar { border-color: var(--green-400); }
+.provider-console-live-dot { position: absolute; inset-block-end: 0; inset-inline-end: 0; width: 14px; height: 14px; border: 2px solid var(--green-700); border-radius: 50%; background: var(--green-500); }
+.provider-console-live-dot::after { content: ""; position: absolute; inset: -5px; border: 1px solid var(--green-500); border-radius: inherit; animation: pulse-ring 1.5s infinite ease-in-out; }
+.provider-grow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.provider-today-card { --today-accent: var(--green-600); }
+@media (prefers-reduced-motion: reduce) { .provider-console-live-dot::after { animation: none; } }
 .console-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .console-status-item {
   display: flex; align-items: center; gap: 8px; min-height: 50px; min-width: 0; padding: 8px 10px;
@@ -1965,7 +1980,8 @@ textarea.input {
 /* ---------- Provider console footer (role-specific) ---------- */
 /* Green pill active-state, larger tap targets, and a leads badge — the
    provider console's own footer identity, distinct from the customer nav. */
-.provider-nav .nav-item { gap: 4px; }
+.provider-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.provider-nav .nav-item { gap: 4px; padding-inline: 3px; }
 /* The shared Profile tab (FooterProfileTab) has no 30px .provider-nav-icon wrapper, so its label sat ~4px higher
    than the other four. Pad its 22px icon to the same height. */
 .provider-nav .nav-item > svg { margin: 4px 0; }

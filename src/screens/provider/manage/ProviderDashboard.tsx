@@ -1,729 +1,198 @@
-import { useState, useEffect, type CSSProperties } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import {
-  Zap, Share2, Bell, Calendar, FileText, QrCode, Megaphone, Camera,
-  BadgeCheck, MessageSquareText, Check, X as XIcon, ChevronRight, Wallet, Search,
-} from "@/components/Icons";
-import { providerService, bustProviderGetCache, communityService, appointmentService, notificationService, requestService, catalogService } from "@/services";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Calendar, Check, ChevronRight, Inbox, Search, Wallet, X } from "@/components/Icons";
+import { SafeImg } from "@/components/common";
+import ConsoleStatusStrip from "@/components/console/ConsoleStatusStrip";
+import { Skeleton } from "@/components/states";
+import { useProviderAppointments } from "@/features/provider-console/providerAppointments";
+import { useProviderOverview } from "@/features/provider-console/providerOverview";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { requestMatchesCategory } from "@/lib/categoryMatch";
-import { chatService } from "@/services/engagement/chatService";
-import { SafeImg, AppBar } from "@/components/common";
-import { inr } from "@/lib/format";
-import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
-import { ErrorView, Skeleton } from "@/components/states";
-import { useApp } from "@/store";
-import { DEFAULT_ONBOARD_WORKING_HOURS, parseHoursValue, serializeHoursValue } from "@/utils/availability";
-import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
-import type { AppointmentRecord, RequestPost } from "@/types";
-import ProviderManageNav from "./ProviderManageNav";
-import ShareCard from "@/components/ShareCard";
-import RoleSwitcher from "@/components/RoleSwitcher";
-import BrandHome from "@/components/BrandHome";
-import { AccountStatusBanner } from "@/components/AccountStatusBanner";
-import { SetupChecklist } from "@/components/SetupChecklist";
-import { ConsoleTile, ConsoleTileGrid } from "@/components/console/ConsoleTile";
-import { CAPABILITY_TONE, CAPABILITY_ICON } from "@/components/console/capabilities";
-import { BUSINESS_PACKAGES, resolvePackage, type ConsoleCapability } from "@/lib/businessPackages";
-import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/consoleSteps";
-import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
-import AmbientSky from "@/features/ambient/AmbientSky";
-import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
-import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import { inr } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
+import { providerService, requestService, catalogService } from "@/services";
+import { appointmentService, ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
+import { useApp } from "@/store";
+import type { AppointmentRecord, RequestPost } from "@/types";
 
-function renderWeatherIcon(code: number) {
-  const size = 15;
-  if (code === 0) return <Sun size={size} weight="fill" />;
-  if (code >= 1 && code <= 3) return <Cloud size={size} weight="fill" />;
-  if (code === 45 || code === 48) return <CloudFog size={size} weight="fill" />;
-  if (code >= 51 && code <= 57) return <CloudRain size={size} weight="fill" />;
-  if (code >= 61 && code <= 67) return <CloudRain size={size} weight="fill" />;
-  if (code >= 71 && code <= 77) return <CloudSnow size={size} weight="fill" />;
-  if (code >= 80 && code <= 82) return <CloudRain size={size} weight="fill" />;
-  if (code >= 85 && code <= 86) return <CloudSnow size={size} weight="fill" />;
-  if (code >= 95 && code <= 99) return <CloudLightning size={size} weight="fill" />;
-  return <Sun size={size} weight="fill" />;
-}
-
-function getWeatherText(code: number): string {
-  if (code === 0) return "Sunny";
-  if (code >= 1 && code <= 3) return "Partly Cloudy";
-  if (code === 45 || code === 48) return "Foggy";
-  if (code >= 51 && code <= 57) return "Drizzle";
-  if (code >= 61 && code <= 67) return "Rainy";
-  if (code >= 71 && code <= 77) return "Snowy";
-  if (code >= 80 && code <= 82) return "Rain Showers";
-  if (code >= 85 && code <= 86) return "Snow Showers";
-  if (code >= 95 && code <= 99) return "Thunderstorm";
-  return "Clear";
-}
-
-// The provider "Today" — a triage feed, not a launcher. Availability, then the
-// things that need a response right now (accept a booking, confirm a payment),
-// then today's timeline, a money snapshot, and a find-work nudge. Deep tools live
-// in the bottom nav (Jobs / Find work / Money / Profile). See PROVIDER_DESIGN.md.
 export default function ProviderDashboard() {
-  const { id = "" } = useParams();
-  const nav = useNavigate();
-  const { data: p, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
-  const { showToast, user, notifUnread: totalNotifUnread } = useApp();
-  const { t } = useI18n();
-  const ambient = useAmbientTheme(user.lat, user.lng, "provider");
+  const { id, base, provider, status, actions, unhandledLeads, leadsLoading, leadsError, refetchLeads } = useProviderOverview();
+  const appointments = useProviderAppointments();
+  const { showToast } = useApp();
+  const { t, tf } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const jobs = `${base}/jobs`;
+
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
   const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
-  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id], `provider:${id}:posts`);
-  const { data: appts, loading: apptsLoading, error: apptsError, refetch: refetchApts } = useQueryWithRealtime(
-    () => appointmentService.listForTarget(id),
-    "appointments",
-    [id],
-    `target_id=eq.${id}`,
-    `provider:${id}:appointments-owner`
+  const { data: requests } = useQueryWithRealtime(
+    () => requestService.feed({ lat: provider.lat, lng: provider.lng, radiusKm: provider.serviceRadiusKm }),
+    "requests", [id, provider.lat, provider.lng, provider.serviceRadiusKm], undefined, `provider:${id}:find-work`,
   );
-  const { data: reqFeed } = useQueryWithRealtime(
-    () => requestService.feed({ lat: p?.lat ?? undefined, lng: p?.lng ?? undefined, radiusKm: p?.serviceRadiusKm ?? undefined }),
-    "requests",
-    [p?.lat, p?.lng, p?.serviceRadiusKm],
-    undefined,
-    `provider:${id}:find-work`
-  );
-  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id, user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:provider:${id}`);
-  // Calls and messages waiting for a reply, for the Reachouts tile (LEAD-8).
-  const { data: leads } = useQueryWithRealtime(() => providerService.leads(id), "leads", [id], undefined, `provider:${id}:leads`);
-  const unhandledLeads = (leads ?? []).filter((l: { handled?: boolean }) => !l.handled).length;
-  const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
 
-  const [available, setAvailable] = useState(false);
-  const [accepting, setAccepting] = useState(true);
-  const [share, setShare] = useState(false);
-  const [busyApt, setBusyApt] = useState<string | null>(null);
-  const base = `/provider/${id}/manage`;
-
-  // Read-only reach shown in the header; editing lives on the profile page
-  // (Profile → Identity) — mirrors the business console's dashboard header.
-  const radiusKm = p?.serviceRadiusKm ?? 10;
-  const radiusLabel = radiusKm >= 5000 ? "🌍 Worldwide" : radiusKm === 0.5 ? "500 m" : `${radiusKm} km`;
-
-  // Fields, not the object — see ManageDashboard: depending on `p` would reset a toggle the provider
-  // just flipped on the next refetch.
-  const providerId = p?.id;
-  const providerLoaded = p != null;
-  const providerAvailableNow = p?.isAvailableNow;
-  const providerOpenNow = p?.isOpenNow;
-
-  useEffect(() => {
-    if (!providerLoaded) return;
-    setAvailable(providerAvailableNow ?? false);
-    setAccepting(providerOpenNow ?? true);
-  }, [providerId, providerLoaded, providerAvailableNow, providerOpenNow]);
-
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title={t("today_word")} />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
-
-  // First paint with nothing cached yet — see the matching guard + comment in
-  // business/manage/ManageDashboard.tsx.
-  if (providerLoading && !p) {
-    return (
-      <div className="screen with-nav">
-        <AppBar title={t("today_word")} />
-        <div className="page-pad col gap-14" style={{ marginTop: 12 }}>
-          <Skeleton h={120} r={20} mb={0} />
-          <Skeleton h={56} mb={0} />
-          <Skeleton h={90} r={16} mb={0} />
-          <Skeleton h={90} r={16} mb={0} />
-        </div>
-      </div>
-    );
-  }
-
-  const appointments = (appts ?? []) as AppointmentRecord[];
-  const now = new Date();
-  const isToday = (iso: string) => {
-    const d = new Date(iso);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  };
-
-  // ── Triage inputs ──
-  // Newest request first — this is a "needs my action" list, not a same-day
-  // schedule, so a fresh request shouldn't get buried behind an older one
-  // that just happens to be scheduled sooner.
-  const pendingAppts = appointments
-    .filter((a) => a.status === "PENDING")
-    .sort((a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
-  const paymentClaims = appointments.filter((a) => a.paymentStatus === "PENDING_CONFIRM");
-  const todayAppts = appointments
-    .filter((a) => (a.status === "ACCEPTED" || a.status === "PENDING") && isToday(a.scheduledForISO))
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const scheduled = (appointments.data ?? []).filter(({ status: state }) => state === "ACCEPTED" || state === "PENDING")
     .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
-  // Future days only — appts whose date is strictly after today. Copy the date
-  // first (setDate mutates) so isToday()'s reference point stays intact.
-  const startOfTomorrow = new Date(now);
-  startOfTomorrow.setHours(0, 0, 0, 0);
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  const upcomingAppts = appointments
-    .filter((a) => (a.status === "ACCEPTED" || a.status === "PENDING") && new Date(a.scheduledForISO).getTime() >= startOfTomorrow.getTime())
-    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime())
-    .slice(0, 5);
-  const actionCount = pendingAppts.length + paymentClaims.length;
+  const todaysJobs = scheduled.filter((item) => new Date(item.scheduledForISO).toDateString() === today.toDateString());
+  const upcomingJobs = scheduled.filter((item) => new Date(item.scheduledForISO) >= tomorrow).slice(0, 5);
+  const matchingRequests = ((requests?.data ?? []) as RequestPost[])
+    .filter((request) => request.status === "OPEN" && requestMatchesCategory(request.categoryId, provider.categoryId, categoryParents ?? {}));
 
-  const matchingRequests = ((reqFeed?.data ?? []) as RequestPost[])
-    .filter((r) => r.status === "OPEN")
-    .filter((r) => requestMatchesCategory(r.categoryId, p?.categoryId, categoryParents ?? {}));
+  const loading = (appointments.loading && !appointments.data) || leadsLoading;
+  const unavailable = Boolean(appointments.error) || leadsError;
+  const waitingForPayment = (item: AppointmentRecord) => provider.paymentTiming === "AT_BOOKING" && item.paymentStatus !== "PAID";
 
-  const totalEarned = analytics?.earnings ?? 0;
-  const requiresPaymentFirst = (a: AppointmentRecord) => p?.paymentTiming === "AT_BOOKING" && a.paymentStatus !== "PAID";
-
-  // Compares normalized schedules (not raw strings) so this survives the hours storage
-  // format upgrade — old providers may still have the legacy default string, new ones
-  // the equivalent JSON, and both should count as "still on the onboarding default."
-  const isDefaultAvailability = !p?.availabilityNote
-    || serializeHoursValue(parseHoursValue(p.availabilityNote)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
-
-  // Business Packages — same config that themes the business console, applied
-  // to a provider. A home cook resolves to a food package and gets kitchen
-  // wording; an unmapped provider keeps today's generic wording exactly.
-  const pkg = BUSINESS_PACKAGES[resolvePackage(p ?? {})];
-  const pkgKey = resolvePackage(p ?? {});
-  const consoleCfg = consoleFor(pkg, "provider");
-  const bookingsOn = p?.bookingsEnabled ?? pkg.bookingsDefault;
-
-  // A provider has no queue and no delivery fleet — those capabilities are
-  // simply not supplied, and buildConsoleSteps drops them rather than
-  // rendering a tile that goes nowhere.
-  const capabilities: Partial<Record<ConsoleCapability, CapabilityState>> = {
-    catalog: {
-      done: (p?.catalog?.length ?? 0) > 0,
-      onClick: () => nav(`${base}/catalog`),
-      value: (p?.catalog?.length ?? 0) > 0 ? `${p!.catalog!.length} listed` : undefined,
-    },
-    photos: {
-      done: (p?.portfolio?.length ?? 0) > 0,
-      onClick: () => nav(`${base}/portfolio`),
-    },
-    hours: { done: !isDefaultAvailability, onClick: () => nav(`${base}/availability`) },
-    verify: {
-      done: !!(p?.isVerified || p?.verificationStatus === "UNDER_REVIEW"),
-      value: p?.isVerified
-        ? "Verified ✓"
-        : p?.verificationStatus === "UNDER_REVIEW"
-          ? "Under review ⏳"
-          : p?.verificationStatus === "REJECTED"
-            ? "Action needed ⚠️"
-            : undefined,
-      onClick: () => nav(`${base}/verify`),
-    },
-    promote: {
-      done: (provPosts?.length ?? 0) > 0,
-      onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }),
-    },
-    payments: { onClick: () => nav(`${base}/money`) },
-    inbox: {
-      onClick: () => nav(`${base}/inbox`),
-      value: unhandledLeads > 0 ? `${unhandledLeads} waiting` : undefined,
-    },
-    ...(bookingsOn ? {
-      bookings: {
-        done: !isDefaultAvailability,
-        onClick: () => nav(`${base}/jobs`),
-        value: upcomingAppts.length > 0 ? `${upcomingAppts.length} upcoming` : undefined,
-      },
-    } : {}),
-  };
-
-  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
-  const actionTiles = buildConsoleSteps(consoleCfg.actions, capabilities);
-
-  // A provider's untouched identity is GREEN, not brand purple — the same
-  // reason ProviderDetail.tsx overrides its accents for "generic". Letting the
-  // shared CAPABILITY_TONE purple through here would silently repaint every
-  // unmapped provider's console. Themed providers keep the shared tones so a
-  // food provider reads the same as a food business.
-  const tileTone = (cap: ConsoleCapability) =>
-    pkgKey === "generic"
-      ? { tint: "var(--green-100)", accent: "var(--green-600)" }
-      : CAPABILITY_TONE[cap];
-
-  async function toggleAvail() {
-    const prev = available;
-    const next = !available;
-    setAvailable(next);
+  async function runAction(write: () => Promise<unknown>, successKey: string) {
+    if (busy) return;
+    setBusy(true);
     try {
-      await providerService.setAvailability(id, next, 3);
-      showToast(next ? "You're available for 3 hours ⚡" : "Marked unavailable");
-      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
-      void refetchProvider();
-    } catch (e) {
-      setAvailable(prev);
-      showToast(errorMessage(e, "Couldn't update availability"));
-    }
-  }
-
-  // "Accepting appointments" (providers.is_open_now) — distinct from the
-  // "available right now" presence toggle above: stops new bookings while
-  // keeping the profile visible. Mirrored on Provider settings.
-  async function toggleAccepting() {
-    const prev = accepting;
-    const next = !accepting;
-    setAccepting(next);
-    try {
-      await providerService.update(id, { isOpenNow: next });
-      showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
-      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
-      void refetchProvider();
-    } catch (e) {
-      setAccepting(prev);
-      showToast(errorMessage(e, "Couldn't save — try again"));
-    }
-  }
-
-  async function quickAppt(apt: AppointmentRecord, action: "ACCEPT" | "REJECT") {
-    setBusyApt(apt.id);
-    try {
-      await appointmentService.updateStatus(apt.id, action === "ACCEPT" ? "ACCEPTED" : "REJECTED");
-      showToast(action === "ACCEPT" ? "Appointment accepted 📅" : "Appointment declined");
-      refetchApts();
-    } catch {
-      showToast(t("cpd_update_failed"));
+      await write();
+      showToast(t(successKey));
+      appointments.refetch();
+    } catch (error) {
+      showToast(errorMessage(error, t("cpd_update_failed")));
     } finally {
-      setBusyApt(null);
-    }
-  }
-
-  async function quickPayment(apt: AppointmentRecord, action: "CONFIRM" | "REJECT") {
-    // DEV only — appointment id + payment state shouldn't land in a production log.
-    if (import.meta.env.DEV) console.log("quickPayment called:", { aptId: apt.id, action, paymentStatus: apt.paymentStatus });
-    setBusyApt(apt.id);
-    try {
-      if (action === "CONFIRM") { await appointmentService.confirmPayment(apt.id); showToast(t("notif_pay_confirmed_toast")); }
-      else { await appointmentService.rejectPaymentClaim(apt.id); showToast(t("pdash_payment_rejected")); }
-      refetchApts();
-    } catch (e: any){
-      // Show the actual error to help debug the issue
-      const errorMsg = e?.message || "Couldn't update payment — try again";
-      console.error("Payment update failed:", e);
-      showToast(errorMsg);
-    } finally {
-      setBusyApt(null);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="screen with-nav">
-      {/* ── Branded Premium Header — Living Street Light ── */}
-      <div className="living-sky-header" style={{
-        background: ambient.headerGradient,
-        color: "#fff",
-        padding: "calc(20px + var(--safe-area-top)) 16px 24px",
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)",
-        position: "relative",
-        transition: "background 0.6s ease, background-position 0.6s ease",
-      }}>
-        {/* Clips only the decorative sky layer — the header itself must NOT
-            clip, or RoleSwitcher's dropdown (a sibling below) gets cut off
-            the moment it's taller than the header. */}
-        <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-          <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+    <>
+      <section className="page-pad col gap-8">
+        <h2 className="semi">{t("nav_dashboard")}</h2>
+        <ConsoleStatusStrip available={status.available} booking={status.booking} editPath={base} labelKey="provider_console_status"
+          availabilityKey={status.available ? "provider_available_now" : "provider_unavailable"} />
+      </section>
+
+      <section className="page-pad col gap-10" style={{ paddingTop: 0 }}>
+        <div className="row between center-v">
+          <h2 className="small semi muted">{t("mdash_action_needed")}</h2>
+          {actions.total > 0 && <span className="badge badge-amber">{actions.total}</span>}
         </div>
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div className="row between" style={{ marginBottom: 12, alignItems: "center" }}>
-            <BrandHome color="#fff" glow={ambient.lampGlow} />
-            {ambient.weather && (
-              <div style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                background: "rgba(255, 255, 255, 0.16)", backdropFilter: "blur(8px)",
-                padding: "4px 10px", borderRadius: 20, color: "#fff", fontSize: 12, fontWeight: 600,
-                border: "1px solid rgba(255, 255, 255, 0.08)", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)",
-              }}>
-                {renderWeatherIcon(ambient.weather.code)}
-                <span>{Math.round(ambient.weather.tempC)}°C</span>
-                <span style={{ opacity: 0.82, fontWeight: 500 }}>{getWeatherText(ambient.weather.code)}</span>
+        {unavailable && (
+          <div className="card row gap-8 between center-v" style={{ padding: 14 }}>
+            <span className="small muted">{t("provider_actions_unavailable")}</span>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => { appointments.refetch(); refetchLeads(); }}>{t("retry")}</button>
+          </div>
+        )}
+        {loading && actions.total === 0 && !unavailable && <Skeleton h={60} />}
+        {actions.total === 0 && !loading && !unavailable && (
+          <div className="card small muted" style={{ padding: 18 }}>{t("pdash_all_caught_up")}</div>
+        )}
+        {actions.claims.map((appointment) => (
+          <div key={appointment.id} className="card col gap-10" style={{ padding: 14 }}>
+            <div className="row gap-10 center-v">
+              <Wallet size={20} color="var(--amber-600)" aria-hidden="true" />
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="semi small ellipsis">{tf("mdash_claims_row", {
+                  name: ownerVisibleCustomerName(appointment), amount: inr(appointment.paymentAmount ?? appointment.packagePrice ?? 0),
+                })}</div>
+                <div className="tiny muted">{appointment.paymentReference
+                  ? tf("mdash_ref_code", { ref: appointment.paymentReference })
+                  : t("provider_confirm_receipt")}</div>
+              </div>
+            </div>
+            <div className="row gap-8">
+              <button type="button" className="btn btn-green grow btn-sm" disabled={busy}
+                onClick={() => void runAction(() => appointmentService.confirmPayment(appointment.id), "notif_pay_confirmed_toast")}>
+                <Check size={14} /> {t("confirm")}
+              </button>
+              <button type="button" className="btn btn-outline grow btn-sm" disabled={busy}
+                onClick={() => void runAction(() => appointmentService.rejectPaymentClaim(appointment.id), "pdash_payment_rejected")}>
+                <X size={14} /> {t("mdash_reject")}
+              </button>
+            </div>
+          </div>
+        ))}
+        {actions.pending.map((appointment) => (
+          <div key={appointment.id} className="card col gap-10" style={{ padding: 14 }}>
+            <div className="row gap-10 center-v">
+              <SafeImg src={appointment.customerAvatar} variant="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="semi small ellipsis">{ownerVisibleCustomerName(appointment)}</div>
+                <div className="tiny muted">{[appointment.dateLabel, appointment.timeLabel, appointment.packageName].filter(Boolean).join(" · ")}</div>
+              </div>
+            </div>
+            {waitingForPayment(appointment) ? (
+              <Link className="btn btn-outline btn-sm btn-block" to={jobs}>{t("provider_open_unpaid_job")}</Link>
+            ) : (
+              <div className="row gap-8">
+                <button type="button" className="btn btn-green grow btn-sm" disabled={busy}
+                  onClick={() => void runAction(() => appointmentService.updateStatus(appointment.id, "ACCEPTED"), "provider_booking_accepted")}>
+                  <Check size={14} /> {t("notif_apt_accept")}
+                </button>
+                <button type="button" className="btn btn-outline grow btn-sm" disabled={busy}
+                  onClick={() => void runAction(() => appointmentService.updateStatus(appointment.id, "REJECTED"), "provider_booking_declined")}>
+                  <X size={14} /> {t("notif_apt_decline")}
+                </button>
               </div>
             )}
           </div>
-
-          {/* Top navigation row. "View Public" used to be a fourth control here: squeezed into a three-line blob at
-              the screen edge, with the switcher touching the bell. It sits next to the name below now. */}
-          <div className="row between" style={{ gap: 8 }}>
-            <RoleSwitcher theme="dark-pill" enableLongPress />
-            <div className="row gap-8" style={{ alignItems: "center", flexShrink: 0 }}>
-              <button
-                className="icon-btn-sm"
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", minWidth: 44, minHeight: 44, width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
-                onClick={() => nav((notifUnread ?? 0) === 0 && totalNotifUnread > 0 ? "/notifications" : `/notifications?scope=PROVIDER&id=${id}`)}
-                aria-label={t("notifications")}
-              >
-                <Bell size={18} />
-                {((notifUnread ?? 0) > 0 || totalNotifUnread > 0) && (
-                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: (notifUnread ?? 0) > 0 ? "var(--red-500)" : "var(--accent-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
-                )}
-              </button>
-              <button
-                className="icon-btn-sm"
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", minWidth: 44, minHeight: 44, width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
-                onClick={() => nav(`/chats?scope=PROVIDER&id=${id}`)}
-                aria-label={t("messages_header")}
-              >
-                <MessageSquareText size={18} />
-                {(chatUnread ?? 0) > 0 && (
-                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
-                )}
-              </button>
-              <button
-                className="icon-btn-sm"
-                style={{ background: "rgba(255, 255, 255, 0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                onClick={() => setShare(true)}
-                aria-label={t("share_qr_code_label")}
-              >
-                <Share2 size={15} />
-              </button>
-            </div>
-          </div>
-
-          {/* Profile info block */}
-          <div className="row gap-12" style={{ marginTop: 20, alignItems: "center" }}>
-            <div style={{ position: "relative" }}>
-              <SafeImg
-                src={p?.avatar}
-                alt={p?.displayName}
-                variant="avatar"
-                className="avatar"
-                style={{ width: 58, height: 58, borderRadius: "50%", border: available ? "3px solid var(--green-400)" : "2px solid rgba(255,255,255,0.4)", objectFit: "cover" }}
-              />
-              {available && (
-                <span style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", background: "var(--green-500)", border: "2.5px solid var(--green-700)" }}>
-                  <span className="fade-up" style={{ position: "absolute", inset: -4, borderRadius: "50%", border: "1.5px solid var(--green-500)", animation: "pulse-ring 1.5s infinite ease-in-out" }} />
-                </span>
-              )}
-            </div>
-            <div className="grow" style={{ minWidth: 0 }}>
-              <div className="row gap-6" style={{ alignItems: "center" }}>
-                <span className="bold h1 ellipsis" style={{ color: "#fff" }}>{p?.displayName}</span>
-                {p?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
-              </div>
-              <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-                <span>{p?.categoryName}</span>
-                {/* Full strength of its parent (0.9): at 0.8 × 0.9 it was hard to read over the skyline. */}
-                <span className="tiny" style={{ fontWeight: 500 }}>
-                  {ambient.greeting} • {ambient.ambientSubtitle.toLowerCase()} • 📡 {radiusLabel} reach
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Under the identity row, not beside it: beside it the name truncated to "Dev Electricals -…" and the subtitle
-              ran into the skyline. */}
-          <button
-            className="tiny semi"
-            style={{ marginTop: 12, padding: "8px 14px", background: "rgba(255, 255, 255, 0.16)", border: "1px solid rgba(255, 255, 255, 0.2)", borderRadius: 999, color: "#fff", whiteSpace: "nowrap" }}
-            onClick={() => nav(`/provider/${id}`)}
-          >
-            View Public →
-          </button>
-        </div>
-      </div>
-
-      <div className="screen-scroll">
-        <div style={{ paddingTop: 12 }}>
-          <AccountStatusBanner entityType="PROVIDER" entityId={id} status={p?.status} />
-        </div>
-
-        {/* ── Guided setup checklist — new providers only ── */}
-        {p && (
-          <div className="page-pad">
-            <SetupChecklist title={consoleCfg.setupTitle} items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
-          </div>
+        ))}
+        {unhandledLeads > 0 && (
+          <DashboardLink to={`${base}/inbox`} icon={<Inbox size={20} />} title={t("pphub_reachouts")}
+            subtitle={tf("provider_reachouts_waiting", { n: unhandledLeads })} />
         )}
+      </section>
 
-        {/* Your tools — named by trade, ordered by the package config. */}
-        {actionTiles.length > 0 && (
-          <div className="page-pad" style={{ paddingTop: 0 }}>
-            <ConsoleTileGrid>
-              {actionTiles.map((t) => (
-                <ConsoleTile
-                  key={t.id}
-                  icon={CAPABILITY_ICON[t.id]}
-                  label={t.label}
-                  sub={t.hint}
-                  tint={tileTone(t.id).tint}
-                  accent={tileTone(t.id).accent}
-                  onClick={t.onClick}
-                />
-              ))}
-            </ConsoleTileGrid>
-          </div>
-        )}
+      <ProviderSchedule title={t("pdash_todays_schedule")} items={todaysJobs} to={jobs} showStatus />
+      <ProviderSchedule title={t("mdash_upcoming")} items={upcomingJobs} to={jobs} />
 
-        {/* ── Availability (primary revenue lever) ── */}
-        <div className="page-pad col gap-10">
-          <button
-            className="card row gap-12"
-            style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)", boxShadow: available ? "0 4px 16px rgba(22, 163, 74, 0.08)" : "var(--shadow-sm)" }}
-            onClick={toggleAvail}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: available ? "var(--green-100)" : "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Zap size={22} color={available ? "var(--green-500)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
-            </div>
-            <div className="grow">
-              <div className="semi small">{available ? "You're available now" : "Go available now"}</div>
-              <div className="tiny muted">{available ? "Showing in the 'Free right now' rail" : "Surface to nearby customers for 3 hours"}</div>
-            </div>
-            <span style={{ width: 44, height: 26, borderRadius: 999, background: available ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}>
-              <span style={{ position: "absolute", top: 3, left: available ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
-            </span>
-          </button>
-          <button
-            className="card row gap-12"
-            style={{ width: "100%", textAlign: "left", border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}
-            onClick={toggleAccepting}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: accepting ? "var(--ink-50)" : "var(--red-100)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Calendar size={22} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
-            </div>
-            <div className="grow">
-              <div className="semi small">{t("bset_accepting")}</div>
-              <div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div>
-            </div>
-            <span style={{ width: 44, height: 26, borderRadius: 999, background: accepting ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}>
-              <span style={{ position: "absolute", top: 3, left: accepting ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
-            </span>
-          </button>
-        </div>
-
-        {/* ── Action needed — the core "function faster" block ── */}
-        <div className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="row between" style={{ marginBottom: 8 }}>
-            <span className="small semi muted" style={{ letterSpacing: 0.5, textTransform: "uppercase" }}>{t("mdash_action_needed")}</span>
-            {actionCount > 0 && <span className="badge badge-amber" style={{ fontSize: 10 }}>{actionCount}</span>}
-          </div>
-
-          {apptsError && !appts ? (
-            <div className="card col center gap-8" style={{ padding: 18 }}>
-              <span className="small muted">Couldn't load pending items</span>
-              <button className="btn btn-outline btn-sm" onClick={() => refetchApts()}>Retry</button>
-            </div>
-          ) : apptsLoading && !appts ? (
-            <div className="card col gap-8" style={{ padding: 14 }}>
-              <Skeleton h={16} w="60%" />
-              <Skeleton h={38} />
-            </div>
-          ) : (
-            <>
-              {apptsError && appts && (
-                <div className="row between center-v" style={{ padding: "8px 12px", marginBottom: 8, background: "var(--red-50)", border: "1px solid var(--red-200)", borderRadius: 10 }}>
-                  <span className="tiny semi" style={{ color: "var(--red-700)" }}>Action updates couldn't be refreshed.</span>
-                  <button className="btn btn-ghost btn-xs" style={{ minHeight: 28 }} onClick={() => refetchApts()}>Retry</button>
-                </div>
-              )}
-              {actionCount === 0 && !apptsError ? (
-                <div className="card col center" style={{ padding: 22, gap: 6 }}>
-                  <span style={{ fontSize: 26 }}>✅</span>
-                  <span className="tiny muted">{t("pdash_all_caught_up")}</span>
-                </div>
-              ) : actionCount === 0 && apptsError ? (
-                <div className="card col center gap-8" style={{ padding: 18 }}>
-                  <span className="small muted">Couldn't verify pending actions</span>
-                  <button className="btn btn-outline btn-sm" onClick={() => refetchApts()}>Retry</button>
-                </div>
-              ) : (
-                <div className="col gap-10">
-                  {/* Payment claims first — money in hand */}
-                  {paymentClaims.map((apt) => (
-                    <div key={apt.id} className="card col gap-10" style={{ padding: 14, border: "1px solid var(--amber-100)" }}>
-                      <div className="row gap-10 center-v">
-                        <span style={{ fontSize: 20 }}>💳</span>
-                        <div className="grow" style={{ minWidth: 0 }}>
-                          <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)} paid {inr(apt.paymentAmount ?? apt.packagePrice ?? 0)}</div>
-                          <div className="tiny muted">Confirm you received it{apt.paymentReference ? ` · ref ${apt.paymentReference}` : ""}</div>
-                        </div>
-                      </div>
-                      <div className="row gap-8">
-                        <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "CONFIRM")}>
-                          <Check size={14} /> Confirm
-                        </button>
-                        <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickPayment(apt, "REJECT")}>
-                          <XIcon size={14} /> Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pending appointments — accept/decline inline */}
-                  {pendingAppts.map((apt) => (
-                    <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
-                      <div className="row gap-10 center-v">
-                        <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
-                        <div className="grow" style={{ minWidth: 0 }}>
-                          <div className="semi small ellipsis">{ownerVisibleCustomerName(apt)}</div>
-                          <div className="tiny muted row gap-4 center-v"><Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}{apt.packageName ? ` · ${apt.packageName}` : ""}</div>
-                        </div>
-                      </div>
-                      {requiresPaymentFirst(apt) ? (
-                        <button className="btn btn-outline btn-sm btn-block" onClick={() => nav(`${base}/jobs`)}>
-                          Waiting for payment — open in Jobs
-                        </button>
-                      ) : (
-                        <div className="row gap-8">
-                          <button className="btn btn-green grow btn-sm row center gap-4" disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "ACCEPT")}>
-                            <Check size={14} /> Accept
-                          </button>
-                          <button className="btn btn-outline grow btn-sm row center gap-4" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={busyApt === apt.id} onClick={() => quickAppt(apt, "REJECT")}>
-                            <XIcon size={14} /> Decline
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ── Today's timeline ── */}
-        {todayAppts.length > 0 && (
-          <div style={{ paddingBottom: 4 }}>
-            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
-              <span className="semi small">{t("pdash_todays_schedule")}</span>
-              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>{t("mdash_view_all")}</button>
-            </div>
-            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
-              {todayAppts.map((a, idx) => (
-                <button
-                  key={a.id}
-                  className="today-card fade-up"
-                  style={{ "--today-accent": "var(--green-600)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
-                  onClick={() => nav(`${base}/jobs`)}
-                >
-                  <div className="today-card-head">
-                    <span className="today-card-icon">📅</span>
-                    <span className="today-card-kicker grow">{a.status === "PENDING" ? "Requested" : "Confirmed"}</span>
-                  </div>
-                  <div>
-                    <div className="today-card-title">{ownerVisibleCustomerName(a)}</div>
-                    <div className="today-card-stat" style={{ marginTop: 6 }}>{a.timeLabel}</div>
-                    {a.packageName && <div className="today-card-sub" style={{ marginTop: 2 }}>{a.packageName}</div>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Upcoming (future days) ── */}
-        {upcomingAppts.length > 0 && (
-          <div style={{ paddingBottom: 4 }}>
-            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
-              <span className="semi small">{t("mdash_upcoming")}</span>
-              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>{t("mdash_view_all")}</button>
-            </div>
-            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
-              {upcomingAppts.map((a, idx) => (
-                <button
-                  key={a.id}
-                  className="today-card fade-up"
-                  style={{ "--today-accent": "var(--brand-600)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
-                  onClick={() => nav(`${base}/jobs`)}
-                >
-                  <div className="today-card-head">
-                    <span className="today-card-icon">📅</span>
-                    <span className="today-card-kicker grow">{a.dateLabel}</span>
-                  </div>
-                  <div>
-                    <div className="today-card-title">{ownerVisibleCustomerName(a)}</div>
-                    <div className="today-card-stat" style={{ marginTop: 6 }}>{a.timeLabel}</div>
-                    {a.packageName && <div className="today-card-sub" style={{ marginTop: 2 }}>{a.packageName}</div>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Money snapshot ── */}
-        <div className="page-pad" style={{ paddingTop: 8 }}>
-          <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/money`)}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-50)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Wallet size={20} color="var(--orange-500)" />
-            </div>
-            <div className="grow">
-              <div className="semi small">{inr(totalEarned)} earned</div>
-              <div className="tiny muted">{paymentClaims.length > 0 ? `${paymentClaims.length} payment${paymentClaims.length > 1 ? "s" : ""} to confirm` : "View earnings & payments"}</div>
-            </div>
-            <ChevronRight size={18} color="var(--ink-300)" />
-          </button>
-        </div>
-
-        {/* ── Idle? Find work ── */}
+      <section className="page-pad col gap-10">
+        <DashboardLink to={`${base}/money`} icon={<Wallet size={20} color="var(--orange-500)" />}
+          title={analytics ? tf("provider_earned_total", { amount: inr(analytics.earnings) }) : t("nav_money")}
+          subtitle={actions.claims.length > 0 ? tf("provider_claims_waiting", { n: actions.claims.length }) : t("pphub_money_hint")} />
         {matchingRequests.length > 0 && (
-          <div className="page-pad" style={{ paddingTop: 0 }}>
-            <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--green-100)", border: "1px solid var(--green-500)" }} onClick={() => nav(`${base}/find-work`)}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Search size={20} color="var(--green-600)" />
-              </div>
-              <div className="grow">
-                <div className="semi small" style={{ color: "var(--green-700)" }}>{matchingRequests.length} open request{matchingRequests.length > 1 ? "s" : ""} match you</div>
-                <div className="tiny" style={{ color: "var(--green-600)" }}>{t("pdash_send_proposal")}</div>
-              </div>
-              <ChevronRight size={18} color="var(--green-600)" />
-            </button>
-          </div>
+          <DashboardLink to={`${base}/find-work`} icon={<Search size={20} color="var(--green-600)" />}
+            title={tf("provider_matches", { n: matchingRequests.length })} subtitle={t("pdash_send_proposal")} />
         )}
-
-        {/* ── Grow — only actions that aren't already in the nav ── */}
-        <div className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="small semi muted" style={{ marginBottom: 10, letterSpacing: 0.5 }}>{t("mdash_grow")}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-            <GrowTile icon={Megaphone} color="var(--brand-600)" label={t("pdash_post_update")} onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-            <GrowTile icon={Camera} color="var(--pink-500)" label={t("pdash_post_story")} onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-            <GrowTile icon={QrCode} color="var(--ink-700)" label={t("mdash_share_qr")} onClick={() => setShare(true)} />
-            {!p?.isVerified
-              ? <GrowTile icon={BadgeCheck} color="var(--green-600)" label={t("mdash_get_verified")} onClick={() => nav(`${base}/verify`)} />
-              : <GrowTile icon={FileText} color="var(--brand-600)" label={t("pdash_edit_profile")} onClick={() => nav(`${base}/edit-profile`)} />}
-          </div>
-        </div>
-
-        <div style={{ height: 16 }} />
-      </div>
-
-      <ProviderManageNav pid={id} />
-
-      {share && (
-        <ShareCard
-          subjects={{
-            kind: "provider",
-            id,
-            // Behind ProviderAccessGuard — the viewer manages this profile.
-            viewerManages: true,
-            upiId: p?.upiId || undefined,
-            paymentQrUrl: localStorage.getItem("stryt_upi_qr_" + id) || undefined,
-            title: p?.displayName || "Service Provider",
-            subtitle: `${p?.categoryName || "Provider"} • ${p?.subCategory || "Professional"}`,
-            image: p?.avatar || "",
-            meta: `⭐ ${p?.ratingAvg || 0} (${p?.ratingCount || 0})`,
-          }}
-          onClose={() => setShare(false)}
-        />
-      )}
-    </div>
+      </section>
+    </>
   );
 }
 
-function GrowTile({ icon: Icon, color, label, onClick }: { icon: any; color: string; label: string; onClick: () => void }) {
+function ProviderSchedule({ title, items, to, showStatus = false }: {
+  title: string; items: AppointmentRecord[]; to: string; showStatus?: boolean;
+}) {
+  const { t } = useI18n();
+  if (!items.length) return null;
+
   return (
-    <button
-      className="card row"
-      style={{ padding: "12px 14px", gap: 12, alignItems: "center", textAlign: "left", width: "100%", background: "var(--surface)", cursor: "pointer" }}
-      onClick={onClick}
-    >
-      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center", color, flexShrink: 0 }}>
-        <Icon size={18} weight="bold" />
+    <section>
+      <div className="row between page-pad" style={{ paddingBottom: 0 }}>
+        <h2 className="semi small">{title}</h2>
+        <Link className="see-all" to={to}>{t("mdash_view_all")}</Link>
       </div>
-      <span className="tiny semi grow" style={{ color: "var(--ink-800)", lineHeight: 1.25 }}>{label}</span>
-    </button>
+      <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+        {items.map((appointment) => (
+          <Link key={appointment.id} to={to} className="today-card provider-today-card">
+            <div className="today-card-head">
+              <Calendar size={16} aria-hidden="true" />
+              <span className="today-card-kicker grow">{showStatus
+                ? t(appointment.status === "PENDING" ? "provider_job_requested" : "provider_job_confirmed")
+                : appointment.dateLabel}</span>
+            </div>
+            <div className="today-card-title">{ownerVisibleCustomerName(appointment)}</div>
+            <div className="today-card-stat">{appointment.timeLabel}</div>
+            {appointment.packageName && <div className="today-card-sub">{appointment.packageName}</div>}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardLink({ to, icon, title, subtitle }: { to: string; icon: React.ReactNode; title: string; subtitle: string }) {
+  return (
+    <Link to={to} className="card row gap-12 center-v" style={{ padding: 14 }}>
+      <span aria-hidden="true">{icon}</span>
+      <div className="grow">
+        <div className="semi small">{title}</div>
+        <div className="tiny muted">{subtitle}</div>
+      </div>
+      <ChevronRight size={18} aria-hidden="true" />
+    </Link>
   );
 }

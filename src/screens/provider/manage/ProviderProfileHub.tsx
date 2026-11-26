@@ -10,7 +10,7 @@ import HatSwitcherCard from "@/components/HatSwitcherCard";
 import ProviderManageNav from "./ProviderManageNav";
 import {
   User, Clock, Image as ImageIcon, BadgeCheck, Settings,
-  Wallet, Globe, FileText, Inbox, LogOut, AlertTriangle,
+  Wallet, Globe, FileText, Inbox, LogOut, AlertTriangle, Megaphone, Star,
 } from "@/components/Icons";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -118,6 +118,8 @@ export default function ProviderProfileHub() {
 
         <SettingsSection title={t("pphub_communication")}>
           <SettingsRow icon={<Inbox size={19} color="var(--blue-500)" />} label={t("pphub_reachouts")} hint={t("pphub_reachouts_hint")} onClick={() => nav(`${base}/inbox`)} />
+          <SettingsRow icon={<Megaphone size={19} color="var(--brand-600)" />} label={t("community")} onClick={() => nav(`${base}/community`)} />
+          <SettingsRow icon={<Star size={19} color="var(--amber-500)" />} label={t("provider_customer_reviews")} onClick={() => nav(`${base}/reviews`)} />
         </SettingsSection>
 
         <SettingsSection title={t("bset_account")}>

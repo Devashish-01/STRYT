@@ -117,17 +117,18 @@ export default function DesktopSidebar() {
       ];
     }
 
-    if (isProvider && effId) {
+    if (isProvider && effId && ownedProviderId === effId) {
       const base = `/provider/${effId}/manage`;
       return [
-        { to: base, label: "Today", icon: LayoutDashboard, exact: true },
-        { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock },
-        { to: `${base}/find-work`, label: "Find work", icon: Search },
-        { to: `${base}/money`, label: "Money", icon: Wallet },
-        { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
+        { to: base, label: t("home"), icon: Home, exact: true },
+        { to: `${base}/dashboard`, label: t("nav_dashboard"), icon: LayoutDashboard },
+        { to: `${base}/jobs`, label: t("nav_jobs"), icon: CalendarClock },
+        { to: `${base}/find-work`, label: t("nav_find_work"), icon: Search },
+        { to: `${base}/money`, label: t("nav_money"), icon: Wallet },
+        { to: `${base}/catalog`, label: t("pphub_services"), icon: LayoutGrid },
         { to: `/notifications?scope=PROVIDER&id=${effId}`, label: t("notifications"), icon: Bell, badge: notifUnread || undefined },
-        { to: `${base}/profile`, label: "Profile", icon: User },
-        { to: `${base}/settings`, label: "Settings", icon: Settings },
+        { to: `${base}/profile`, label: t("profile"), icon: User },
+        { to: `${base}/settings`, label: t("settings"), icon: Settings },
       ];
     }
 

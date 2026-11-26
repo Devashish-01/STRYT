@@ -139,6 +139,9 @@ const BusinessCommunity = lazy(() => import("./screens/ProfileCommunity"));
 
 // Provider console
 const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
+const ProviderHome = lazy(() => import("./screens/provider/manage/ProviderHome"));
+const ProviderManageLayout = lazy(() => import("./features/provider-console/ProviderManageLayout"));
+const ProviderOverviewLayout = lazy(() => import("./features/provider-console/ProviderOverviewLayout"));
 const ProviderProfileHub = lazy(() => import("./screens/provider/manage/ProviderProfileHub"));
 const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
 const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
@@ -518,7 +521,8 @@ function getRouteDocumentTitle(pathname: string): string {
   if (pathname.startsWith("/provider/") && pathname.includes("/manage/find-work")) return "Find Work · STRYT";
   if (pathname.startsWith("/provider/") && pathname.includes("/manage/money")) return "Money · STRYT";
   if (pathname.startsWith("/provider/") && pathname.includes("/manage/settings")) return "Provider Settings · STRYT";
-  if (pathname.startsWith("/provider/") && pathname.endsWith("/manage")) return "Provider Dashboard · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.includes("/manage/dashboard")) return "Provider Dashboard · STRYT";
+  if (pathname.startsWith("/provider/") && pathname.endsWith("/manage")) return "Provider Home · STRYT";
   if (pathname.startsWith("/provider/")) return "Provider · STRYT";
   if (pathname.startsWith("/category/")) return "Category · STRYT";
   if (pathname.startsWith("/chat/")) return "Chat · STRYT";
@@ -891,22 +895,27 @@ export default function App() {
             {/* Provider console — gated behind ProviderAccessGuard, parity with
                 the business console's BusinessAccessGuard above. */}
             <Route element={<ProviderAccessGuard />}>
-              <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
-              <Route path="/provider/:id/manage/profile" element={<ProviderProfileHub />} />
-              <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
-              <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
-              <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
-              <Route path="/provider/:id/manage/inventory" element={<ProviderInventory />} />
-              <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
-              <Route path="/provider/:id/manage/inbox" element={<LeadsInbox entityType="PROVIDER" />} />
-              <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
-              <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
-              <Route path="/provider/:id/manage/leads" element={<ConsoleLeadsRedirect kind="provider" />} />
-              <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
-              <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
-              <Route path="/provider/:id/manage/reviews" element={<ReviewsManager />} />
-              <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
-              <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+              <Route element={<ProviderManageLayout />}>
+                <Route element={<ProviderOverviewLayout />}>
+                  <Route path="/provider/:id/manage" element={<ProviderHome />} />
+                  <Route path="/provider/:id/manage/dashboard" element={<ProviderDashboard />} />
+                </Route>
+                <Route path="/provider/:id/manage/profile" element={<ProviderProfileHub />} />
+                <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
+                <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
+                <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
+                <Route path="/provider/:id/manage/inventory" element={<ProviderInventory />} />
+                <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
+                <Route path="/provider/:id/manage/inbox" element={<LeadsInbox entityType="PROVIDER" />} />
+                <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
+                <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
+                <Route path="/provider/:id/manage/leads" element={<ConsoleLeadsRedirect kind="provider" />} />
+                <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
+                <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
+                <Route path="/provider/:id/manage/reviews" element={<ReviewsManager />} />
+                <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
+                <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+              </Route>
             </Route>
 
             {/* Delivery agent console — a focused, delivery-only hat. Gated by
