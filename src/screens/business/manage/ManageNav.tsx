@@ -3,8 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Briefcase, CalendarClock, Clock, Home, LayoutDashboard, MessageSquareText, Package, Sparkles, Star, Store, UserCircle, Users, Wallet, X,
 } from "@/components/Icons";
-import { businessService } from "@/services";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useBusinessConsoleData } from "@/features/business-home/businessConsoleData";
 import { useBusinessAccess } from "@/lib/businessAccess";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import FooterProfileTab from "@/components/FooterProfileTab";
@@ -65,29 +64,20 @@ function markHintSeen() {
  * quick dial — a rotary fan of round shortcuts to everything else the console does (see QuickDial). Which circles appear, in
  * what order and under what names comes from who is looking and what kind of business it is (src/lib/businessDial.ts).
  */
-export default function ManageNav({ bizId, waitingCount, hasCurrentWork = false }: {
+export default function ManageNav({ bizId, waitingCount }: {
   bizId: string;
   waitingCount?: number;
-  hasCurrentWork?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const nav = useNavigate();
   const location = useLocation();
   const { hasScope, hasActiveDeliveries, isOwner } = useBusinessAccess();
-  const { data: queue } = useQueryWithRealtime(
-    () => businessService.queueOwnerState(bizId),
-    "queue_tokens",
-    [bizId],
-    `business_id=eq.${bizId}`,
-    `queue:${bizId}`,
-  );
-  // Shares ManageDashboard's `business:${id}` cache entry, so this costs no extra fetch.
-  const { data: business } = useQuery(() => businessService.get(bizId), [bizId], `business:${bizId}`);
+  const { queue: { data: queue }, shop: { data: business }, status, actionCount, hasCurrentWork } = useBusinessConsoleData();
   const pkg = BUSINESS_PACKAGES[resolvePackage(business ?? {})];
   const consoleCfg = consoleFor(pkg);
   // Does this business take bookings at all — same formula BusinessDetail.tsx and BusinessSettings.tsx use for the
   // customer-facing CTA. A pharmacy or takeaway that structurally never uses it isn't shown a permanently-empty circle.
-  const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
+  const { bookingsOn } = status;
   // Coerced to a real boolean: while the queue query is in flight `queue` is undefined, and `undefined && {...}` would
   // slip through as `undefined` rather than `false`.
   const queueUsed = !!queue?.hasEverUsedQueue;
@@ -191,9 +181,13 @@ export default function ManageNav({ bizId, waitingCount, hasCurrentWork = false 
   return (
     <>
       <nav className="bottom-nav manage-nav manage-nav--dial" aria-label="Business console">
-        <button className={`nav-item ${dashboardActive ? "active" : ""}`} onClick={() => nav(dashboardPath)}>
+        <button className={`nav-item manage-dashboard-tab ${dashboardActive ? "active" : ""}`}
+          aria-current={dashboardActive ? "page" : undefined}
+          aria-label={actionCount > 0 ? tf("console_dashboard_actions", { n: actionCount }) : t("nav_dashboard")}
+          onClick={() => nav(dashboardPath)}>
           <LayoutDashboard size={22} weight={dashboardActive ? "fill" : "regular"} />
           <span>{t("nav_dashboard")}</span>
+          {actionCount > 0 && <span className="count-badge" aria-hidden="true">{actionCount > 9 ? "9+" : actionCount}</span>}
         </button>
 
         <div className={`manage-home${onHome ? " is-active" : ""}${open ? " is-open" : ""}`}>

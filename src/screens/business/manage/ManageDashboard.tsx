@@ -3,35 +3,29 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Calendar, Camera, Check, ChevronRight, HelpCircle,
   Megaphone, Play, QrCode, Search, Star,
-  Users, Wallet, X as XIcon, Zap,
+  Users, Wallet, X as XIcon,
 } from "@/components/Icons";
 import {
-  appointmentService, businessService, bulkService, deliveryService, bustBusinessGetCache, communityService,
-  customPaymentService, notificationService, requestService,
+  appointmentService, businessService, bulkService, deliveryService, notificationService, requestService,
 } from "@/services";
 import type { AppointmentDelivery } from "@/services/engagement/deliveryService";
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
-import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { AppBar } from "@/components/common";
 import { inr } from "@/lib/format";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
-import { deriveMoneySummary } from "@/utils/paymentSummary";
-import { claimContextKey, partitionDashboardWork } from "@/lib/dashboardOrders";
+import { claimContextKey } from "@/lib/dashboardOrders";
 import ManageNav from "./ManageNav";
 import { resolveBusinessToolVisibility } from "@/lib/businessTools";
 import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
-import { buildBusinessCapabilities, todaysAppointments, upcomingAppointments } from "@/features/business-home/capabilities";
-import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
+import ConsoleStatusStrip from "@/components/console/ConsoleStatusStrip";
+import { useBusinessConsoleData } from "@/features/business-home/businessConsoleData";
 import ShareCard from "@/components/ShareCard";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
-import { SetupChecklist } from "@/components/SetupChecklist";
-import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";
-import { buildConsoleSteps, consoleFor } from "@/lib/consoleSteps";
-import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useBusinessAccess } from "@/lib/businessAccess";
@@ -52,28 +46,15 @@ export default function ManageDashboard() {
   const tools = resolveBusinessToolVisibility(access, DELIVERY_AGENT_ENABLED);
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
-  const [accepting, setAccepting] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [packingId, setPackingId] = useState<string | null>(null);
 
-  const { data: business, loading: businessLoading, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-  const { available, toggle: toggleAvailability } = useShopOpenToggle(id, business, refetchBusiness);
-  const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id], `business:${id}:posts`);
-  // Orders accepted for delivery that nobody is carrying yet; empty (never an error) on a database without 20261001.
-  const { data: awaitingDeliveries } = useQuery(
-    () => ((DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true) ? deliveryService.awaitingDriver(id).catch(() => []) : Promise.resolve([] as Awaited<ReturnType<typeof deliveryService.awaitingDriver>>)),
-    [id, (DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true)],
-    `delivery:awaiting:${id}`,
-  );
-  const waitingForRider = (awaitingDeliveries ?? []).length;
-  const { data: queue, loading: queueLoading, error: queueError, refetch: refetchQueue } = useQueryWithRealtime(
-    () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
-  );
-  const { data: appointments, loading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useQueryWithRealtime(
-    () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
-  );
+  const work = useBusinessConsoleData();
+  const { shop: { data: business, loading: businessLoading }, status } = work;
+  const { data: queue, loading: queueLoading, error: queueError, refetch: refetchQueue } = work.queue;
+  const { data: appointments, loading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = work.appointments;
   const deliveryOrderIds = (appointments ?? [])
     .filter((a) => a.status === "ACCEPTED" && a.fulfillmentType === "DELIVERY")
     .map((a) => a.id);
@@ -85,15 +66,9 @@ export default function ManageDashboard() {
     [deliveryOrderIds.join(",")],
     `dashboard:delivery-map:${id}`,
   );
-  const { data: customPayments, loading: customLoading, error: customError, refetch: refetchCustom } = useQueryWithRealtime(
-    () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
-  );
-  const { data: pendingBulkDeposits, loading: bulkLoading, error: bulkError, refetch: refetchBulkDeposits } = useQueryWithRealtime(
-    () => bulkService.pendingDepositsForBusiness(id), "bulk_deal_pledges", [id], undefined, `business:${id}:bulk-deposits`,
-  );
-  const { data: questions, loading: questionsLoading, error: questionsError, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
-    () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`,
-  );
+  const { data: customPayments, loading: customLoading, error: customError, refetch: refetchCustom } = work.custom;
+  const { data: pendingBulkDeposits, loading: bulkLoading, error: bulkError, refetch: refetchBulkDeposits } = work.bulk;
+  const { data: questions, loading: questionsLoading, error: questionsError, refetch: refetchQuestions } = work.questions;
   const { data: reviews } = useQueryWithRealtime(
     () => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`,
   );
@@ -114,18 +89,6 @@ export default function ManageDashboard() {
   const { data: chatUnread } = useQueryWithRealtime(
     () => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id], undefined, `chat:business:${id}`,
   );
-
-  // Watched as fields, not as the object: `business` gets a new identity on every refetch, and
-  // re-running these then would reset a toggle the owner just flipped, before the server echoes it
-  // back. `businessLoaded` only ever changes together with `businessId`, so it adds no re-runs.
-  const businessId = business?.id;
-  const businessLoaded = business != null;
-  const businessOpenNow = business?.isOpenNow;
-
-  useEffect(() => {
-    if (!businessLoaded) return;
-    setAccepting(businessOpenNow ?? true);
-  }, [businessId, businessLoaded, businessOpenNow]);
 
   useEffect(() => {
     if (!business?.boostedUntil || business.boostReminderSent) return;
@@ -167,20 +130,9 @@ export default function ManageDashboard() {
     );
   }
 
-  const appts = (appointments ?? []) as AppointmentRecord[];
-  const queueTokens: QueueOwnerToken[] = [
-    ...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? []),
-  ];
-  const { appointmentClaims: rawAppointmentClaims, queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
-  const { ordersRightNow, pendingBookings, standaloneAppointmentClaims } = partitionDashboardWork(appts, rawAppointmentClaims);
-  const unanswered = (questions ?? []).filter((item) => !item.answer);
+  const { queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = work.money;
+  const { ordersRightNow, pendingBookings, standaloneAppointmentClaims, unanswered, actionCount } = work;
   const bulkDepositClaims = pendingBulkDeposits ?? [];
-  // Scoped to what this session can actually act on — order claims stay inside Orders Right Now above.
-  const actionCount =
-    (hasScope("appointments") ? pendingBookings.length + standaloneAppointmentClaims.length + customClaims.length : 0) +
-    (hasScope("queue") ? queueClaims.length : 0) +
-    (hasScope("leads") ? unanswered.length : 0) +
-    (hasScope("catalog") ? bulkDepositClaims.length : 0);
   const range = business?.broadcastRadius ?? 5;
   // Read-only reach shown in the header; editing lives on the dedicated
   // Service radius screen (Business hub) now, not on this dashboard.
@@ -190,8 +142,7 @@ export default function ManageDashboard() {
     .filter((item) => !item.categoryId || !business?.categoryId || item.categoryId === business.categoryId)
     .filter((item) => !item.lat || !item.lng || item.distanceKm <= range);
 
-  const todayAppointments = todaysAppointments(appts);
-  const upcomingList = upcomingAppointments(appts);
+  const { today: todayAppointments, upcoming: upcomingList } = work;
 
   async function markPacked(aptId: string) {
     if (packingId) return;
@@ -252,56 +203,11 @@ export default function ManageDashboard() {
     }
   }
 
-  // Business Packages — the console's own vocabulary and shape. A restaurant
-  // gets "Add your first 3 dishes" and a Menu/Reservations/Waitlist tile row;
-  // an unmapped ("Plain page") business keeps exactly the wording it had. This
-  // screen never branches on the package key — it only supplies what each
-  // capability DOES, and the package decides which ones appear and in what
-  // order. See src/lib/businessPackages.ts's header rule.
-  const pkg = BUSINESS_PACKAGES[resolvePackage(business ?? {})];
-  const consoleCfg = consoleFor(pkg);
-  // Structural "does this business take bookings at all", distinct from
-  // `isOpenNow` (a temporary pause). Same inherit expression BusinessDetail
-  // already uses — a takeaway shouldn't be shown a reservations console.
-  const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
-  // Was driven purely by the business's own setting — with the flag off,
-  // this tile stayed as an unguarded, discoverable path back into the
-  // (now separately gated) BusinessDeliveries route.
-  const deliveryOn = DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true;
-
   const composeState = {
     businessId: id,
     businessName: business?.name,
     businessAvatar: business?.coverImage,
   };
-
-  const capabilities = buildBusinessCapabilities({
-    base, nav, business, pkg, tools, bookingsOn, deliveryOn, waitingForRider, queue,
-    upcomingCount: upcomingList.length, paymentClaims, postsCount: posts?.length ?? 0, composeState, tf,
-  });
-
-  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
-
-  // "Accepting appointments" (businesses.is_open_now) — distinct from the
-  // "open now" presence toggle above: this one actually stops new bookings,
-  // gated client-side (BusinessDetail) and server-side (appointment_create).
-  async function toggleAccepting() {
-    const previous = accepting;
-    const next = !accepting;
-    setAccepting(next);
-    try {
-      await businessService.update(id, { isOpenNow: next });
-      showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
-      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
-      void refetchBusiness();
-    } catch (error) {
-      setAccepting(previous);
-      const msg = String(errorMessage(error, ""));
-      showToast(msg.includes("has_business_full_access")
-        ? "Couldn't save — database permissions need updating (migration 20260842)"
-        : msg || "Couldn't update appointment setting");
-    }
-  }
 
   async function updateAppointment(item: AppointmentRecord, status: "ACCEPTED" | "REJECTED" | "COMPLETED") {
     if (status === "COMPLETED" && item.fulfillmentType === "DELIVERY") {
@@ -444,33 +350,11 @@ export default function ManageDashboard() {
           </div>
         )}
 
-        {business && isOwner && (
-          <section className="page-pad" style={{ paddingTop: 4 }}>
-            <SetupChecklist title={consoleCfg.setupTitle} items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
-          </section>
-        )}
-
-        {isOwner && (
+        {business && (
           <section className="page-pad">
-            <button aria-pressed={available} className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
-              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
-                <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
-              </span>
-              <div className="grow"><div className="semi small">{available ? t("mdash_open_now") : t("mdash_mark_open")}</div><div className="tiny muted">{t("mdash_visible_nearby")}</div></div>
-              <Toggle on={available} />
-            </button>
-            {/* Only for businesses that structurally take bookings. A takeaway
-                (bookingsDefault false) was previously shown this toggle plus a
-                whole appointments console it can't use. */}
-            {bookingsOn && (
-              <button aria-pressed={accepting} className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
-                <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: accepting ? "var(--ink-50)" : "var(--red-100)" }}>
-                  <Calendar size={21} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
-                </span>
-                <div className="grow"><div className="semi small">Accepting {pkg.vocabulary.nounPlural}</div><div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div></div>
-                <Toggle on={accepting} />
-              </button>
-            )}
+            <ConsoleStatusStrip available={status.available} booking={status.booking}
+              availabilityKey={status.available ? "bhome_open_now" : "bhome_closed_now"}
+              editPath={isOwner ? base : undefined} />
           </section>
         )}
 
@@ -551,7 +435,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (() => {
+        {(tools.appointments || tools.queue || tools.leads || tools.catalog) && (() => {
           const triageError = !!(appointmentsError || queueError || customError || bulkError || questionsError);
           const triageLoading = (appointmentsLoading && !appointments) || (queueLoading && !queue) || (customLoading && !customPayments) || (bulkLoading && !pendingBulkDeposits) || (questionsLoading && !questions);
           const hasAnyActionData = !!(appointments || queue || customPayments || pendingBulkDeposits || questions);
@@ -604,6 +488,14 @@ export default function ManageDashboard() {
                     </div>
                   ) : actionCount > 0 ? (
                     <div className="col gap-10">
+                      {isOwner && customClaims.length > 0 && (
+                        <button type="button" className="card row gap-10 center-v" style={{ padding: 14, textAlign: "start" }} onClick={() => nav(`${base}/payments`)}>
+                          <Wallet size={18} aria-hidden="true" />
+                          <span className="semi small grow">{t("bdial_payments")}</span>
+                          <span className="badge badge-amber">{customClaims.length}</span>
+                          <ChevronRight size={16} aria-hidden="true" />
+                        </button>
+                      )}
                       {hasScope("appointments") && pendingBookings.slice(0, 3).map((item) => (
                         <TodayAction
                           key={`appointment-${item.id}`}
@@ -664,7 +556,7 @@ export default function ManageDashboard() {
           );
         })()}
 
-        {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
+        {hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">{t("mdash_todays_appointments")}</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>{t("mdash_view_all")}</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -677,7 +569,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {bookingsOn && hasScope("appointments") && upcomingList.length > 0 && (
+        {hasScope("appointments") && upcomingList.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">{t("mdash_upcoming")}</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>{t("mdash_view_all")}</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -727,7 +619,7 @@ export default function ManageDashboard() {
         <div style={{ height: 20 }} />
       </div>
 
-      <ManageNav bizId={id} waitingCount={queue?.waiting.length ?? 0} hasCurrentWork={ordersRightNow.length + todayAppointments.length + upcomingList.length > 0} />
+      <ManageNav bizId={id} />
       {share && (
         <ShareCard
           subjects={{

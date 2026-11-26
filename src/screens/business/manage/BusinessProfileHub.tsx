@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg, StarRow } from "@/components/common";
 import { businessService } from "@/services";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { Skeleton, ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow } from "@/components/settings";
@@ -9,7 +9,7 @@ import { useBusinessAccess } from "@/lib/businessAccess";
 import HatSwitcherCard from "@/components/HatSwitcherCard";
 import ManageNav from "./ManageNav";
 import {
-  BadgeCheck, Settings, Wallet, Globe, Store, Users, LogOut, Star, ChevronRight,
+  BadgeCheck, Settings, Wallet, Globe, Store, Users, LogOut, Star,
 } from "@/components/Icons";
 
 // The business identity home: public preview, profile editors, account controls,
@@ -22,7 +22,6 @@ export default function BusinessProfileHub() {
   const base = `/business/${id}/manage`;
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-  const { data: reviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
 
   if (!id) {
     return (
@@ -107,24 +106,6 @@ export default function BusinessProfileHub() {
             <SettingsRow icon={<Wallet size={19} color="var(--orange-500)" />} label="Payments" hint="UPI, QR and payment records" onClick={() => nav(`${base}/payments`)} />
             <SettingsRow icon={<Settings size={19} color="var(--ink-600)" />} label="Business settings" hint="Controls and account settings" onClick={() => nav(`${base}/settings`)} />
           </SettingsSection>
-        )}
-
-        {(reviews ?? []).length > 0 && (
-          <button
-            type="button"
-            className="card row between center-v"
-            style={{ width: "100%", padding: 14, cursor: "pointer", textAlign: "left", minHeight: 44 }}
-            onClick={() => nav(`${base}/reviews`)}
-          >
-            <div className="row gap-10 center-v">
-              <Star size={20} color="var(--amber-500)" weight="fill" />
-              <div>
-                <div className="semi small">Customer reviews</div>
-                <div className="tiny muted">{reviews?.length} review{(reviews?.length ?? 0) === 1 ? "" : "s"} — tap to view & reply</div>
-              </div>
-            </div>
-            <ChevronRight size={16} className="muted" />
-          </button>
         )}
 
         <HatSwitcherCard showManageLink={false} />

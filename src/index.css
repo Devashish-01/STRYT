@@ -1663,6 +1663,34 @@ textarea.input {
 /* Six tabs of uneven labels ("Appointments"): size each to its label, so they only shorten when the row really
    doesn't fit. Equal widths cut "Appointments" to "Appoint…" at normal text size. */
 .manage-nav .nav-item { flex: 1 1 auto; }
+.console-header { position: relative; color: var(--white); padding: calc(18px + var(--safe-area-top)) 16px 22px; border-radius: 0 0 24px 24px; }
+.console-header-backdrop { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.console-header-content { position: relative; z-index: 1; }
+.console-header-top, .console-header-primary, .console-header-identity, .console-header-actions { display: flex; align-items: center; gap: 8px; }
+.console-header-top { justify-content: space-between; }
+.console-header-primary { min-width: 0; }
+.console-header-primary > :first-child { min-width: 0; }
+.console-header-primary > :first-child > button { max-width: 100%; }
+.console-header-identity { gap: 12px; margin-top: 18px; }
+.console-header-actions { margin-top: 12px; flex-wrap: wrap; }
+.console-header .console-header-icon { width: 44px; height: 44px; flex: 0 0 44px; }
+.console-header .console-header-icon::before { content: none; }
+.console-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.console-status-item {
+  display: flex; align-items: center; gap: 8px; min-height: 50px; min-width: 0; padding: 8px 10px;
+  text-align: start; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink-700);
+  font-size: 0.8125rem; font-weight: 600; overflow-wrap: anywhere;
+}
+.console-status-item > svg, .console-status-item > [aria-hidden] { flex-shrink: 0; }
+.console-status-item > :last-child[aria-hidden]:not(svg) { margin-inline-start: auto; }
+.console-status-item[aria-checked="true"], .console-status-item[data-active="true"] { color: var(--green-700); background: var(--green-50); border-color: var(--green-200); }
+.manage-dashboard-tab { position: relative; }
+.manage-dashboard-tab .count-badge { position: absolute; inset-block-start: 4px; inset-inline-start: calc(50% + 5px); }
+@media (max-width: 380px) {
+  .console-header-top, .console-header-primary { gap: 6px; }
+  .console-status-item { gap: 5px; padding-inline: 7px; }
+  .console-status-item > svg { width: 15px; }
+}
 .nav-item > span:last-child {
   max-width: 100%;
   overflow: hidden;

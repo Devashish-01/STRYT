@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, LayoutDashboard, Plus, Zap } from "@/components/Icons";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ChevronRight, LayoutDashboard, Plus } from "@/components/Icons";
 import {
-  appointmentService, businessService, customPaymentService, deliveryService, notificationService,
+  communityService, deliveryService, notificationService,
 } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -10,28 +10,27 @@ import { AppBar } from "@/components/common";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
-import type { AppointmentRecord, QueueOwnerToken } from "@/types";
-import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
+import ConsoleStatusStrip from "@/components/console/ConsoleStatusStrip";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import ConsoleToolsSheet from "@/components/console/ConsoleToolsSheet";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import { businessToolLinks, resolveBusinessToolVisibility } from "@/lib/businessTools";
 import { ConsoleTile, ConsoleTileGrid } from "@/components/console/ConsoleTile";
 import { CAPABILITY_ICON, CAPABILITY_TONE } from "@/components/console/capabilities";
 import { featureIcon, featureTone } from "@/components/console/featureIcons";
-import Toggle from "@/components/Toggle";
 import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";
 import { buildConsoleSteps, consoleFor } from "@/lib/consoleSteps";
 import { rankFeatures } from "@/lib/businessFeatures";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useBusinessAccess } from "@/lib/businessAccess";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
-import { buildBusinessCapabilities, todaysAppointments, upcomingAppointments } from "@/features/business-home/capabilities";
+import { buildBusinessCapabilities } from "@/features/business-home/capabilities";
+import { useBusinessConsoleData } from "@/features/business-home/businessConsoleData";
 import { featureContextFor } from "@/features/business-home/featureContext";
-import { useShopOpenToggle } from "@/features/business-home/useShopOpenToggle";
 
 /**
  * The console's front door: who you are, the services you run (named in your trade's own words), what needs a look right now,
@@ -47,30 +46,26 @@ export default function BusinessHome() {
   // No RequireScope on this route: it self-filters by scope. Anything added here is visible to every grantee unless it is
   // gated on hasScope()/isOwner explicitly.
   const access = useBusinessAccess();
-  const { isOwner, hasScope, consoleMode, scopeLabel } = access;
+  const { isOwner, consoleMode, scopeLabel } = access;
   const tools = resolveBusinessToolVisibility(access, DELIVERY_AGENT_ENABLED);
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
-  const { data: business, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-  const { available, toggle } = useShopOpenToggle(id, business, refetch);
-  const { data: queue } = useQueryWithRealtime(
-    () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
-  );
-  const { data: appointments } = useQueryWithRealtime(
-    () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
-  );
-  const { data: customPayments } = useQueryWithRealtime(
-    () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
+  const work = useBusinessConsoleData();
+  const { shop: { data: business, loading }, status, actionCount, hasCurrentWork } = work;
+  const queue = work.queue.data;
+  const { data: posts } = useQuery(
+    () => isOwner ? communityService.byAuthorRef("business", id) : Promise.resolve(undefined),
+    [id, isOwner], isOwner ? `business:${id}:posts` : undefined,
   );
   const deliveryOn = DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true;
   // Orders accepted for delivery that nobody is carrying yet; empty (never an error) on a database without 20261001.
   const { data: awaiting } = useQuery(
-    () => (deliveryOn ? deliveryService.awaitingDriver(id).catch(() => []) : Promise.resolve([] as Awaited<ReturnType<typeof deliveryService.awaitingDriver>>)),
-    [id, deliveryOn],
-    `delivery:awaiting:${id}`,
+    () => (deliveryOn && tools.liveDeliveries ? deliveryService.awaitingDriver(id).catch(() => []) : Promise.resolve([])),
+    [id, deliveryOn, tools.liveDeliveries],
+    tools.liveDeliveries ? `delivery:awaiting:${id}` : undefined,
   );
   const { data: notificationUnread } = useQueryWithRealtime(
     () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id, user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:business:${id}`,
@@ -95,39 +90,43 @@ export default function BusinessHome() {
     );
   }
 
-  const appts = (appointments ?? []) as AppointmentRecord[];
-  const queueTokens: QueueOwnerToken[] = [...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? [])];
-  const { appointmentClaims, queueClaims, customClaims, paymentClaims } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
-  const pending = appts.filter((a) => a.status === "PENDING");
-  const todayCount = todaysAppointments(appts).length;
-  const upcomingCount = upcomingAppointments(appts).length;
+  const { paymentClaims } = work.money;
+  const pendingCount = work.appointments.data?.filter((appointment) => appointment.status === "PENDING").length ?? 0;
+  const todayCount = work.today.length;
+  const upcomingCount = work.upcoming.length;
   const waiting = queue?.waiting.length ?? 0;
 
   const pkg = BUSINESS_PACKAGES[resolvePackage(business ?? {})];
   const consoleCfg = consoleFor(pkg);
-  const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
+  const { bookingsOn } = status;
+  const composeState = { businessId: id, businessName: business?.name, businessAvatar: business?.coverImage };
 
-  const capabilities = buildBusinessCapabilities({
-    base, nav, business, pkg, tools, bookingsOn: bookingsOn || pending.length + todayCount + upcomingCount > 0, deliveryOn, waitingForRider: (awaiting ?? []).length, queue,
-    upcomingCount, paymentClaims, postsCount: 0, composeState: {}, tf,
-  });
+  const capabilityInputs = {
+    base, nav, business, pkg, tools, deliveryOn, waitingForRider: (awaiting ?? []).length, queue,
+    upcomingCount, paymentClaims, postsCount: posts?.length ?? 0, composeState, tf,
+  };
+  const capabilities = buildBusinessCapabilities({ ...capabilityInputs, bookingsOn: bookingsOn || hasCurrentWork });
   const tiles = buildConsoleSteps(consoleCfg.actions, capabilities);
+  const checklist = buildConsoleSteps(consoleCfg.setup, buildBusinessCapabilities({ ...capabilityInputs, bookingsOn }));
   // A tile's own count, where one means "something is waiting on you".
   const badgeFor = (cap: string): number | undefined => {
-    if (cap === "bookings") return pending.length || undefined;
+    if (cap === "bookings") return pendingCount || undefined;
     if (cap === "queue") return waiting || undefined;
     if (cap === "payments") return paymentClaims || undefined;
     return undefined;
   };
 
-  const toReview =
-    (hasScope("appointments") ? pending.length + appointmentClaims.length + customClaims.length : 0) +
-    (hasScope("queue") ? queueClaims.length : 0);
   const glance = [
-    toReview > 0 && { key: "review", label: t("bhome_stat_review"), value: toReview, go: dashboardPath(base), tone: "var(--amber-700)", tint: "var(--amber-100)" },
-    bookingsOn && hasScope("appointments") && todayCount > 0 && { key: "today", label: t("bhome_stat_today"), value: todayCount, go: `${base}/appointments`, tone: "var(--brand-700)", tint: "var(--brand-50)" },
-    hasScope("queue") && waiting > 0 && { key: "queue", label: t("bhome_stat_queue"), value: waiting, go: `${base}/queue`, tone: "var(--green-600)", tint: "var(--green-100)" },
+    actionCount > 0 && { key: "review", label: t("bhome_stat_review"), value: actionCount, go: dashboardPath(base), tone: "var(--amber-700)", tint: "var(--amber-100)" },
+    tools.appointments && todayCount > 0 && { key: "today", label: t("bhome_stat_today"), value: todayCount, go: `${base}/appointments`, tone: "var(--brand-700)", tint: "var(--brand-50)" },
+    tools.queue && waiting > 0 && { key: "queue", label: t("bhome_stat_queue"), value: waiting, go: `${base}/queue`, tone: "var(--green-600)", tint: "var(--green-100)" },
   ].filter((x): x is { key: string; label: string; value: number; go: string; tone: string; tint: string } => !!x);
+  const staffLinks = [
+    tools.appointments && { to: `${base}/appointments`, label: t("nav_appointments"), count: work.ordersRightNow.length || todayCount },
+    tools.queue && { to: `${base}/queue`, label: t("nav_queue"), count: waiting },
+    tools.myDeliveries && { to: `${base}/my-deliveries`, label: t("console_my_deliveries"), count: 0 },
+    actionCount > 0 && { to: dashboardPath(base), label: t("mdash_action_needed"), count: actionCount },
+  ].filter((link): link is { to: string; label: string; count: number } => Boolean(link));
 
   const featureCtx = featureContextFor({ business, queueUsed: !!queue?.hasEverUsedQueue, bookingsOn, deliveryFlag: DELIVERY_AGENT_ENABLED, isOwner });
   const suggested = isOwner ? rankFeatures(pkg.key, consoleCfg.actions.map((a) => a.id), featureCtx).recommended.slice(0, 3) : [];
@@ -163,23 +162,33 @@ export default function BusinessHome() {
           </div>
         )}
 
-        {isOwner && (
+        {business && (
           <section className="page-pad" style={{ paddingTop: 12 }}>
-            <button
-              aria-pressed={available}
-              className="card row gap-12 center-v"
-              onClick={toggle}
-              style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
-            >
-              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
-                <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
-              </span>
-              <div className="grow">
-                <div className="semi small">{available ? t("bhome_open_now") : t("bhome_closed_now")}</div>
-                <div className="tiny muted">{t("bhome_tap_toggle")}</div>
-              </div>
-              <Toggle on={available} />
-            </button>
+            <ConsoleStatusStrip available={status.available} booking={status.booking}
+              availabilityKey={status.available ? "bhome_open_now" : "bhome_closed_now"}
+              saving={status.saving}
+              onAvailability={isOwner ? status.toggleAvailability : undefined}
+              onBookings={isOwner ? status.toggleBookings : undefined}
+              settingsPath={isOwner ? `${base}/settings` : undefined} />
+          </section>
+        )}
+        {business && isOwner && checklist.some(({ done }) => !done) && (
+          <section className="page-pad" style={{ paddingTop: 4 }}>
+            <SetupChecklist title={consoleCfg.setupTitle} items={checklist} storageKey={`stryt_checklist_dismissed_${id}`} />
+          </section>
+        )}
+        {!isOwner && staffLinks.length > 0 && (
+          <section className="page-pad" style={{ paddingTop: 4 }}>
+            <div className="card col gap-8" style={{ padding: 14 }}>
+              <h2 className="semi small">{t("console_your_live_work")}</h2>
+              {staffLinks.map(({ to, label, count }) => (
+                <Link to={to} key={to} className="row center-v gap-8 btn btn-outline btn-sm">
+                  <span className="grow">{label}</span>
+                  {count > 0 && <span className="badge badge-amber">{count}</span>}
+                  <ChevronRight size={16} aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
@@ -273,7 +282,7 @@ export default function BusinessHome() {
         <div style={{ height: 24 }} />
       </div>
 
-      <ManageNav bizId={id} waitingCount={waiting} hasCurrentWork={pending.length + todayCount + upcomingCount > 0} />
+      <ManageNav bizId={id} />
       <ConsoleToolsSheet open={toolsOpen} onClose={() => setToolsOpen(false)}
         items={businessToolLinks(id, tools, !!queue?.hasEverUsedQueue)}
         onSignOut={() => { signOut(); nav("/"); }} />

@@ -9,6 +9,7 @@ import type { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import type { ConsoleMode } from "@/lib/teamConsole";
 import { useI18n } from "@/lib/i18n";
 import type { Business } from "@/types";
+import ConsoleHeader from "./ConsoleHeader";
 
 /**
  * The console's living header — the shop's face, its notifications and messages, and the owner's account switcher. Shared by
@@ -35,28 +36,15 @@ export default function BusinessConsoleHeader({
   const hasScopedNotif = notificationUnread > 0;
   const hasCrossHatNotif = !hasScopedNotif && totalNotificationUnread > 0;
   return (
-    <header className="living-sky-header" style={{
-      background: isOwner
+    <ConsoleHeader
+      background={isOwner
         ? ambient.headerGradient
         : consoleMode === "full_delegate"
           ? "linear-gradient(135deg, var(--console-delegate-from) 0%, var(--console-delegate-to) 100%)"
-          : "linear-gradient(135deg, var(--console-team-from) 0%, var(--console-team-to) 100%)",
-      color: "#fff",
-      padding: "calc(18px + var(--safe-area-top)) 16px 22px",
-      borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-      position: "relative",
-    }}>
-      {/* Clips only the decorative sky layer — the header itself must NOT clip, or RoleSwitcher's dropdown (a sibling
-          below) gets cut off the moment it's taller than the header. */}
-      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-        {isOwner && <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />}
-      </div>
-      <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Logo + switcher + two buttons is ~348px with the page padding — it fits a 360px phone. Share used to be a third
-            button here and ran off the screen; it lives next to "View shop" now. */}
-        <div className="row between center-v" style={{ gap: 8 }}>
-          <BrandHome color="#fff" glow={ambient.lampGlow} />
-          <div className="row gap-8 center-v" style={{ minWidth: 0 }}>
+          : "linear-gradient(135deg, var(--console-team-from) 0%, var(--console-team-to) 100%)"}
+      backdrop={isOwner && <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />}
+      brand={<BrandHome color="#fff" glow={ambient.lampGlow} />}
+      primary={<>
             <RoleSwitcher theme="dark-pill" enableLongPress />
             <HeaderIcon
               label={t("notifications")}
@@ -69,9 +57,8 @@ export default function BusinessConsoleHeader({
             {canOpenMessages && <HeaderIcon label={t("messages_header")} count={chatUnread} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
               <MessageSquareText size={16} />
             </HeaderIcon>}
-          </div>
-        </div>
-        <div className="row gap-12 center-v" style={{ marginTop: 18 }}>
+      </>}
+      identity={<>
           <SafeImg src={business?.coverImage} variant="photo" style={{ width: 58, height: 58, borderRadius: 16, border: "2px solid rgba(255,255,255,.4)" }} />
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="row gap-6 center-v">
@@ -81,26 +68,24 @@ export default function BusinessConsoleHeader({
             <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
             <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>{subtitle}</div>
           </div>
-        </div>
-        {/* Below the identity row, not beside it: beside it they took ~130px and truncated the shop name to "Sharma Kiran…". */}
-        <div className="row gap-8 center-v" style={{ marginTop: 12 }}>
+      </>}
+      actions={<>
           <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "8px 14px", borderRadius: 999, whiteSpace: "nowrap" }} onClick={() => nav(`/business/${id}`)}>
             {t("map_view_shop")}
           </button>
           {isOwner && (
-            <button className="icon-btn-sm" aria-label={t("mdash_share_shop")} onClick={onShare} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
+            <button className="icon-btn-sm console-header-icon" aria-label={t("mdash_share_shop")} onClick={onShare} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
               <Share2 size={16} />
             </button>
           )}
-        </div>
-      </div>
-    </header>
+      </>}
+    />
   );
 }
 
 function HeaderIcon({ label, count, secondaryDot = false, onClick, children }: { label: string; count: number; secondaryDot?: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button className="icon-btn-sm" aria-label={label} onClick={onClick} style={{ background: "rgba(255,255,255,.16)", color: "#fff", position: "relative" }}>
+    <button className="icon-btn-sm console-header-icon" aria-label={label} onClick={onClick} style={{ background: "rgba(255,255,255,.16)", color: "#fff", position: "relative" }}>
       {children}
       {(count > 0 || secondaryDot) && (
         <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: count > 0 ? "var(--red-500)" : "var(--accent-500)" }} />

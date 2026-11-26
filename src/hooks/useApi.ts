@@ -154,7 +154,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey
 
 export function useQueryWithRealtime<T>(
   fn: () => Promise<T>,
-  tableName: string,
+  tableName: string | null,
   deps: unknown[] = [],
   filter?: string,
   cacheKey?: string
@@ -174,7 +174,8 @@ export function useQueryWithRealtime<T>(
   refetchRef.current = state.refetch;
 
   useEffect(() => {
-    if (!hasSupabaseEnv) return;
+    if (!hasSupabaseEnv || !tableName) return;
+    const table = tableName;
 
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -193,7 +194,7 @@ export function useQueryWithRealtime<T>(
     function subscribe() {
       if (!active) return;
       const uniqueId = Math.random().toString(36).slice(2, 9);
-      let channelName = `rt:${tableName}:${uniqueId}`;
+      let channelName = `rt:${table}:${uniqueId}`;
       if (filter) channelName += `:${filter}`;
 
       const channel = sb
@@ -203,7 +204,7 @@ export function useQueryWithRealtime<T>(
           {
             event: "*",
             schema: "public",
-            table: tableName,
+            table,
             ...(filter ? { filter } : {}),
           },
           () => {
