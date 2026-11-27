@@ -2,6 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Place } from "@/types";
+import { requireMarketplaceEntry, visibleMarketplaceEntries } from "./catalogService";
 
 // Staff-curated (or user-suggested) points of interest. request() is the
 // customer path — always lands PENDING, needs admin approval (adminService
@@ -10,6 +11,7 @@ import type { Place } from "@/types";
 // only allows when the caller is actually an admin (insert_places policy).
 export const placesService = {
   async request(data: Partial<Place>): Promise<Place> {
+    await requireMarketplaceEntry(data);
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in to suggest a place");
@@ -20,6 +22,7 @@ export const placesService = {
   },
 
   async createAsAdmin(data: Partial<Place>): Promise<Place> {
+    await requireMarketplaceEntry(data);
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in first");
@@ -33,10 +36,11 @@ export const placesService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("places").select("*").eq("id", id).maybeSingle();
     throwIfError(error);
-    return data ? toCamel<Place>(data) : undefined;
+    return data ? (await visibleMarketplaceEntries([toCamel<Place>(data)]))[0] : undefined;
   },
 
   async update(id: string, patch: Partial<Place>): Promise<Place> {
+    await requireMarketplaceEntry(patch);
     const sb = getSupabase();
     const { data, error } = await sb.from("places").update(toSnake(patch)).eq("id", id).select().maybeSingle();
     throwIfError(error);

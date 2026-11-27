@@ -6,15 +6,11 @@ import { useBusinessAccess } from "@/lib/businessAccess";
 import { useI18n } from "@/lib/i18n";
 import { inr } from "@/lib/format";
 import { errorMessage } from "@/lib/errorMessage";
-import { Package, Wallet } from "@/components/Icons";
+import { ChevronDown, Package, Wallet } from "@/components/Icons";
 
 /**
  * What the shop owner needs above the delivery list: how many orders are waiting for a rider, the cash riders are holding,
- * and a 30-day summary. Every query degrades to "nothing to show" on failure, so a database that hasn't had migration
- * 20261001 yet leaves the existing list exactly as it was.
- *
- * The money panels (rider cash, unpaid deliveries, the summary with fees) need the `money` scope, as their functions do
- * since 20261018 (GAPS #51). Without it the queries aren't even sent; the "waiting for a rider" line still shows.
+ * and a collapsible 30-day summary (so urgent orders stay front-and-center).
  */
 export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { businessId: string; awaitingCount: number }) {
   const { t, tf } = useI18n();
@@ -22,6 +18,7 @@ export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { bus
   const canSeeMoney = useBusinessAccess().hasScope("money");
   const [settling, setSettling] = useState<string | null>(null);
   const [collecting, setCollecting] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const cashKey = `delivery:cash:${businessId}`;
   const { data: cash, refetch: refetchCash } = useQuery(
@@ -137,26 +134,55 @@ export default function DeliveryOwnerPanels({ businessId, awaitingCount }: { bus
       )}
 
       {hasStats && stats && (
-        <div className="card col gap-12" style={{ padding: 14 }}>
-          <div className="row between center-v">
-            <span className="semi small">{t("dlv_stats_title")}</span>
-            <span className="tiny muted">{tf("dlv_stats_period", { n: stats.days })}</span>
-          </div>
-          <div className="row" style={{ gap: 0 }}>
-            <Stat label={t("dlv_stat_delivered")} value={String(stats.delivered)} color="var(--green-600)" />
-            <Stat label={t("dlv_stat_avg")} value={stats.avgMinutes == null ? "—" : tf("dlv_stat_min", { n: stats.avgMinutes })} />
-            <Stat label={t("dlv_stat_cancelled")} value={String(stats.cancelled)} color={stats.cancelled > 0 ? "var(--red-600)" : undefined} />
-            <Stat label={t("dlv_stat_fees")} value={inr(stats.feesCollected)} />
-          </div>
-          {stats.perAgent.length > 0 && (
-            <div className="col gap-6" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-              <span className="tiny semi muted">{t("dlv_stat_per_rider")}</span>
-              {stats.perAgent.map((a) => (
-                <div key={a.agentUserId} className="row between small">
-                  <span>{a.name}</span>
-                  <span className="semi">{a.delivered}</span>
+        <div className="card col" style={{ padding: 0, overflow: "hidden" }}>
+          <button
+            type="button"
+            className="row between center-v"
+            aria-expanded={summaryOpen}
+            onClick={() => setSummaryOpen((v) => !v)}
+            style={{ width: "100%", padding: "11px 14px", background: "var(--surface)", textAlign: "left" }}
+          >
+            <div className="row gap-8 center-v" style={{ minWidth: 0 }}>
+              <span className="semi small">{t("dlv_stats_title")}</span>
+              {!summaryOpen && (
+                <span className="tiny muted ellipsis">
+                  · {stats.delivered} {t("dlv_stat_delivered").toLowerCase()} · {inr(stats.feesCollected)}
+                </span>
+              )}
+            </div>
+            <div className="row gap-6 center-v" style={{ flexShrink: 0 }}>
+              <span className="tiny muted">{tf("dlv_stats_period", { n: stats.days })}</span>
+              <span
+                style={{
+                  color: "var(--ink-400)",
+                  display: "inline-flex",
+                  transform: summaryOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                <ChevronDown size={16} />
+              </span>
+            </div>
+          </button>
+          {summaryOpen && (
+            <div className="col gap-12" style={{ padding: "0 14px 14px", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+              <div className="row" style={{ gap: 0 }}>
+                <Stat label={t("dlv_stat_delivered")} value={String(stats.delivered)} color="var(--green-600)" />
+                <Stat label={t("dlv_stat_avg")} value={stats.avgMinutes == null ? "—" : tf("dlv_stat_min", { n: stats.avgMinutes })} />
+                <Stat label={t("dlv_stat_cancelled")} value={String(stats.cancelled)} color={stats.cancelled > 0 ? "var(--red-600)" : undefined} />
+                <Stat label={t("dlv_stat_fees")} value={inr(stats.feesCollected)} />
+              </div>
+              {stats.perAgent.length > 0 && (
+                <div className="col gap-6" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                  <span className="tiny semi muted">{t("dlv_stat_per_rider")}</span>
+                  {stats.perAgent.map((a) => (
+                    <div key={a.agentUserId} className="row between small">
+                      <span>{a.name}</span>
+                      <span className="semi">{a.delivered}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

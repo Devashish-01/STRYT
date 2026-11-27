@@ -10,6 +10,7 @@ import {
   isNativePlatform,
   nativeHasPendingVerification,
   nativeWasAutoVerified,
+  nativeRestoreAutoVerification,
   onNativeAutoVerified,
   hasPendingPhoneVerification,
 } from "@/lib/nativeAuth";
@@ -33,14 +34,18 @@ export default function OtpVerify() {
   // leaves a code screen that can never verify. Send them back to request a fresh code instead of stranding them.
   // `?preview` (dev builds only, compiled out of production) lets design/e2e tooling open this screen without sending an SMS.
   const preview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
-  const verificationLost =
-    !preview && !state?.autoVerified && !(isNativePlatform() ? nativeHasPendingVerification() : hasPendingPhoneVerification());
+  const verificationLost = !preview && !state?.autoVerified && !hasPendingPhoneVerification();
 
   useEffect(() => {
     if (!phone) { nav("/auth/phone", { replace: true }); return; }
-    if (verificationLost) {
+    if (!isNativePlatform() && verificationLost) {
       showToast(t("otp_err_session_lost"));
       nav("/auth/phone", { replace: true });
+    } else if (isNativePlatform() && !state?.autoVerified && !nativeHasPendingVerification()) {
+      void nativeRestoreAutoVerification().then((restored) => {
+        if (restored) void verify(null);
+        else { showToast(t("otp_err_session_lost")); nav("/auth/phone", { replace: true }); }
+      });
     }
     // Runs once per mount: the decision is about how this screen was entered.
     // eslint-disable-next-line react-hooks/exhaustive-deps

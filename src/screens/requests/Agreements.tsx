@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAgreementClosed } from "@/lib/machines/agreement";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { inr } from "@/lib/format";
+import { formatOrderDateTime, inr } from "@/lib/format";
 import { NoDealsIllustration, NoAppointmentsIllustration } from "@/components/illustrations";
 import { requestService, appointmentService, businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { ChevronRight, Package, Store, CreditCard } from "@/components/Icons";
+import { ChevronRight, Package, Store, CreditCard, MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
 import { openProfile } from "@/lib/profileSheet";
 import { AGREEMENT_STATUS_BADGE, APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n";
 import { CompactOrderCard } from "@/components/appointments/CompactOrderCard";
 import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { OrderLines } from "@/components/OrderLines";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
 import { amountDue } from "@/lib/orderLines";
 import { PaymentSheet } from "@/components/PaymentSheet";
@@ -33,15 +34,21 @@ export default function Agreements() {
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, showToast } = useApp();
-  const { t, tf } = useI18n();
+  const { t, tf, lang } = useI18n();
 
   // Primary mode: Store Orders & Deliveries vs Street Deals
   const sectionParam = searchParams.get("section");
+  const tabParam = searchParams.get("tab");
+  const focusOrderId = searchParams.get("orderId");
+
   const [section, setSection] = useState<"orders" | "deals">(
     sectionParam === "deals" ? "deals" : "orders"
   );
 
-  const [tab, setTab] = useState<"active" | "completed">("active");
+  const [tab, setTab] = useState<"active" | "completed">(
+    tabParam === "completed" ? "completed" : "active"
+  );
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(focusOrderId);
 
   // Secondary submodal states for orders
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
@@ -99,6 +106,42 @@ export default function Agreements() {
       .filter((a) => !isLiveOrder(a))
       .sort((a, b) => new Date(b.scheduledForISO || b.createdAtISO).getTime() - new Date(a.scheduledForISO || a.createdAtISO).getTime());
   }, [allOrders]);
+
+  // Sync section/tab when navigated via deep-link (e.g. from BusinessDetail → Mine)
+  useEffect(() => {
+    if (sectionParam === "deals" || sectionParam === "orders") {
+      setSection(sectionParam);
+    }
+    if (tabParam === "active" || tabParam === "completed") {
+      setTab(tabParam);
+    }
+  }, [sectionParam, tabParam]);
+
+  // Once orders load for a targeted `orderId`, ensure the right tab is active,
+  // scroll straight down to that order card, and briefly highlight it.
+  useEffect(() => {
+    if (!focusOrderId || ordersLoading || !ordersData) return;
+    const inActive = activeOrders.some((a) => a.id === focusOrderId);
+    const inCompleted = completedOrders.some((a) => a.id === focusOrderId);
+    if (!inActive && !inCompleted) return;
+
+    setSection("orders");
+    setTab(inActive ? "active" : "completed");
+    setHighlightedOrderId(focusOrderId);
+
+    const scrollTimer = window.setTimeout(() => {
+      const el = document.getElementById(`order-${focusOrderId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedOrderId((curr) => (curr === focusOrderId ? null : curr));
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [focusOrderId, ordersLoading, ordersData, activeOrders, completedOrders]);
 
   function switchSection(next: "orders" | "deals") {
     setSection(next);
@@ -170,7 +213,7 @@ export default function Agreements() {
           }}
         >
           <span>🛍️</span>
-          <span>Store Orders ({activeOrders.length})</span>
+          <span>Store Orders{activeOrders.length > 0 ? ` (${activeOrders.length})` : ""}</span>
         </button>
 
         <button
@@ -191,7 +234,7 @@ export default function Agreements() {
           }}
         >
           <span>🤝</span>
-          <span>Street Deals ({activeDeals.length})</span>
+          <span>Street Deals{activeDeals.length > 0 ? ` (${activeDeals.length})` : ""}</span>
         </button>
       </div>
 
@@ -266,7 +309,17 @@ export default function Agreements() {
                 const due = amountDue(apt);
 
                 return (
-                  <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
+                  <div
+                    key={apt.id}
+                    id={`order-${apt.id}`}
+                    className="card col gap-10 queue-row-enter"
+                    style={{
+                      padding: 14,
+                      border: highlightedOrderId === apt.id ? "2px solid var(--brand-400)" : undefined,
+                      boxShadow: highlightedOrderId === apt.id ? "0 0 0 3px var(--brand-100)" : undefined,
+                      transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+                    }}
+                  >
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>
@@ -276,8 +329,8 @@ export default function Agreements() {
                           <Package size={12} color="var(--delivery-600)" />
                           <span>
                             {apt.isAsap
-                              ? `${t("dlv_asap_tag") || "ASAP"} · by ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                              : `${apt.dateLabel} · at ${apt.timeLabel}`}
+                              ? `${formatOrderDateTime(apt.createdAtISO, lang, t)} · ${t("dlv_asap_tag") || "ASAP"} (by ${new Date(apt.scheduledForISO).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`
+                              : formatOrderDateTime(apt.createdAtISO || apt.scheduledForISO, lang, t, { dateLabel: apt.dateLabel, timeLabel: apt.timeLabel })}
                           </span>
                         </div>
                       </div>
@@ -310,13 +363,33 @@ export default function Agreements() {
                       />
                     )}
 
-                    {/* Order line items */}
+                    {/* Unified receipt: order line items + inline payment status */}
                     {apt.items && apt.items.length > 0 && (
-                      <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
-                        <OrderLines lines={apt.items} fee={isDelivery ? apt.deliveryFee : undefined} />
+                      <div className="col gap-8">
+                        <OrderLines
+                          lines={apt.items}
+                          fee={isDelivery ? apt.deliveryFee : undefined}
+                          footer={
+                            apt.paymentStatus && apt.paymentStatus !== "UNPAID" ? (
+                              <PaymentStatusCard
+                                variant="inline"
+                                hideAmount
+                                paymentStatus={apt.paymentStatus}
+                                paymentMethod={apt.paymentMethod}
+                                paymentAmount={apt.paymentAmount}
+                                paymentReference={apt.paymentReference}
+                                claimantName="You"
+                                viewerIsPayer
+                              />
+                            ) : undefined
+                          }
+                        />
                         {isDelivery && apt.deliveryAddressLine && (
-                          <div className="tiny" style={{ color: "var(--ink-700)", marginTop: 4 }}>
-                            📍 <strong>{t("ord_deliver_to") || "Deliver to"}:</strong> {apt.deliveryAddressLine}
+                          <div className="tiny row gap-6" style={{ color: "var(--ink-700)", alignItems: "flex-start" }}>
+                            <MapPin size={13} color="var(--ink-500)" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <span>
+                              <strong>{t("ord_deliver_to")}:</strong> {apt.deliveryAddressLine}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -335,8 +408,22 @@ export default function Agreements() {
                           <span>{loadingPay === apt.id ? t("loading_ellipsis") : tf("pay_amount", { amount: due })}</span>
                         </button>
                       ) : (
-                        <div className="tiny semi" style={{ color: "var(--green-700)" }}>
-                          {apt.paymentStatus === "PAID" ? "Paid ✓" : "Pay on delivery / pickup"}
+                        <div
+                          className="tiny semi"
+                          style={{
+                            color:
+                              apt.paymentStatus === "PAID"
+                                ? "var(--green-700)"
+                                : apt.paymentStatus === "PENDING_CONFIRM"
+                                ? "var(--amber-700)"
+                                : "var(--ink-600)",
+                          }}
+                        >
+                          {apt.paymentStatus === "PAID"
+                            ? "Paid ✓"
+                            : apt.paymentStatus === "PENDING_CONFIRM"
+                            ? t("awaiting_confirmation")
+                            : t("ord_pay_on_delivery")}
                         </div>
                       )}
 
@@ -355,14 +442,17 @@ export default function Agreements() {
             ) : (
               /* Completed Orders rendered via CompactOrderCard (short by default, expand on touch!) */
               completedOrders.map((apt) => (
-                <CompactOrderCard
-                  key={apt.id}
-                  apt={apt}
-                  onRebook={(a) => openRebook(a)}
-                  onReview={(a) => setReviewingApt(a)}
-                  onPay={(a) => openPay(a)}
-                  onPreviewPhoto={(url) => setPreviewPhoto(url)}
-                />
+                <div key={apt.id} id={`order-${apt.id}`}>
+                  <CompactOrderCard
+                    apt={apt}
+                    defaultExpanded={apt.id === focusOrderId}
+                    highlighted={highlightedOrderId === apt.id}
+                    onRebook={(a) => openRebook(a)}
+                    onReview={(a) => setReviewingApt(a)}
+                    onPay={(a) => openPay(a)}
+                    onPreviewPhoto={(url) => setPreviewPhoto(url)}
+                  />
+                </div>
               ))
             )}
           </>

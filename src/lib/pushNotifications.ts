@@ -16,6 +16,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 // store.tsx calls registerPush right after sign-in — without Firebase init,
 // PushNotifications.register() can crash the process on the native side.
 const FCM_READY = true;
+let currentNativeToken: string | null = null;
 
 export async function registerPush(userId: string, options: { requestPermission?: boolean } = {}): Promise<void> {
   if (Capacitor.isNativePlatform()) {
@@ -36,6 +37,7 @@ export async function registerPush(userId: string, options: { requestPermission?
       await PushNotifications.removeAllListeners();
 
       PushNotifications.addListener("registration", async (token) => {
+        currentNativeToken = token.value;
         const sb = getSupabase();
         await sb.from("fcm_tokens").upsert(
           {
@@ -64,13 +66,6 @@ export async function registerPush(userId: string, options: { requestPermission?
         console.warn("FCM registration error:", error);
       });
 
-      PushNotifications.addListener("pushNotificationReceived", (notification) => {
-        // DEV only: the payload carries the notification title/body and deep
-        // link, which can name a customer or a booking. Not something to write
-        // to a production device log.
-        if (import.meta.env.DEV) console.log("FCM notification received:", notification);
-      });
-
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
         // Tapping one notification only dismisses that one; anything else this
         // app queued stays in the tray. The user is now looking at the app, so
@@ -84,6 +79,23 @@ export async function registerPush(userId: string, options: { requestPermission?
           // forced a full reload (splash, lost state) on every notification tap.
           window.dispatchEvent(new CustomEvent("push-nav", { detail: data.url }));
         }
+      });
+
+      PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        // DEV only: the payload carries the notification title/body and deep
+        // link, which can name a customer or a booking. Not something to write
+        // to a production device log.
+        if (import.meta.env.DEV) console.log("FCM notification received:", notification);
+        const data = notification.data ?? {};
+        const payload = {
+          id: typeof data.id === "string" ? data.id : undefined,
+          title: notification.title ?? "",
+          body: notification.body ?? "",
+          url: typeof data.url === "string" ? data.url : typeof data.deepLink === "string" ? data.deepLink : "/notifications",
+          type: String(data.type ?? "SYSTEM"),
+        };
+        // Android FCM hides OS banners while the app is foregrounded, so surface it to the in-app realtime bus.
+        window.dispatchEvent(new CustomEvent("push-received", { detail: payload }));
       });
 
       // Attach listeners BEFORE register() — see the ordering comment above.
@@ -151,8 +163,14 @@ export async function clearDeliveredNotifications(): Promise<void> {
 export async function unregisterPush(userId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
-      const sb = getSupabase();
-      await sb.from("fcm_tokens").delete().eq("user_id", userId);
+      if (currentNativeToken) {
+        const sb = getSupabase();
+        const { error } = await sb.from("fcm_tokens").delete().eq("user_id", userId).eq("token", currentNativeToken);
+        if (error) throw error;
+      }
+      currentNativeToken = null;
+      await PushNotifications.removeAllListeners();
+      await PushNotifications.removeAllDeliveredNotifications();
     } catch (e) {
       console.warn("Native token removal failed:", e);
     }

@@ -34,6 +34,78 @@ export function formatDate(iso: string, lang: string, opts?: Intl.DateTimeFormat
   return new Date(iso).toLocaleDateString(locale, opts ?? { day: "numeric", month: "short", year: "numeric" });
 }
 
+/**
+ * Formats an order timestamp as a relative day + short local time
+ * (e.g. "Today, 1:42 PM", "Yesterday, 6:10 PM", or "24 Nov, 6:10 PM").
+ * Falls back to static dateLabel/timeLabel when no valid ISO timestamp exists.
+ */
+export function formatOrderDateTime(
+  iso: string | undefined | null,
+  lang: string,
+  t: (key: string) => string,
+  fallback?: { dateLabel?: string; timeLabel?: string }
+): string {
+  if (iso) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) {
+      const locale = LOCALE_BY_LANG[lang] ?? "en-IN";
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const targetDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diffDays = Math.round((targetDay.getTime() - startOfToday.getTime()) / 86400000);
+
+      let dayPart: string;
+      if (diffDays === 0) {
+        dayPart = t("today_word");
+      } else if (diffDays === -1) {
+        dayPart = t("yesterday_word");
+      } else if (diffDays === 1) {
+        dayPart = t("tomorrow_word");
+      } else {
+        const dateOpts: Intl.DateTimeFormatOptions =
+          d.getFullYear() === now.getFullYear()
+            ? { day: "numeric", month: "short" }
+            : { day: "numeric", month: "short", year: "numeric" };
+        dayPart = d.toLocaleDateString(locale, dateOpts);
+      }
+
+      const timePart = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+      return `${dayPart}, ${timePart}`;
+    }
+  }
+
+  const fbTime = fallback?.timeLabel && fallback.timeLabel !== "ASAP" ? fallback.timeLabel : undefined;
+  return [fallback?.dateLabel, fbTime].filter(Boolean).join(", ");
+}
+
+/**
+ * Formats a concrete calendar date + local time for expanded order receipts
+ * (e.g. "26 Nov, 1:42 PM" or "26 Nov 2025, 1:42 PM").
+ */
+export function formatFullOrderDateTime(
+  iso: string | undefined | null,
+  lang: string,
+  fallback?: { dateLabel?: string; timeLabel?: string }
+): string {
+  if (iso) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) {
+      const locale = LOCALE_BY_LANG[lang] ?? "en-IN";
+      const now = new Date();
+      const dateOpts: Intl.DateTimeFormatOptions =
+        d.getFullYear() === now.getFullYear()
+          ? { day: "numeric", month: "short" }
+          : { day: "numeric", month: "short", year: "numeric" };
+      const datePart = d.toLocaleDateString(locale, dateOpts);
+      const timePart = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+      return `${datePart}, ${timePart}`;
+    }
+  }
+
+  const fbTime = fallback?.timeLabel && fallback.timeLabel !== "ASAP" ? fallback.timeLabel : undefined;
+  return [fallback?.dateLabel, fbTime].filter(Boolean).join(", ");
+}
+
 /** Rupees, the way every price in the app is written. Lived in components/common.tsx, which meant a
  *  currency format could not be used outside a component file without dragging the whole component
  *  module in. */

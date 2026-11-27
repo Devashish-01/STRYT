@@ -80,6 +80,7 @@ function clearNativeVerification(): void {
   try {
     sessionStorage.removeItem("native_verification_id");
     sessionStorage.removeItem("native_verification_at");
+    sessionStorage.removeItem("native_auto_verified_at");
   } catch {}
 }
 
@@ -100,6 +101,19 @@ export function onNativeAutoVerified(cb: () => void): () => void {
 }
 
 export const nativeWasAutoVerified = (): boolean => _nativeAutoVerified;
+
+/** Restore an auto-verified phone session after the WebView was reloaded. */
+export async function nativeRestoreAutoVerification(): Promise<boolean> {
+  if (_nativeAutoVerified) return true;
+  const verifiedAt = Number(sessionStorage.getItem("native_auto_verified_at") ?? 0);
+  if (!verifiedAt || Date.now() - verifiedAt > VERIFICATION_TTL_MS) return false;
+  try {
+    const { FirebaseAuthentication } = await import("@capacitor-firebase/authentication");
+    const token = (await FirebaseAuthentication.getIdToken()).token;
+    _nativeAutoVerified = !!token;
+    return _nativeAutoVerified;
+  } catch { return false; }
+}
 
 /** True while a code can still be confirmed (or the number was already auto-verified). Survives a WebView reload. */
 export const nativeHasPendingVerification = (): boolean => _nativeAutoVerified || storedVerificationId() !== null;
@@ -132,6 +146,7 @@ export async function nativeSendPhoneOtp(phoneNumber: string, opts: { resend?: b
   // was sent, while the user is on the code screen. Removed on the next send / successful verify.
   _completedHandle = await FirebaseAuthentication.addListener("phoneVerificationCompleted", () => {
     _nativeAutoVerified = true;
+    sessionStorage.setItem("native_auto_verified_at", String(Date.now()));
     _autoVerifyListeners.forEach((cb) => { try { cb(); } catch {} });
     void settle(() => resolveOutcome({ autoVerified: true }));
   });

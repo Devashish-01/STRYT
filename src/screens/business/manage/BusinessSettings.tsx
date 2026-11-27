@@ -8,7 +8,8 @@ import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/se
 import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2, Star, MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
-import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
+import { MARKETPLACE_PACKAGE_KEYS } from "@/lib/marketplaceScope";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryTermsEditor from "@/components/delivery/DeliveryTermsEditor";
 import { useI18n } from "@/lib/i18n";
@@ -660,7 +661,7 @@ export default function BusinessSettings() {
           <SettingsRow icon={<BadgeCheck size={18} />} label={t("bset_verification")} hint={t("bset_verification_hint")} onClick={() => nav(`/business/${id}/manage/verify`)} />
         </SettingsSection>
 
-        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
+        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: user.name || "Personal" }); nav("/home"); }}>
           Exit business mode
         </button>
 
@@ -703,7 +704,7 @@ export default function BusinessSettings() {
               try {
                 await businessService.delete(id);
                 showToast(t("bset_business_deleted"));
-                setContext({ type: "customer", id: null, name: "Personal" });
+                setContext({ type: "customer", id: null, name: user.name || "Personal" });
                 await refreshUser();
                 nav("/home");
               } catch (e: any){
@@ -735,7 +736,7 @@ export default function BusinessSettings() {
           variant="bottom-sheet"
         >
           <div className="col gap-8">
-            {PACKAGE_KEYS.map((key) => {
+            {MARKETPLACE_PACKAGE_KEYS.map((key) => {
               const p = BUSINESS_PACKAGES[key];
               const active = pkg.key === key;
               return (

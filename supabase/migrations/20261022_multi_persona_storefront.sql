@@ -71,14 +71,26 @@ select
   a.status,
   a.payment_status,
   a.scheduled_for,
-  a.items,
-  a.total_amount,
+  item_summary.items,
+  case when item_summary.item_count > 0
+    then item_summary.item_total + coalesce(a.delivery_fee, 0)
+    else coalesce(a.package_price, 0) + coalesce(a.delivery_fee, 0)
+  end as total_amount,
   a.created_at,
   case 
     when a.fulfillment_type = 'DELIVERY' then 'ORDER'
-    when a.items is not null and jsonb_array_length(a.items) > 0 then 'ORDER'
+    when item_summary.item_count > 0 then 'ORDER'
     else 'APPOINTMENT'
   end as activity_kind
-from public.appointments a;
+from public.appointments a
+left join lateral (
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'name', ai.item_name, 'unitPrice', ai.unit_price, 'quantity', ai.quantity
+  )), '[]'::jsonb) as items,
+  coalesce(sum(ai.unit_price * ai.quantity), 0) as item_total,
+  count(*) as item_count
+  from public.appointment_items ai
+  where ai.appointment_id = a.id
+) item_summary on true;
 
 grant select on public.customer_unified_activity to authenticated;

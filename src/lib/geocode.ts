@@ -7,6 +7,7 @@ import { config } from "@/config";
 import { primaryProvider, fallbackProvider } from "./geo";
 import type { ReverseHit } from "./geo";
 import { withDeadline } from "./fetchJson";
+import { isExcludedMarketplaceEntry, RESTRICTED_ANDROID_MARKETPLACE } from "./marketplaceScope";
 
 export interface GeoPlace {
   area: string;   // short name — neighbourhood/locality (e.g. "Marathahalli")
@@ -361,7 +362,10 @@ export async function forwardGeocode(query: string): Promise<GeoPlace[]> {
   const country = config.defaultCountry || "in";
   const cacheKey = `fwd:${country}:${q.toLowerCase()}`;
   const cached = cacheGet<GeoPlace[]>(cacheKey);
-  if (cached) return cached;
+  const visible = (hits: GeoPlace[]) => RESTRICTED_ANDROID_MARKETPLACE
+    ? hits.filter((place) => !isExcludedMarketplaceEntry({ name: place.area }))
+    : hits;
+  if (cached) return visible(cached);
 
   // Primary first. This path is search-as-you-type (Explore, the map SearchBar,
   // onboarding), which is the single worst thing to point at Nominatim — their
@@ -369,14 +373,14 @@ export async function forwardGeocode(query: string): Promise<GeoPlace[]> {
   const primaryHits = await primaryProvider().forward(q, country);
   if (primaryHits.length) {
     cacheSet(cacheKey, primaryHits);
-    return primaryHits;
+    return visible(primaryHits);
   }
 
   try {
     const out = await queueNominatim(() => fallbackProvider().forward(q, country));
     if (!out.length) return [];
     cacheSet(cacheKey, out);
-    return out;
+    return visible(out);
   } catch {
     return [];
   }

@@ -103,20 +103,35 @@ self.addEventListener("push", function (event) {
   }
 
   const deepLink = data.url || data.deepLink || "/";
+  const payload = {
+    title: data.title,
+    body: data.body,
+    url: deepLink,
+    type: data.type || "SYSTEM",
+  };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      // PNG, not SVG — several browsers silently drop SVG notification icons.
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      // Group by type so a burst of the same kind coalesces into one banner.
-      tag: data.type || "STRYT",
-      renotify: true, // still alerts (sound/vibrate) when a tagged banner updates
-      vibrate: [200, 100, 200],
-      requireInteraction: false,
-      data: { deepLink, type: data.type || "SYSTEM" },
-    })
+    Promise.all([
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
+        for (const c of cs) {
+          if (c.url.includes(self.location.origin)) {
+            c.postMessage({ ...payload, type: "PUSH_RECEIVED" });
+          }
+        }
+      }),
+      self.registration.showNotification(data.title, {
+        body: data.body,
+        // PNG, not SVG — several browsers silently drop SVG notification icons.
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        // Group by type so a burst of the same kind coalesces into one banner.
+        tag: data.type || "STRYT",
+        renotify: true, // still alerts (sound/vibrate) when a tagged banner updates
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+        data: { deepLink, type: data.type || "SYSTEM" },
+      }),
+    ])
   );
 });
 

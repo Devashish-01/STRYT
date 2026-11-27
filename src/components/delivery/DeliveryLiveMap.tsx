@@ -3,7 +3,11 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { RASTER_TILES } from "@/lib/mapTiles";
 import { useI18n } from "@/lib/i18n";
-import { Target, Plus, Minus } from "@/components/Icons";
+import { useApp } from "@/store";
+import { Plus, Minus } from "@/components/Icons";
+import { MapLocateButton } from "@/components/MapLocateButton";
+import { recognizeLocation, requestPreciseLocation } from "@/lib/mapLocate";
+import { resolveDeliveryRouteEndpoints } from "@/lib/geo/deliveryRoute";
 import { getRoadRoute, type RoadRoute } from "@/lib/geo/routing";
 import { useMarkerInterpolation } from "./useMarkerInterpolation";
 
@@ -18,8 +22,12 @@ export interface DeliveryLiveMapProps {
   destLat?: number | null;
   destLng?: number | null;
   destAddress?: string | null;
+  /** Optional short label for the destination pin (e.g. customer name in rider view). */
+  destLabel?: string | null;
   status?: string | null;
   etaMinutes?: number | null;
+  viewerRole?: "CUSTOMER" | "RIDER";
+  onLocateFix?: (fix: { lat: number; lng: number; accuracy?: number }) => void;
   className?: string;
   style?: React.CSSProperties;
   interactive?: boolean;
@@ -37,14 +45,18 @@ export default function DeliveryLiveMap({
   destLat,
   destLng,
   destAddress,
+  destLabel,
   status = "EN_ROUTE",
   etaMinutes,
+  viewerRole = "CUSTOMER",
+  onLocateFix,
   className = "",
   style,
   interactive = true,
   bottomSheetOffsetPx = 180,
 }: DeliveryLiveMapProps) {
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
+  const { showToast } = useApp();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const riderMarkerRef = useRef<L.Marker | null>(null);
@@ -53,7 +65,9 @@ export default function DeliveryLiveMap({
   const destCircleRef = useRef<L.Circle | null>(null);
   const polylineCasingRef = useRef<L.Polyline | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
+  const previewLineRef = useRef<L.Polyline | null>(null);
   const userPannedRef = useRef(false);
+  const programmaticMoveRef = useRef(false);
 
   // Smooth 60 FPS marker interpolation for rider coordinates & heading
   const animatedRider = useMarkerInterpolation(riderLat, riderLng, riderHeading, 2200);
@@ -69,8 +83,8 @@ export default function DeliveryLiveMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const initialLat = riderLat ?? destLat ?? storeLat ?? 18.5204;
-    const initialLng = riderLng ?? destLng ?? storeLng ?? 73.8567;
+    const initialLat = riderLat ?? storeLat ?? destLat ?? 18.5204;
+    const initialLng = riderLng ?? storeLng ?? destLng ?? 73.8567;
 
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
@@ -89,8 +103,15 @@ export default function DeliveryLiveMap({
       className: "delivery-map-tiles",
     }).addTo(map);
 
-    map.on("dragstart", () => {
-      userPannedRef.current = true;
+    const markUserAdjusted = () => {
+      if (!programmaticMoveRef.current) {
+        userPannedRef.current = true;
+      }
+    };
+    map.on("dragstart", markUserAdjusted);
+    map.on("zoomstart", markUserAdjusted);
+    map.on("moveend", () => {
+      programmaticMoveRef.current = false;
     });
 
     mapRef.current = map;
@@ -122,23 +143,19 @@ export default function DeliveryLiveMap({
   }, [interactive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2. Fetch Turn-by-Turn Road Route
-  // If rider is assigned but not picked up yet, route to the store!
-  const isPickupPhase = status === "ASSIGNED" && storeLat != null && storeLng != null;
-
-  const routeOrigin = useMemo(() => {
-    if (riderLat != null && riderLng != null) return { lat: riderLat, lng: riderLng };
-    if (storeLat != null && storeLng != null) return { lat: storeLat, lng: storeLng };
-    return null;
-  }, [riderLat, riderLng, storeLat, storeLng]);
-
-  const routeDestination = useMemo(() => {
-    if (isPickupPhase) {
-      return { lat: storeLat!, lng: storeLng! };
-    }
-    if (destLat != null && destLng != null) return { lat: destLat, lng: destLng };
-    if (storeLat != null && storeLng != null) return { lat: storeLat, lng: storeLng };
-    return null;
-  }, [isPickupPhase, storeLat, storeLng, destLat, destLng]);
+  const { origin: routeOrigin, destination: routeDestination, previewLeg } = useMemo(
+    () =>
+      resolveDeliveryRouteEndpoints({
+        riderLat,
+        riderLng,
+        storeLat,
+        storeLng,
+        destLat,
+        destLng,
+        status,
+      }),
+    [riderLat, riderLng, storeLat, storeLng, destLat, destLng, status]
+  );
 
   useEffect(() => {
     if (!routeOrigin || !routeDestination) {
@@ -217,7 +234,10 @@ export default function DeliveryLiveMap({
   useEffect(() => {
     if (!mapRef.current || destLat == null || destLng == null) return;
 
-    const destLabel = t("dlv_trk_dest_tooltip") || "Doorstep";
+    const resolvedDestLabel =
+      viewerRole === "RIDER"
+        ? destLabel || t("dlv_map_dropoff")
+        : destLabel || t("dlv_trk_dest_tooltip") || "Your Doorstep";
     const destIcon = L.divIcon({
       html: `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
@@ -225,7 +245,7 @@ export default function DeliveryLiveMap({
             🏠
           </div>
           <div style="margin-top:3px;white-space:nowrap;background:var(--red-600);color:#ffffff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.25);pointer-events:none;">
-            ${destLabel}
+            ${resolvedDestLabel}
           </div>
         </div>
       `,
@@ -255,7 +275,7 @@ export default function DeliveryLiveMap({
         dashArray: "4, 6",
       }).addTo(mapRef.current);
     }
-  }, [destLat, destLng, destAddress, t]);
+  }, [destLat, destLng, destAddress, destLabel, viewerRole, t]);
 
   // 5. Rider Vehicle Marker with Headlight Beam Cone & Dynamic Bearing
   useEffect(() => {
@@ -318,7 +338,7 @@ export default function DeliveryLiveMap({
     let points: [number, number][] = [];
 
     if (roadRoute && roadRoute.coordinates.length > 1) {
-      if (animatedRider.lat != null && animatedRider.lng != null) {
+      if (animatedRider.lat != null && animatedRider.lng != null && routeOrigin && Math.abs(animatedRider.lat - routeOrigin.lat) < 0.05) {
         let closestIdx = 0;
         let minD = Infinity;
         for (let i = 0; i < roadRoute.coordinates.length; i++) {
@@ -333,17 +353,12 @@ export default function DeliveryLiveMap({
       } else {
         points = roadRoute.coordinates;
       }
-    } else {
-      // Euclidean fallback
-      if (storeLat != null && storeLng != null && (animatedRider.lat == null || status === "ASSIGNED")) {
-        points.push([storeLat, storeLng]);
-      }
-      if (animatedRider.lat != null && animatedRider.lng != null) {
-        points.push([animatedRider.lat, animatedRider.lng]);
-      }
-      if (destLat != null && destLng != null && status !== "ASSIGNED") {
-        points.push([destLat, destLng]);
-      }
+    } else if (routeOrigin && routeDestination) {
+      // Euclidean fallback matching the resolved pickup/delivery leg
+      points = [
+        [routeOrigin.lat, routeOrigin.lng],
+        [routeDestination.lat, routeDestination.lng],
+      ];
     }
 
     if (points.length < 2) {
@@ -383,9 +398,36 @@ export default function DeliveryLiveMap({
         lineJoin: "round",
       }).addTo(mapRef.current);
     }
-  }, [roadRoute, animatedRider.lat, animatedRider.lng, storeLat, storeLng, destLat, destLng, status]);
+  }, [roadRoute, routeOrigin, routeDestination, animatedRider.lat, animatedRider.lng]);
 
-  // 7. Auto-fit bounds with smart bottom sheet padding
+  // 6b. Secondary dashed preview leg (Store → Drop-off while rider is heading to pickup)
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!previewLeg) {
+      if (previewLineRef.current) {
+        previewLineRef.current.remove();
+        previewLineRef.current = null;
+      }
+      return;
+    }
+    const pts: [number, number][] = [
+      [previewLeg[0].lat, previewLeg[0].lng],
+      [previewLeg[1].lat, previewLeg[1].lng],
+    ];
+    if (previewLineRef.current) {
+      previewLineRef.current.setLatLngs(pts);
+    } else {
+      previewLineRef.current = L.polyline(pts, {
+        color: "#6b21cc",
+        weight: 3,
+        opacity: 0.55,
+        dashArray: "6, 8",
+        lineCap: "round",
+      }).addTo(mapRef.current);
+    }
+  }, [previewLeg]);
+
+  // 7. Auto-fit bounds with smart bottom sheet padding (never overrides user zoom/pan on GPS ticks!)
   const fitBounds = useCallback(() => {
     if (!mapRef.current) return;
     const bounds = L.latLngBounds([]);
@@ -398,6 +440,7 @@ export default function DeliveryLiveMap({
     if (storeLat != null && storeLng != null) bounds.extend([storeLat, storeLng]);
 
     if (bounds.isValid()) {
+      programmaticMoveRef.current = true;
       mapRef.current.fitBounds(bounds, {
         paddingTopLeft: [24, 24],
         paddingBottomRight: [24, Math.min(bottomSheetOffsetPx + 24, 160)],
@@ -407,20 +450,62 @@ export default function DeliveryLiveMap({
   }, [animatedRider.lat, animatedRider.lng, riderLat, riderLng, destLat, destLng, storeLat, storeLng, bottomSheetOffsetPx]);
 
   const initialFitDone = useRef(false);
+  const lastPhaseKeyRef = useRef<string>("");
+  const phaseKey = `${status ?? ""}:${storeLat ?? ""},${storeLng ?? ""}:${destLat ?? ""},${destLng ?? ""}`;
+
   useEffect(() => {
-    if (!userPannedRef.current && (!initialFitDone.current || riderLat != null)) {
+    const phaseChanged = lastPhaseKeyRef.current !== phaseKey;
+    if (phaseChanged) {
+      lastPhaseKeyRef.current = phaseKey;
+    }
+    if (!userPannedRef.current && (!initialFitDone.current || phaseChanged)) {
       fitBounds();
       initialFitDone.current = true;
     }
-  }, [fitBounds, riderLat]);
+  }, [fitBounds, phaseKey]);
 
-  const handleRecenter = () => {
+  const handleSingleLocate = async () => {
     userPannedRef.current = false;
+    if (viewerRole === "RIDER") {
+      const { fix } = await recognizeLocation();
+      if (fix) {
+        onLocateFix?.(fix);
+        if (mapRef.current && storeLat == null && destLat == null) {
+          programmaticMoveRef.current = true;
+          mapRef.current.flyTo([fix.lat, fix.lng], 16, { duration: 0.5 });
+          return;
+        }
+      }
+    }
     fitBounds();
   };
 
-  const handleZoomIn = () => mapRef.current?.zoomIn();
-  const handleZoomOut = () => mapRef.current?.zoomOut();
+  const handleDoublePreciseLocate = async () => {
+    userPannedRef.current = false;
+    showToast(t("map_precise_asking"));
+    const { fix, state, openedSettings } = await requestPreciseLocation();
+    if (fix) {
+      onLocateFix?.(fix);
+      if (fix.precision === "precise" && typeof fix.accuracy === "number") {
+        showToast(tf("map_precise_updated", { m: Math.max(1, Math.round(fix.accuracy)) }));
+      }
+      if (mapRef.current) {
+        programmaticMoveRef.current = true;
+        mapRef.current.flyTo([fix.lat, fix.lng], Math.max(mapRef.current.getZoom(), 16), { duration: 0.5 });
+      }
+    } else if (!openedSettings && state !== "precise") {
+      showToast(t("map_precise_enable_hint"));
+    }
+  };
+
+  const handleZoomIn = () => {
+    userPannedRef.current = true;
+    mapRef.current?.zoomIn();
+  };
+  const handleZoomOut = () => {
+    userPannedRef.current = true;
+    mapRef.current?.zoomOut();
+  };
 
   // Effective ETA text
   const displayEta = useMemo(() => {
@@ -548,27 +633,12 @@ export default function DeliveryLiveMap({
             gap: 5,
           }}
         >
-          <button
-            type="button"
-            onClick={handleRecenter}
-            style={{
-              width: isCardMode ? 32 : 38,
-              height: isCardMode ? 32 : 38,
-              borderRadius: isCardMode ? 8 : 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--surface)",
-              color: "var(--ink-700)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.14)",
-              border: "1px solid var(--line)",
-              cursor: "pointer",
-            }}
-            title="Recenter on delivery route"
-            aria-label="Recenter on delivery route"
-          >
-            <Target size={isCardMode ? 15 : 18} />
-          </button>
+          <MapLocateButton
+            compact={isCardMode}
+            icon="target"
+            onSingleTap={handleSingleLocate}
+            onDoubleTap={handleDoublePreciseLocate}
+          />
           <div
             style={{
               display: "flex",

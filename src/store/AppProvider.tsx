@@ -10,7 +10,8 @@ import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { chatService } from "@/services/engagement/chatService";
-import { registerPush, canOfferPushPermission } from "@/lib/pushNotifications";
+import { registerPush, unregisterPush, canOfferPushPermission } from "@/lib/pushNotifications";
+import { clearQueryCache } from "@/hooks/useApi";
 import { Capacitor } from "@capacitor/core";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { useToast } from "@/store/useToast";
@@ -21,6 +22,7 @@ import { useSocialSlice } from "@/store/useSocialSlice";
 import { useCommerceSlice } from "@/store/useCommerceSlice";
 import { useNotificationBadges } from "@/store/useNotificationBadges";
 import { AppContext, type ActiveContext, type AppState } from "@/store";
+import { roleForContextType } from "@/lib/partNavigation";
 
 // Blank placeholder user shown before auth hydrates. No hardcoded identity —
 // the real profile is loaded from Supabase once signed in.
@@ -87,7 +89,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lists, setLists, createList, addToList, deleteList, removeFromList, isInAnyList,
   } = useCommerceSlice(showToast);
 
-  const { chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
+  const {
+    chatUnread,
+    setChatUnread,
+    notifUnread,
+    refreshBadges,
+    liveAlert,
+    dismissLiveAlert,
+  } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
 
@@ -251,6 +260,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (ctx.type === "customer") {
           const next: ActiveContext = { type: "customer", id: null, name: me.name };
           localStorage.setItem("activeContext", JSON.stringify(next));
+          setActiveRole("customer");
+          localStorage.setItem("activeRole", "customer");
           return next;
         }
         return ctx;
@@ -273,16 +284,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const syncKey = `loc_synced_${uid}`;
     if (sessionStorage.getItem(syncKey) === "1") return;
     sessionStorage.setItem(syncKey, "1");
+    let hasFine = false;
     try {
       if (Capacitor.isNativePlatform()) {
         const perm = await Geolocation.checkPermissions();
-        if (perm.location !== "granted" && perm.coarseLocation !== "granted") return;
+        hasFine = perm.location === "granted";
+        if (!hasFine && perm.coarseLocation !== "granted") return;
       } else {
         const perm = await navigator.permissions?.query({ name: "geolocation" });
         if (perm?.state !== "granted") return;
+        hasFine = true;
       }
     } catch { return; }
-    nativeGeolocation.getCurrentPosition(
+    const fetchPos = hasFine ? nativeGeolocation.getCurrentPosition : nativeGeolocation.getQuickPosition;
+    fetchPos(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         const prev = userLocRef.current;
@@ -382,8 +397,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPersistedContext = useCallback((ctx: ActiveContext) => {
+    const nextRole = roleForContextType(ctx.type);
     setActiveContext(ctx);
     localStorage.setItem("activeContext", JSON.stringify(ctx));
+    setActiveRole(nextRole);
+    localStorage.setItem("activeRole", nextRole);
   }, []);
 
   const manageableBusinessIds = useMemo(
@@ -535,6 +553,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       offerNotificationPermission,
       chatUnread,
       setChatUnread,
+      notifUnread,
+      refreshNotifBadges: refreshBadges,
+      liveNotification: liveAlert,
+      dismissLiveNotification: dismissLiveAlert,
       toast,
       showToast,
       isAuthed,
@@ -551,6 +573,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dismissNotifExplainer,
       signIn: () => setIsAuthed(true),
       signOut: () => {
+        const signingOutUserId = viewUser.id;
+        clearQueryCache();
         tokenStore.clear();
         setIsAuthed(false);
         setProfileReady(false);
@@ -582,7 +606,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(key);
           }
         }
-        void authService.logout().catch((err) => console.error("Error signing out:", err));
+        void (async () => {
+          if (signingOutUserId) await unregisterPush(signingOutUserId);
+          await authService.logout();
+        })().catch((err) => console.error("Error signing out:", err));
       },
     }),
     [
@@ -593,7 +620,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       businessRecoveryIsSet, providerRecoveryIsSet, businessPasswordRequired, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      chatUnread, toast, isAuthed, authReady, profileReady, profileLoadError, offerNotificationPermission,
+      chatUnread, notifUnread, refreshBadges, liveAlert, dismissLiveAlert, toast, isAuthed, authReady, profileReady, profileLoadError, offerNotificationPermission,
       isGuest, guestLocation, guestLocationStatus, requestGuestLocation, setGuestLocation,
       dataSaver, setDataSaver, notifExplainerPending,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,

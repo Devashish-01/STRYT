@@ -22,12 +22,15 @@ import { routableStops, openRoute, exceedsRouteCap, MAX_ROUTE_WAYPOINTS } from "
 import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
 import { useI18n } from "@/lib/i18n";
+import { formatOrderDateTime } from "@/lib/format";
+import { recognizeLocation } from "@/lib/mapLocate";
 import RiderOrderInfo from "@/components/delivery/RiderOrderInfo";
 import { RiderMission, RiderWhere } from "@/components/delivery/RiderMission";
 import { Celebrate } from "@/components/Celebrate";
 import { deliveredToday } from "@/lib/riderMission";
-import { lastKnownFix, setTrackingState, trackingControl, useTrackingState } from "@/features/delivery-tracking/trackingStore";
+import { lastKnownFix, recordFix, setTrackingState, trackingControl, useTrackingState } from "@/features/delivery-tracking/trackingStore";
 import { useOnline } from "@/hooks/useOnline";
+import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
 import { isNetworkError, withRetry } from "@/lib/retry";
 import { useRiderQueue } from "@/features/delivery-tracking/riderQueue";
 import LeaveAtDoorProof from "@/components/delivery/LeaveAtDoorProof";
@@ -63,10 +66,23 @@ function counts_hasWork(activeRuns: number, activeSolo: number): boolean {
   return activeRuns > 0 || activeSolo > 0;
 }
 
-function whenLabel(d: DeliveryItem, anytime: string): string {
-  if (d.dateLabel || d.timeLabel) return [d.dateLabel, d.timeLabel].filter(Boolean).join(" · ");
-  if (d.scheduledFor) return new Date(d.scheduledFor).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  return anytime;
+function whenLabel(
+  d: DeliveryItem,
+  lang: string,
+  t: (k: string) => string,
+  tf: (k: string, v: Record<string, string | number>) => string,
+  anytime: string
+): string {
+  const assignedPart = d.createdAt
+    ? tf("dlv_assigned_at", { time: formatOrderDateTime(d.createdAt, lang, t) })
+    : "";
+  const slotPart =
+    d.dateLabel || d.timeLabel
+      ? [d.dateLabel, d.timeLabel].filter(Boolean).join(" · ")
+      : d.scheduledFor
+      ? formatOrderDateTime(d.scheduledFor, lang, t)
+      : anytime;
+  return [assignedPart, slotPart].filter(Boolean).join(" · ");
 }
 
 function openNativeDirections(lat: number, lng: number) {
@@ -127,13 +143,21 @@ function computeNearestNeighborOrder(start: { lat: number; lng: number }, stops:
 
 export default function DeliveryConsole() {
   const { user, showToast } = useApp();
-  const { t, tf } = useI18n();
+  const { t, tf, lang } = useI18n();
+  useAdoptConsoleContext("delivery", "", true);
   const online = useOnline();
   const tracking = useTrackingState();
   // Taps made with no signal are kept and sent when it returns (the runner replays them even if this screen is closed).
   const queue = useRiderQueue(user.id);
   useEffect(() => {
     setTrackingState({ consoleOpen: true });
+    // Read one non-nagging foreground fix when opening the console so ASSIGNED
+    // orders show the rider's real position & pickup path without re-asking Precise.
+    if (!lastKnownFix(60_000)) {
+      void recognizeLocation().then(({ fix }) => {
+        if (fix) recordFix({ lat: fix.lat, lng: fix.lng });
+      });
+    }
     return () => setTrackingState({ consoleOpen: false });
   }, []);
   const { data, loading, error, refetch } = useQueryWithRealtime<DeliveryItem[]>(
@@ -948,16 +972,20 @@ function RunCard({ batch, busyId, heldIds, onAdvance, onVerify, onCollect, onPic
       {routePoints.length > 0 && (
         <div style={{ height: 210, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", position: "relative" }}>
           <DeliveryLiveMap
-            riderLat={lastKnownFix(60_000)?.lat ?? batch.lat ?? current.deliveryLat}
-            riderLng={lastKnownFix(60_000)?.lng ?? batch.lng ?? current.deliveryLng}
-            riderHeading={lastKnownFix(60_000)?.heading ?? 0}
-            riderName={t("dlv_trk_rider_title") || "You"}
+            riderLat={lastKnownFix(120_000)?.lat ?? null}
+            riderLng={lastKnownFix(120_000)?.lng ?? null}
+            riderHeading={lastKnownFix(120_000)?.heading ?? 0}
+            riderName={t("dlv_map_you")}
             storeLat={batch.lat}
             storeLng={batch.lng}
+            storeName={current.businessName}
             destLat={current.deliveryLat}
             destLng={current.deliveryLng}
             destAddress={current.deliveryAddressLine || current.customerArea}
+            destLabel={current.customerName}
             status={current.status}
+            viewerRole="RIDER"
+            onLocateFix={(fix) => recordFix({ lat: fix.lat, lng: fix.lng })}
             bottomSheetOffsetPx={0}
             interactive={true}
           />
@@ -1097,7 +1125,7 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
   showActionBar: boolean;
 }) {
   useTrackingState();
-  const { t, tf } = useI18n();
+  const { t, tf, lang } = useI18n();
   // Two taps to decline, like declining a run: a mis-tap must not hand the order back.
   const [declineArmed, setDeclineArmed] = useState(false);
   useEffect(() => {
@@ -1129,13 +1157,13 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="semi">{d.businessName}</div>
             <div className="tiny muted row gap-6 center-v" style={{ marginTop: 2 }}>
-              <Clock size={12} /> {whenLabel(d, t("dlv_c_anytime"))}
+              <Clock size={12} /> {whenLabel(d, lang, t, tf, t("dlv_c_anytime"))}
             </div>
           </div>
           <DeliveryStatusPill status={d.status} />
         </div>
       ) : (
-        <div className="tiny muted row gap-6 center-v"><Clock size={12} /> {whenLabel(d, t("dlv_c_anytime"))}</div>
+        <div className="tiny muted row gap-6 center-v"><Clock size={12} /> {whenLabel(d, lang, t, tf, t("dlv_c_anytime"))}</div>
       )}
 
       {terminal ? (
@@ -1152,17 +1180,20 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, onCollect, onPickUp, onDec
           {(d.businessLat != null || d.deliveryLat != null) && (
             <div style={{ height: 210, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)", position: "relative" }}>
               <DeliveryLiveMap
-                riderLat={lastKnownFix(60_000)?.lat ?? (d.status === "ASSIGNED" && !d.pickedUpAt ? d.businessLat : d.deliveryLat)}
-                riderLng={lastKnownFix(60_000)?.lng ?? (d.status === "ASSIGNED" && !d.pickedUpAt ? d.businessLng : d.deliveryLng)}
-                riderHeading={lastKnownFix(60_000)?.heading ?? 0}
-                riderName={t("dlv_trk_rider_title") || "You"}
+                riderLat={lastKnownFix(120_000)?.lat ?? null}
+                riderLng={lastKnownFix(120_000)?.lng ?? null}
+                riderHeading={lastKnownFix(120_000)?.heading ?? 0}
+                riderName={t("dlv_map_you")}
                 storeLat={d.businessLat}
                 storeLng={d.businessLng}
                 storeName={d.businessName}
                 destLat={d.deliveryLat}
                 destLng={d.deliveryLng}
                 destAddress={d.deliveryAddressLine || d.customerArea}
+                destLabel={d.customerName}
                 status={d.status}
+                viewerRole="RIDER"
+                onLocateFix={(fix) => recordFix({ lat: fix.lat, lng: fix.lng })}
                 bottomSheetOffsetPx={0}
                 interactive={true}
               />

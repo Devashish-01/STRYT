@@ -38,3 +38,15 @@ export function isRecentlyDelivered(
 ): boolean {
   return a.fulfillmentType === "DELIVERY" && a.status === "COMPLETED" && now - new Date(a.createdAtISO).getTime() < RECENTLY_DELIVERED_MS;
 }
+
+/**
+ * Builds the deep-link into My Deals → Store Orders → Active (for live orders)
+ * or History (for completed/cancelled orders), targeting that exact order card.
+ */
+export function myDealsOrderUrl(
+  apt: Pick<AppointmentRecord, "id" | "status" | "fulfillmentType" | "scheduledForISO">,
+  now: number = Date.now(),
+): string {
+  const tab = isLiveOrder(apt, now) ? "active" : "completed";
+  return `/agreements?section=orders&tab=${tab}&orderId=${encodeURIComponent(apt.id)}`;
+}

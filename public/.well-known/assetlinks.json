@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.stryt.app",
+      "sha256_cert_fingerprints": [
+        "3B:4E:D4:53:D0:4B:D8:AA:33:E7:26:87:D6:F4:BD:78:CE:AA:F0:FA:77:22:BC:0B:CE:48:60:B1:DD:6C:21:71",
+        "41:45:E1:77:87:DC:7D:98:BF:8C:57:CE:F0:02:87:A8:F7:BA:5F:C2:93:AC:55:D1:36:09:56:EB:8B:92:52:C3",
+        "46:63:1B:0E:1B:8F:F6:FE:1B:8A:86:4F:CA:17:48:56:80:60:00:FF:04:4B:89:8D:B5:5E:E3:08:B4:5E:67:05"
+      ]
+    }
+  }
+]

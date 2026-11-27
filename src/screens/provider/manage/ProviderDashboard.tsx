@@ -66,7 +66,7 @@ export default function ProviderDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: p, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
-  const { showToast, user } = useApp();
+  const { showToast, user, notifUnread: totalNotifUnread } = useApp();
   const { t } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
@@ -355,12 +355,12 @@ export default function ProviderDashboard() {
               <button
                 className="icon-btn-sm"
                 style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", minWidth: 44, minHeight: 44, width: 44, height: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
-                onClick={() => nav(`/notifications?scope=PROVIDER&id=${id}`)}
+                onClick={() => nav((notifUnread ?? 0) === 0 && totalNotifUnread > 0 ? "/notifications" : `/notifications?scope=PROVIDER&id=${id}`)}
                 aria-label={t("notifications")}
               >
                 <Bell size={18} />
-                {(notifUnread ?? 0) > 0 && (
-                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+                {((notifUnread ?? 0) > 0 || totalNotifUnread > 0) && (
+                  <span style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, background: (notifUnread ?? 0) > 0 ? "var(--red-500)" : "var(--accent-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
                 )}
               </button>
               <button

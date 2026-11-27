@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { Category } from "@/types";
 import { haversineKm } from "@/lib/geocode";
+import { filterMarketplaceCategories, isExcludedMarketplaceEntry, MARKETPLACE_UNAVAILABLE, RESTRICTED_ANDROID_MARKETPLACE, type MarketplaceEntry } from "@/lib/marketplaceScope";
 
 // Build the nested parent -> children tree the screens expect from the
 // flat categories table.
@@ -17,11 +18,32 @@ function buildTree(flat: Category[]): Category[] {
   return roots;
 }
 
-async function fetchAllCategories(): Promise<Category[]> {
+async function fetchAllCategories(includeInactive = false): Promise<Category[]> {
   const sb = getSupabase();
-  const { data, error } = await sb.from("categories").select("*").eq("status", "ACTIVE");
+  const query = sb.from("categories").select("*");
+  const { data, error } = await (includeInactive ? query : query.eq("status", "ACTIVE"));
   throwIfError(error);
-  return toCamel<Category[]>(data ?? []);
+  return filterMarketplaceCategories(toCamel<Category[]>(data ?? []));
+}
+
+let categoryScope: { expires: number; ids: Promise<Set<string>> } | undefined;
+
+function visibleCategoryIds(): Promise<Set<string>> {
+  if (categoryScope && categoryScope.expires > Date.now()) return categoryScope.ids;
+  const ids = fetchAllCategories(true).then((categories) => new Set(categories.map((category) => category.id)));
+  categoryScope = { ids, expires: Date.now() + 60_000 };
+  void ids.catch(() => { if (categoryScope?.ids === ids) categoryScope = undefined; });
+  return ids;
+}
+
+export async function visibleMarketplaceEntries<T extends MarketplaceEntry>(rows: T[]): Promise<T[]> {
+  if (!RESTRICTED_ANDROID_MARKETPLACE || !rows.length) return rows;
+  const categoryIds = rows.some((row) => !!row.categoryId) ? await visibleCategoryIds() : undefined;
+  return rows.filter((row) => !isExcludedMarketplaceEntry(row) && (!row.categoryId || categoryIds?.has(row.categoryId)));
+}
+
+export async function requireMarketplaceEntry(entry: MarketplaceEntry): Promise<void> {
+  if (!(await visibleMarketplaceEntries([entry])).length) throw new Error(MARKETPLACE_UNAVAILABLE);
 }
 
 export const catalogService = {
@@ -66,6 +88,7 @@ export const catalogService = {
   },
 
   async get(id: string): Promise<Category | undefined> {
+    if (RESTRICTED_ANDROID_MARKETPLACE && !(await visibleCategoryIds()).has(id)) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb.from("categories").select("*").eq("id", id).maybeSingle();
     throwIfError(error);
@@ -87,6 +110,12 @@ export const catalogService = {
       for (const row of counted.data as { category_id: string; kind: string; listings: number }[]) {
         (row.kind === "business" ? bizCounts : provCounts)[row.category_id] = row.listings;
       }
+      if (RESTRICTED_ANDROID_MARKETPLACE) {
+        const ids = await visibleCategoryIds();
+        for (const counts of [bizCounts, provCounts]) {
+          for (const id of Object.keys(counts)) if (!ids.has(id)) delete counts[id];
+        }
+      }
       return { bizCounts, provCounts };
     }
 
@@ -94,10 +123,11 @@ export const catalogService = {
       sb.from("businesses").select("category_id, lat, lng").eq("status", "ACTIVE"),
       sb.from("providers").select("category_id, lat, lng").eq("status", "ACTIVE"),
     ]);
+    const allowedIds = RESTRICTED_ANDROID_MARKETPLACE ? await visibleCategoryIds() : undefined;
     const tally = (rows: any[] | null) => {
       const c: Record<string, number> = {};
       for (const r of rows ?? []) {
-        if (!r.category_id) continue;
+        if (!r.category_id || (allowedIds && !allowedIds.has(r.category_id))) continue;
         if (lat != null && lng != null && radius != null && radius < 5000) {
           const dist = (r.lat && r.lng) ? haversineKm(lat, lng, r.lat, r.lng) : 0;
           if (dist > radius) continue;
@@ -110,6 +140,7 @@ export const catalogService = {
   },
 
   async proposeCategory(name: string, parentId: string | null, kind: string) {
+    await requireMarketplaceEntry({ name, categoryId: parentId });
     const sb = getSupabase();
     const uid = await currentUserId();
     void uid;
@@ -131,6 +162,7 @@ export const catalogService = {
       console.warn("proposeCategory insert failed (may need RLS policy):", error.message);
       return { id: "prop_" + Date.now(), status: "PROPOSED" };
     }
+    categoryScope = undefined;
     return data ? toCamel<Category>(data) : { id, status: "PROPOSED" };
   },
 };

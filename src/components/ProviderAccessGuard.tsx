@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/states";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
+import MarketplaceConsoleScope from "@/components/MarketplaceConsoleScope";
 
 /**
  * Wraps every /provider/:id/manage* route — the provider-side counterpart to
@@ -16,6 +17,10 @@ import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
  * mean "not yours".
  */
 export default function ProviderAccessGuard() {
+  return <MarketplaceConsoleScope kind="provider"><ProviderPermissions /></MarketplaceConsoleScope>;
+}
+
+function ProviderPermissions() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { user, ownedProviderId, ownedEntitiesLoaded, setContext, showToast, providerPasswordIsSet } = useApp();

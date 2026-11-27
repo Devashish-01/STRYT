@@ -11,6 +11,7 @@ export const STORY_MIN_HOURS = 1;
 export const STORY_MAX_HOURS = 168;
 export const STORY_DEFAULT_HOURS = 24;
 export const STORY_HOUR_PRESETS = [6, 12, 24, 48] as const;
+export const STORY_DURATION_OPTIONS = [6, 12, 24, 48, 168] as const;
 
 /** A duration the user typed or picked, forced into what a story may be. Not-a-number falls back to a day. */
 export function clampStoryHours(n: number): number {

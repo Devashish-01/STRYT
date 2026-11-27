@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import { Navigation, MapPin, Loader, X } from "@/components/Icons";
+import { MapLocateButton } from "@/components/MapLocateButton";
+import { recognizeLocation, requestPreciseLocation } from "@/lib/mapLocate";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { makePinIcon } from "@/lib/leafletIcon";
@@ -136,10 +138,19 @@ export default function LocationPicker({
   const hasPin = hasRealPin;
 
   async function detect() {
-    // force=true: this is an explicit user tap asking for a fresh GPS fix,
-    // not the auto-detect-on-mount call — never just re-serve stored coords.
+    // 1-tap recognize: moves pin cleanly without nagging if coarse was chosen.
+    const { fix } = await recognizeLocation();
+    if (fix) {
+      onChange(fix.lat, fix.lng);
+      return;
+    }
     const coords = await request(true);
     if (coords) onChange(coords.lat, coords.lng);
+  }
+
+  async function detectPrecise() {
+    const { fix } = await requestPreciseLocation();
+    if (fix) onChange(fix.lat, fix.lng);
   }
 
   return (
@@ -226,6 +237,14 @@ export default function LocationPicker({
             </>
           )}
         </MapContainer>
+        <div style={{ position: "absolute", right: 8, bottom: 8, zIndex: 1000 }}>
+          <MapLocateButton
+            compact
+            icon="target"
+            onSingleTap={detect}
+            onDoubleTap={detectPrecise}
+          />
+        </div>
         {!hasPin && loading && (
           <span
             className="tiny semi"

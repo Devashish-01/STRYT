@@ -15,8 +15,7 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { contextHomePath } from "@/lib/contextHome";
-import { useQueryWithRealtime } from "@/hooks/useApi";
-import { notificationService } from "@/services";
+import { effectivePartForLocation } from "@/lib/partNavigation";
 
 function isNavItemActive(itemTo: string, exact: boolean | undefined, pathname: string, search: string): boolean {
   const [targetPath, targetSearch] = itemTo.split("?");
@@ -50,6 +49,7 @@ export default function DesktopSidebar() {
     user,
     activeContext,
     chatUnread,
+    notifUnread,
     signOut,
     manageableBusinessIds,
     ownedProviderId,
@@ -58,23 +58,12 @@ export default function DesktopSidebar() {
   const requireAuth = useRequireAuth();
   const ambient = useAmbientTheme();
 
-  const { data: notifUnread } = useQueryWithRealtime(
-    () => (user?.id ? notificationService.getUnreadCount({ scope: "CUSTOMER" }) : Promise.resolve(0)),
-    "notifications",
-    [user?.id],
-    user?.id ? `user_id=eq.${user.id}` : undefined,
-    "notif:customer:sidebar"
-  );
-
-  // Profile isolation: when actually ON a business/provider console route, the
-  // chrome must match THAT console (from the URL), never a stale activeContext
-  // pointing at a different entity. On customer routes we fall back to the
-  // persisted activeContext. This keeps the page and its nav from ever showing
-  // two different hats, without silently switching context (which would bypass
-  // the PIN gate on entering a business — see attemptSwitchContext).
-  const consoleMatch = loc.pathname.match(/^\/(business|provider)\/([^/]+)\/manage/);
-  const effType = consoleMatch ? consoleMatch[1] : activeContext.type;
-  const effId = consoleMatch ? consoleMatch[2] : activeContext.id;
+  // Profile isolation: console routes and exclusively-personal routes resolve directly
+  // from the URL so the sidebar never shows a stale hat after navigation or Back.
+  // Shared routes fall back to the persisted activeContext.
+  const effPart = effectivePartForLocation(activeContext, loc.pathname, loc.search);
+  const effType = effPart.type;
+  const effId = effPart.type === "business" || effPart.type === "provider" ? effPart.id : null;
 
   const isBusiness = effType === "business";
   const isProvider = effType === "provider";
@@ -82,17 +71,8 @@ export default function DesktopSidebar() {
   // this is the manageable set, not the ownership set.
   const hasMultipleRoles = manageableBusinessIds.length > 0 || !!ownedProviderId;
 
-  // The sidebar's own "home" is whatever context the user is currently in —
-  // the business/provider dashboard while in that hat, customer Home otherwise.
-  // Used to previously hardcode nav("/home") here regardless of context, which
-  // bounced business/provider owners out to the customer app when they clicked
-  // the brand mark (and left a stray customer-Home entry in browser history for
-  // the back button to land on). Routes through the one shared contextHomePath()
-  // helper (src/lib/contextHome.ts) — this used to be a hand-rolled copy of the
-  // same rule BrandHome and App.tsx's redirects each kept separately, which is
-  // exactly the kind of drift that let the chrome and the page disagree.
   function goHome() {
-    nav(contextHomePath(activeContext));
+    nav(contextHomePath({ type: effType, id: effId, name: activeContext.name }));
   }
 
   // Custom action sheet toggle or navigate to ask
@@ -119,6 +99,7 @@ export default function DesktopSidebar() {
         { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },
         { to: `${base}/queue`, label: "Live Queue", icon: Plus },
         { to: `${base}/bulk-deals`, label: "Bulk deals", icon: Package },
+        { to: `/notifications?scope=BUSINESS&id=${effId}`, label: t("notifications"), icon: Bell, badge: notifUnread || undefined },
         { to: `${base}/settings`, label: "Settings", icon: Settings },
       ];
     }
@@ -131,6 +112,7 @@ export default function DesktopSidebar() {
         { to: `${base}/find-work`, label: "Find work", icon: Search },
         { to: `${base}/money`, label: "Money", icon: Wallet },
         { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
+        { to: `/notifications?scope=PROVIDER&id=${effId}`, label: t("notifications"), icon: Bell, badge: notifUnread || undefined },
         { to: `${base}/profile`, label: "Profile", icon: User },
         { to: `${base}/settings`, label: "Settings", icon: Settings },
       ];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppNotification } from "@/types";
-import { reconcileBookingActions } from "./notificationService";
+import { classifyNotificationScope, reconcileBookingActions } from "./notificationService";
+import { normalizeAlert } from "@/store/useNotificationBadges";
 
 // A fake of just the one query reconcileBookingActions makes: appointments (id, status) for a list of ids.
 function fakeDb(statuses: Record<string, string>) {
@@ -67,5 +68,79 @@ describe("reconcileBookingActions — booking requests (unchanged behaviour)", (
     const [n] = await reconcileBookingActions(fakeDb({ apt_1: "ACCEPTED" }), [booking]);
     expect(n.metadata?.actions).toEqual([]);
     expect(n.metadata?.statusPill).toBe("Confirmed");
+  });
+});
+
+describe("classifyNotificationScope — zero skipped Personal, Business, Provider, or Delivery alerts", () => {
+  it("treats /delivery notifications stamped as PROVIDER as DELIVERY so rider notifications are never dropped", () => {
+    expect(
+      classifyNotificationScope({
+        type: "DELIVERY",
+        deep_link: "/delivery",
+        entity_type: "PROVIDER",
+        entity_id: "u_rider_1",
+      }),
+    ).toEqual({ scope: "DELIVERY" });
+  });
+
+  it("treats customer-facing discovery/offer broadcasts stamped with BUSINESS/PROVIDER/PLACE as CUSTOMER", () => {
+    expect(
+      classifyNotificationScope({ type: "OFFER", deep_link: "/business/b1", entity_type: "BUSINESS", entity_id: "b1" }),
+    ).toEqual({ scope: "CUSTOMER" });
+    expect(
+      classifyNotificationScope({ type: "NEW_BUSINESS", deep_link: "/business/b1", entity_type: "BUSINESS", entity_id: "b1" }),
+    ).toEqual({ scope: "CUSTOMER" });
+    expect(
+      classifyNotificationScope({ type: "NEW_PROVIDER", deep_link: "/provider/p1", entity_type: "PROVIDER", entity_id: "p1" }),
+    ).toEqual({ scope: "CUSTOMER" });
+    expect(
+      classifyNotificationScope({ type: "NEW_PLACE", deep_link: "/place/pl1", entity_type: "PLACE", entity_id: "pl1" }),
+    ).toEqual({ scope: "CUSTOMER" });
+  });
+
+  it("routes BUSINESS, PROVIDER, and legacy bulk_deal rows to their owning console scopes", () => {
+    expect(
+      classifyNotificationScope({ type: "APPOINTMENT", deep_link: "/business/b1/manage/appointments", entity_type: "BUSINESS", entity_id: "b1" }),
+    ).toEqual({ scope: "BUSINESS", id: "b1" });
+    expect(
+      classifyNotificationScope({ type: "APPOINTMENT", deep_link: "/provider/p1/manage/jobs", entity_type: "PROVIDER", entity_id: "p1" }),
+    ).toEqual({ scope: "PROVIDER", id: "p1" });
+    expect(
+      classifyNotificationScope({
+        type: "BULK_DEAL_PLEDGE",
+        deep_link: "/deals/d1",
+        entity_type: "bulk_deal",
+        entity_id: "d1",
+        metadata: { businessId: "b1" },
+      }),
+    ).toEqual({ scope: "BUSINESS", id: "b1" });
+  });
+});
+
+describe("normalizeAlert — live realtime and foreground push banner normalization", () => {
+  it("extracts Personal, Business, Provider, and Delivery scopes for live foreground banners", () => {
+    expect(
+      normalizeAlert({
+        id: "n_biz",
+        title: "New booking request",
+        body: "Dev placed an order",
+        deep_link: "/business/b1/manage/appointments",
+        type: "APPOINTMENT",
+        entity_type: "BUSINESS",
+        entity_id: "b1",
+      }),
+    ).toMatchObject({ id: "n_biz", scope: "BUSINESS", entityId: "b1", deepLink: "/business/b1/manage/appointments" });
+
+    expect(
+      normalizeAlert({
+        id: "n_dlv",
+        title: "New delivery assigned",
+        body: "Sharma General Store assigned you a delivery",
+        url: "/delivery",
+        type: "DELIVERY",
+      }),
+    ).toMatchObject({ id: "n_dlv", scope: "DELIVERY", deepLink: "/delivery" });
+
+    expect(normalizeAlert({ title: "", body: "" })).toBeNull();
   });
 });

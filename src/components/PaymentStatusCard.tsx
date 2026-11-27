@@ -10,6 +10,10 @@ export interface PaymentStatusCardProps {
   claimantName: string;
   /** True when the viewer is the one who paid (sees a "waiting for confirmation" state, not confirm/reject buttons). */
   viewerIsPayer: boolean;
+  /** `"card"` renders a standalone bordered card; `"inline"` blends seamlessly inside an order receipt. */
+  variant?: "card" | "inline";
+  /** Suppresses the payment amount when it is already shown on the parent receipt's Total row. */
+  hideAmount?: boolean;
   onConfirm?: () => void;
   onReject?: () => void;
   busy?: boolean;
@@ -25,6 +29,8 @@ export function PaymentStatusCard({
   paymentReference,
   claimantName,
   viewerIsPayer,
+  variant = "card",
+  hideAmount = false,
   onConfirm,
   onReject,
   busy,
@@ -32,6 +38,28 @@ export function PaymentStatusCard({
   if (!paymentStatus || paymentStatus === "UNPAID") return null;
 
   if (paymentStatus === "PENDING_CONFIRM") {
+    if (variant === "inline" && viewerIsPayer) {
+      return (
+        <div
+          className="row gap-8 center-v"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "var(--amber-50)",
+            border: "1px solid var(--amber-100)",
+          }}
+        >
+          <Clock size={15} color="var(--amber-700)" style={{ flexShrink: 0 }} />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Waiting for confirmation</div>
+            <div className="tiny muted">
+              Claimed via {paymentMethod}{!hideAmount && paymentAmount ? ` · ${inr(paymentAmount)}` : ""}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return viewerIsPayer ? (
       <div className="card row gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
         <Clock size={18} color="var(--amber-700)" style={{ flexShrink: 0 }} />
@@ -72,6 +100,23 @@ export function PaymentStatusCard({
   }
 
   if (paymentStatus === "PAID") {
+    if (variant === "inline") {
+      return (
+        <div className="row between center-v gap-8" style={{ flexWrap: "wrap" }}>
+          <div className="row gap-6 center-v" style={{ minWidth: 0 }}>
+            <CheckCircle2 size={14} color="var(--green-600)" style={{ flexShrink: 0 }} />
+            <span className="tiny semi" style={{ color: "var(--green-700)", overflowWrap: "anywhere" }}>
+              {paymentMethod ? `Paid via ${paymentMethod}` : "Payment confirmed"}
+              {paymentReference ? ` · Ref: ${paymentReference}` : ""}
+            </span>
+          </div>
+          <span className="tiny semi tabular-nums" style={{ color: "var(--green-600)", flexShrink: 0 }}>
+            {!hideAmount && paymentAmount ? inr(paymentAmount) : "Confirmed"}
+          </span>
+        </div>
+      );
+    }
+
     // A confirmed payment is the only proof a customer has at the counter, so
     // the method and reference stay on screen instead of collapsing into a
     // bare "confirmed" tick — that's what staff ask to see.
@@ -95,6 +140,25 @@ export function PaymentStatusCard({
   }
 
   if (paymentStatus === "REJECTED") {
+    if (variant === "inline") {
+      return (
+        <div
+          className="row gap-8 center-v"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "var(--red-50)",
+            border: "1px solid var(--red-100)",
+          }}
+        >
+          <XCircle size={15} color="var(--red-600)" style={{ flexShrink: 0 }} />
+          <span className="tiny semi" style={{ color: "var(--red-600)" }}>
+            Payment claim rejected — {viewerIsPayer ? "please re-submit" : "waiting for a new claim"}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div className="card row gap-8" style={{ padding: 12, alignItems: "center" }}>
         <XCircle size={16} color="var(--red-600)" />

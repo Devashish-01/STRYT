@@ -164,103 +164,86 @@ REVOKE ALL ON FUNCTION public.bulk_deal_pledge_join(text, integer, text, text) F
 GRANT EXECUTE ON FUNCTION public.bulk_deal_pledge_join(text, integer, text, text) TO authenticated;
 
 -- 5. Cap exponential lockout exponent in _verify_entity_password
-CREATE OR REPLACE FUNCTION public._verify_entity_password(
-  p_kind text,
-  p_entity_id text,
-  p_password text
-) RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'extensions'
-AS $function$
+create or replace function public._verify_entity_password(p_kind text, p_owner_user_id text, p_password text)
+ returns boolean
+ language plpgsql
+ security definer
+ set search_path to 'public', 'extensions'
+as $function$
 declare
-  v_salt text;
-  v_stored_hash text;
-  v_input_hash text;
-  v_uid text := auth.uid()::text;
+  v_hash text;
   v_attempt public.entity_password_attempts%rowtype;
+  v_matches boolean;
+  v_actor text := coalesce(auth.uid()::text, '');
+  v_fails integer;
+  v_lockouts integer;
   v_max_attempts constant integer := 5;
+  v_entity_max constant integer := 20;
   v_window constant interval := interval '15 minutes';
   v_max_lock constant interval := interval '24 hours';
-  v_lockouts integer := 0;
+  v_dummy_hash constant text := '$2a$10$CXSUxhkNpnbyeflgDI/sMei3m6s9krMAI2wx72jT.YBXr.Agkk6H2';
 begin
-  if p_kind not in ('business', 'provider') then
-    raise exception 'INVALID_ENTITY_KIND';
-  end if;
+  if p_owner_user_id is null or p_kind not in ('business','provider') then return false; end if;
 
-  if p_kind = 'business' then
-    select business_password_salt, business_password_hash
-      into v_salt, v_stored_hash
-      from public.businesses
-     where id = p_entity_id;
-  else
-    select provider_password_salt, provider_password_hash
-      into v_salt, v_stored_hash
-      from public.providers
-     where id = p_entity_id;
-  end if;
-
-  if v_salt is null or v_stored_hash is null then
+  -- Per person attempting, so one member's mistakes can't lock anyone else out (SEC-2).
+  select * into v_attempt from public.entity_password_attempts
+   where owner_user_id = p_owner_user_id and kind = p_kind and attempted_by = v_actor for update;
+  if v_attempt.locked_until is not null and v_attempt.locked_until > now() then
     return false;
   end if;
 
-  if v_uid is not null then
-    select * into v_attempt
+  -- Entity-wide brake: many accounts guessing the same password in parallel. Never applies to the owner, who can
+  -- always reach their own shop (SEC-2/SEC-4).
+  if v_actor is distinct from p_owner_user_id then
+    select coalesce(sum(fail_count), 0) into v_fails
       from public.entity_password_attempts
-     where entity_type = p_kind
-       and entity_id = p_entity_id
-       and attempter_user_id = v_uid
-     for update;
-
-    if v_attempt.locked_until is not null and v_attempt.locked_until > now() then
+     where owner_user_id = p_owner_user_id and kind = p_kind and last_attempt_at > now() - v_window;
+    if v_fails >= v_entity_max then
       return false;
     end if;
-
-    v_lockouts := coalesce(v_attempt.lockout_count, 0);
   end if;
 
-  v_input_hash := encode(digest(v_salt || p_password, 'sha256'), 'hex');
+  select case p_kind when 'business' then business_password_hash else provider_password_hash end
+    into v_hash from public.users where id = p_owner_user_id;
 
-  if v_input_hash = v_stored_hash then
-    if v_uid is not null then
-      delete from public.entity_password_attempts
-       where entity_type = p_kind
-         and entity_id = p_entity_id
-         and attempter_user_id = v_uid;
-    end if;
+  -- Always run one bcrypt comparison, even with no password set, so response
+  -- timing can't reveal whether one exists (same trick as verify_switch_pin).
+  v_matches := crypt(coalesce(p_password, ''), coalesce(v_hash, v_dummy_hash)) = coalesce(v_hash, v_dummy_hash);
+
+  if v_hash is not null and v_matches then
+    delete from public.entity_password_attempts
+     where owner_user_id = p_owner_user_id and kind = p_kind and attempted_by = v_actor;
     return true;
   end if;
 
-  if v_uid is not null then
-    insert into public.entity_password_attempts (
-      entity_type, entity_id, attempter_user_id, fail_count, lockout_count, last_attempt_at, locked_until
-    ) values (
-      p_kind, p_entity_id, v_uid, 1, 0, now(), null
-    )
-    on conflict (entity_type, entity_id, attempter_user_id) do update
-      set fail_count = case
+  -- A fresh window (or the end of a lockout) starts the count again, but the number of lockouts this person has
+  -- collected persists, so each one lasts twice as long as the last, up to a day (SEC-4).
+  v_lockouts := coalesce(v_attempt.lockout_count, 0);
+  insert into public.entity_password_attempts (owner_user_id, kind, attempted_by, fail_count, last_attempt_at, locked_until, lockout_count)
+  values (p_owner_user_id, p_kind, v_actor, 1, now(), null, 0)
+  on conflict (owner_user_id, kind, attempted_by) do update
+  set fail_count = case
+        when entity_password_attempts.last_attempt_at <= now() - v_window
+          or entity_password_attempts.locked_until is not null
+        then 1 else entity_password_attempts.fail_count + 1 end,
+      last_attempt_at = now(),
+      lockout_count = case
+        when (case
           when entity_password_attempts.last_attempt_at <= now() - v_window
             or entity_password_attempts.locked_until is not null
-          then 1 else entity_password_attempts.fail_count + 1 end,
-        last_attempt_at = now(),
-        lockout_count = case
-          when (case
-            when entity_password_attempts.last_attempt_at <= now() - v_window
-              or entity_password_attempts.locked_until is not null
-            then 1 else entity_password_attempts.fail_count + 1 end) >= v_max_attempts
-          then v_lockouts + 1 else entity_password_attempts.lockout_count end,
-        locked_until = case
-          when (case
-            when entity_password_attempts.last_attempt_at <= now() - v_window
-              or entity_password_attempts.locked_until is not null
-            then 1 else entity_password_attempts.fail_count + 1 end) >= v_max_attempts
-          then now() + least(v_window * (power(2, least(v_lockouts, 10))::integer), v_max_lock)
-          else null end;
-  end if;
+          then 1 else entity_password_attempts.fail_count + 1 end) >= v_max_attempts
+        then v_lockouts + 1 else entity_password_attempts.lockout_count end,
+      locked_until = case
+        when (case
+          when entity_password_attempts.last_attempt_at <= now() - v_window
+            or entity_password_attempts.locked_until is not null
+          then 1 else entity_password_attempts.fail_count + 1 end) >= v_max_attempts
+        then now() + least(v_window * power(2, least(v_lockouts, 10))::integer, v_max_lock)
+        else null end;
 
   return false;
 end $function$;
 
-REVOKE ALL ON FUNCTION public._verify_entity_password(p_kind text, p_entity_id text, p_password text) FROM public, anon;
-GRANT EXECUTE ON FUNCTION public._verify_entity_password(p_kind text, p_entity_id text, p_password text) TO authenticated;
 
+REVOKE ALL ON FUNCTION public._verify_entity_password(text, text, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public._verify_entity_password(text, text, text) TO authenticated;

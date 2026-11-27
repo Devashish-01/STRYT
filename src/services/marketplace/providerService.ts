@@ -35,6 +35,7 @@ import { DEFAULT_MOCK_WORKING_HOURS } from "@/utils/availability";
 import { PLACEHOLDER_PROVIDER_AVATAR, PLACEHOLDER_PORTFOLIO_IMAGE } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
+import { requireMarketplaceEntry, visibleMarketplaceEntries } from "./catalogService";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -97,7 +98,7 @@ export const providerService = {
     if (!uid) return [];
     const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("user_id", uid).order("sort_order", { referencedTable: "portfolio_items", ascending: true });
     throwIfError(error);
-    const provs = toCamel<Provider[]>(data ?? []);
+    const provs = await visibleMarketplaceEntries(toCamel<Provider[]>(data ?? []));
     return provs.map((prov) => ({
       ...prov,
       avatar: getRelatableProviderAvatar(prov),
@@ -119,6 +120,7 @@ export const providerService = {
     throwIfError(error);
     if (!data) return undefined;
     const prov = toCamel<Provider>(data);
+    if (!(await visibleMarketplaceEntries([prov])).length) return undefined;
     prov.avatar = getRelatableProviderAvatar(prov);
     prov.portfolio = enrichProviderPortfolio(prov.id, prov.portfolio ?? []);
     prov.distanceKm = (lat && lng && prov.lat && prov.lng) ? haversineKm(lat, lng, prov.lat, prov.lng) : 0;
@@ -147,6 +149,7 @@ export const providerService = {
     }));
   },
   async update(id: string, patch: Partial<Provider>) {
+    await requireMarketplaceEntry(patch);
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, PROVIDER_COLUMNS);
     const { data, error } = await sb.from("providers").update(toSnake(cols)).eq("id", id).select().maybeSingle();
@@ -181,6 +184,7 @@ export const providerService = {
     return { ok: true };
   },
   async create(data: Partial<Provider>) {
+    await requireMarketplaceEntry(data);
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to offer a service" }, 401);
@@ -444,7 +448,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("providers").select("*").in("id", ids);
     throwIfError(error);
-    return toCamel<Provider[]>(data ?? []);
+    return visibleMarketplaceEntries(toCamel<Provider[]>(data ?? []));
   },
 
   /** This viewer's own review of a provider, so the review sheet opens on what they wrote last time (CRAT-8). */

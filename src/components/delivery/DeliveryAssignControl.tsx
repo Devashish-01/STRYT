@@ -58,11 +58,13 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
     }
   }
 
-  const active = delivery && delivery.status !== "CANCELLED" && delivery.status !== "DELIVERED";
+  const active = !!delivery && delivery.status !== "CANCELLED" && delivery.status !== "DELIVERED";
+  const cancelledPrev = !!delivery && delivery.status === "CANCELLED";
+  const selfMember = (team ?? []).find((m) => m.isSelf);
   // Distinguishes a first assignment (no warning needed) from a reassignment,
   // which silently mints a new handoff code server-side — invalidating
   // whatever code the customer was already shown.
-  const isReassign = !!active;
+  const isReassign = active;
 
   if (deliveryLoading || teamLoading) {
     return (
@@ -78,26 +80,40 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
         <Package size={13} color="var(--delivery-600)" /> Delivery
       </div>
 
-      {delivery ? (
+      {delivery && (
         <div className="row between center-v">
           <div className="small">
             <span className="semi">{delivery.agentName}</span>
-            <span className="muted"> · {STATUS_LABEL[delivery.status] ?? delivery.status}</span>
+            <span style={{ color: cancelledPrev ? "var(--red-600)" : "var(--ink-500)" }}>
+              {" "}· {STATUS_LABEL[delivery.status] ?? delivery.status}
+            </span>
           </div>
           {active && !picking && !readOnly && (
-            <button className="tiny semi" style={{ color: "var(--delivery-600)" }} onClick={() => setPicking(true)}>Reassign</button>
+            <button type="button" className="tiny semi" style={{ color: "var(--delivery-600)" }} onClick={() => setPicking(true)}>
+              Reassign
+            </button>
           )}
         </div>
-      ) : readOnly ? null : !picking ? (
-        // Filled once the order is packed — that is the next thing to do; outlined while it still has to be packed first.
-        <button
-          className={`btn btn-sm btn-block row gap-6 center ${packed === false ? "btn-outline" : "btn-delivery"}`}
-          style={packed === false ? { borderColor: "var(--delivery-600)", color: "var(--delivery-600)" } : { minHeight: 48, fontSize: 15 }}
-          onClick={() => setPicking(true)}
-        >
-          <Package size={packed === false ? 14 : 17} /> Assign delivery
-        </button>
-      ) : null}
+      )}
+
+      {(!delivery || cancelledPrev) && !readOnly && !picking && (
+        <div className="col gap-6">
+          {cancelledPrev && (
+            <div className="tiny semi" style={{ color: "var(--amber-700)" }}>
+              {t("dlv_prev_rider_cancelled")}
+            </div>
+          )}
+          {/* Filled once the order is packed — that is the next thing to do; outlined while it still has to be packed first. */}
+          <button
+            type="button"
+            className={`btn btn-sm btn-block row gap-6 center ${packed === false ? "btn-outline" : "btn-delivery"}`}
+            style={packed === false ? { borderColor: "var(--delivery-600)", color: "var(--delivery-600)" } : { minHeight: 46, fontSize: 15 }}
+            onClick={() => setPicking(true)}
+          >
+            <Package size={packed === false ? 14 : 17} /> Assign delivery
+          </button>
+        </div>
+      )}
 
       {picking && (
         <div className="col gap-6">
@@ -105,14 +121,14 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
             <div className="tiny muted">Reassigning starts the delivery over: a new handoff code, and the current rider is told to stop.</div>
           )}
           {packed === false && <div className="tiny" style={{ color: "var(--amber-700)" }}>{t("dlv_assign_not_packed")}</div>}
-          {(team ?? []).length === 0 ? (
+          {(team ?? []).filter((m) => !m.isSelf).length === 0 ? (
             <div className="col gap-6">
               <div className="tiny muted">No dedicated delivery staff registered. You can deliver this order yourself:</div>
               <button
                 type="button"
                 className="btn btn-delivery btn-sm row gap-6 center"
                 disabled={busy}
-                onClick={() => assign("self", true)}
+                onClick={() => assign(selfMember?.userId ?? "self", true)}
               >
                 <span>🛵</span> {t("dlv_deliver_myself") || "Deliver Myself"}
               </button>
@@ -124,18 +140,18 @@ export default function DeliveryAssignControl({ appointmentId, businessId, prelo
                 className="chip active"
                 style={{ background: "var(--delivery-100)", borderColor: "var(--delivery-500)", color: "var(--delivery-800)", fontWeight: 700 }}
                 disabled={busy}
-                onClick={() => assign("self", true)}
+                onClick={() => assign(selfMember?.userId ?? "self", true)}
               >
-                🛵 {t("dlv_deliver_myself") || "Deliver Myself"}
+                <span>🛵</span> {t("dlv_deliver_myself") || "Deliver Myself"}
               </button>
               {(team ?? []).filter((m) => !m.isSelf).map((m) => (
-                <button key={m.userId} className="chip" disabled={busy} onClick={() => assign(m.userId, false)}>
+                <button key={m.userId} type="button" className="chip" disabled={busy} onClick={() => assign(m.userId, false)}>
                   {m.name}{!m.onDuty && <span className="muted"> · Off duty</span>}
                 </button>
               ))}
             </div>
           )}
-          <button className="tiny muted" style={{ alignSelf: "flex-start" }} onClick={() => setPicking(false)}>Cancel</button>
+          <button type="button" className="tiny muted" style={{ alignSelf: "flex-start" }} onClick={() => setPicking(false)}>Cancel</button>
         </div>
       )}
     </div>

@@ -3,7 +3,6 @@ import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken, QueueHistoryToken, QueueTokenStatus, PaymentStatus } from "@/types";
-import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import { aliasName } from "@/lib/publicName";
@@ -13,6 +12,7 @@ import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
 import { notificationService } from "@/services/engagement/notificationService";
 import { getRelatableBusinessCover, getRelatableBusinessGallery, enrichCatalogItems, enrichBusinessPortfolio } from "@/lib/curatedImages";
+import { requireMarketplaceEntry, visibleMarketplaceEntries } from "./catalogService";
 
 // A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
 // success with zero rows affected, not an error — so throwIfError alone can't
@@ -159,7 +159,7 @@ export const businessService = {
     // schema types yet.
     const { data, error } = await sb.from("businesses").select("*").eq("owner_user_id", uid).neq("status", "DELETED" as any);
     throwIfError(error);
-    return toCamel<Business[]>(data ?? []);
+    return visibleMarketplaceEntries(toCamel<Business[]>(data ?? []));
   },
 
   /**
@@ -190,8 +190,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("businesses").select("*").in("id", ids);
     throwIfError(error);
-    return (data ?? []).map((row) => {
-      const b = toCamel<Business>(row);
+    return (await visibleMarketplaceEntries(toCamel<Business[]>(data ?? []))).map((b) => {
       b.coverImage = getRelatableBusinessCover(b);
       b.gallery = getRelatableBusinessGallery(b);
       return b;
@@ -208,6 +207,7 @@ export const businessService = {
     throwIfError(error);
     if (!data) return undefined;
     const b = toCamel<Business>(data);
+    if (!(await visibleMarketplaceEntries([b])).length) return undefined;
     b.coverImage = getRelatableBusinessCover(b);
     b.gallery = getRelatableBusinessGallery(b);
     b.catalog = enrichCatalogItems(b.id, b.catalog ?? [], b.name, b.categoryName);
@@ -629,6 +629,7 @@ export const businessService = {
   },
 
   async update(id: string, patch: Partial<Business>) {
+    await requireMarketplaceEntry(patch);
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
     if (Object.keys(cols).length === 0) return undefined as unknown as Business;
@@ -678,6 +679,7 @@ export const businessService = {
   },
 
   async create(data: Partial<Business>) {
+    await requireMarketplaceEntry(data);
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);
@@ -1104,11 +1106,6 @@ export const businessService = {
       bustBusinessGetCache(id);
       return;
     }
-    const { count: existingCount } = await sb
-      .from("ratings")
-      .select("*", { count: "exact", head: true })
-      .eq("ratee_type", "BUSINESS")
-      .eq("ratee_id", id);
     const { error } = await sb.from("ratings").insert({
       rater_user_id: uid,
       ratee_type: "BUSINESS",
@@ -1120,10 +1117,6 @@ export const businessService = {
     throwIfError(error);
     // The header's rating comes from the cached business row; without this the reviewer returns to their old one.
     bustBusinessGetCache(id);
-    if ((existingCount ?? 0) === 0) {
-      const { data: biz } = await sb.from("businesses").select("owner_user_id").eq("id", id).maybeSingle();
-      if (biz?.owner_user_id) void leaderboardService.addPoints(biz.owner_user_id, 3);
-    }
   },
 
 };

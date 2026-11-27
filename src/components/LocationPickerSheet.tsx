@@ -3,7 +3,9 @@ import { X, MapPin, Navigation, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { reverseGeocode, nearbyAreas, type GeoPlace } from "@/lib/geocode";
-import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { locateWithCalibration } from "@/lib/mapLocate";
+import { useI18n } from "@/lib/i18n";
+import PreciseLocationSheet, { type PreciseIssueMode } from "@/components/PreciseLocationSheet";
 
 interface Props {
   onClose: () => void;
@@ -12,6 +14,8 @@ interface Props {
    *  instead of relying on the profile write above alone. Optional so
    *  existing callers (Home.tsx) are unaffected. */
   onLocationChanged?: (lat: number, lng: number) => void;
+  /** Opens manual pin-drop mode on the map so the user can adjust the pin visually. */
+  onPickOnMap?: () => void;
   /**
    * One-off pick: hand the place back and write NOTHING to the profile.
    *
@@ -28,9 +32,11 @@ interface Props {
   currentLabel?: string;
 }
 
-export default function LocationPickerSheet({ onClose, onLocationChanged, onPick, title, currentLabel }: Props) {
+export default function LocationPickerSheet({ onClose, onLocationChanged, onPickOnMap, onPick, title, currentLabel }: Props) {
   const { user, area, refreshUser, showToast, setArea, isGuest, setGuestLocation } = useApp();
+  const { t } = useI18n();
   const [locating, setLocating] = useState(false);
+  const [preciseIssue, setPreciseIssue] = useState<PreciseIssueMode | null>(null);
   const [nearby, setNearby] = useState<GeoPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
 
@@ -76,50 +82,48 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
     }
   }
 
-  function handleGPS() {
+  async function handleGPS() {
     setLocating(true);
-    nativeGeolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const areaName = await reverseGeocode(latitude, longitude);
+    try {
+      const res = await locateWithCalibration();
+      if (res.status === "calibrated" && res.fix) {
+        const { lat, lng, accuracy } = res.fix;
+        const areaName = await reverseGeocode(lat, lng);
+        const accSuffix = typeof accuracy === "number" ? ` (±${Math.max(1, Math.round(accuracy))}m)` : "";
         if (onPick) {
-          onPick({ lat: latitude, lng: longitude, area: areaName ?? "" });
-          setLocating(false);
+          onPick({ lat, lng, area: areaName ?? "" });
           onClose();
           return;
         }
-        // Same guest branch as handleSelect above — no account to write to.
         if (isGuest) {
-          setGuestLocation({ lat: latitude, lng: longitude });
+          setGuestLocation({ lat, lng });
           if (areaName) setArea(areaName);
-          showToast(`Showing places near ${areaName || "you"}`);
-          onLocationChanged?.(latitude, longitude);
-          setLocating(false);
+          showToast(`Showing places near ${areaName || "you"}${accSuffix}`);
+          onLocationChanged?.(lat, lng);
           onClose();
           return;
         }
         try {
-          await userService.setLocation(latitude, longitude, areaName ?? undefined);
+          await userService.setLocation(lat, lng, areaName ?? undefined);
           await refreshUser();
           if (areaName) setArea(areaName);
-          showToast(`Location set — ${areaName || "current position"} ✓`);
-          onLocationChanged?.(latitude, longitude);
+          showToast(`Location set — ${areaName || "current position"}${accSuffix} ✓`);
+          onLocationChanged?.(lat, lng);
           onClose();
         } catch {
           showToast("Got GPS fix, but couldn't save it — check connection & retry");
         }
-        setLocating(false);
-      },
-      (err) => {
-        setLocating(false);
-        showToast(
-          err.code === 1 ? "Location permission denied — enable it in phone settings"
-          : err.code === 2 ? "Location is switched off — turn it on in your phone's quick settings, then try again"
-          : "Couldn't get a GPS fix — try near a window or outdoors",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 12000 }
-    );
+        return;
+      }
+
+      if (res.status === "approximate_locked" || res.status === "denied" || res.status === "gps_off") {
+        setPreciseIssue(res.status);
+        return;
+      }
+      showToast("Couldn't get a GPS fix — try near a window or outdoors");
+    } finally {
+      setLocating(false);
+    }
   }
 
   return (
@@ -171,18 +175,34 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
           </span>
         </div>
 
-        {/* GPS Button */}
+        {/* Exact Calibrated GPS Button */}
         <button
+          type="button"
           onClick={handleGPS}
           disabled={locating}
-          className="btn btn-outline btn-block row center gap-8"
-          style={{ padding: "12px", borderRadius: 14, background: "#fff", marginBottom: 16 }}
+          className="btn btn-primary btn-block row center gap-8"
+          style={{ padding: "12px", borderRadius: 14, marginBottom: onPickOnMap ? 8 : 16 }}
         >
-          {locating ? <Loader size={16} className="spin" /> : <Navigation size={16} color="var(--brand-700)" />}
+          {locating ? <Loader size={16} className="spin" /> : <Navigation size={16} />}
           <span className="semi" style={{ fontSize: 14 }}>
-            {locating ? "Locating..." : "Use current GPS location"}
+            {locating ? t("map_calibrating_short") : t("map_use_current_gps")}
           </span>
         </button>
+
+        {onPickOnMap && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onPickOnMap();
+            }}
+            className="btn btn-outline btn-block row center gap-8"
+            style={{ padding: "11px 12px", borderRadius: 14, marginBottom: 16 }}
+          >
+            <MapPin size={16} color="var(--brand-700)" />
+            <span className="semi" style={{ fontSize: 14 }}>{t("map_pick_on_map_cta")}</span>
+          </button>
+        )}
 
         {/* Nearby areas — real neighbourhoods around wherever the user already
             is, not a fixed list. GPS is still the primary path; this is a
@@ -215,6 +235,14 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
           )}
         </div>
       </div>
+      {preciseIssue && (
+        <PreciseLocationSheet
+          mode={preciseIssue}
+          onRetry={() => void handleGPS()}
+          onPickOnMap={onPickOnMap ? () => { onClose(); onPickOnMap(); } : undefined}
+          onClose={() => setPreciseIssue(null)}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { haversineKm } from "@/lib/geocode";
 import { clampRadiusForViewer } from "@/lib/guestMode";
 import { config } from "@/config";
 import { getRelatableBusinessCover, getRelatableBusinessGallery, getRelatableProviderAvatar } from "@/lib/curatedImages";
+import { visibleMarketplaceEntries } from "./catalogService";
 
 export interface SavedSearch {
   id: string;
@@ -82,7 +83,7 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Business>(data as unknown[], null, from, limit);
-      page.data = page.data.map((b) => ({
+      page.data = (await visibleMarketplaceEntries(page.data)).map((b) => ({
         ...withDistance(b, userLat, userLng),
         coverImage: getRelatableBusinessCover(b),
         gallery: getRelatableBusinessGallery(b),
@@ -97,7 +98,7 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Business>(data, count, from, limit);
-    page.data = page.data.map((b) => ({
+    page.data = (await visibleMarketplaceEntries(page.data)).map((b) => ({
       ...withDistance(b, userLat, userLng),
       coverImage: getRelatableBusinessCover(b),
       gallery: getRelatableBusinessGallery(b),
@@ -127,7 +128,7 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Provider>(data as unknown[], null, from, limit);
-      page.data = page.data.map((prov) => ({
+      page.data = (await visibleMarketplaceEntries(page.data)).map((prov) => ({
         ...withDistance(prov, userLat, userLng),
         avatar: getRelatableProviderAvatar(prov),
       }));
@@ -141,7 +142,7 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Provider>(data, count, from, limit);
-    page.data = page.data.map((prov) => ({
+    page.data = (await visibleMarketplaceEntries(page.data)).map((prov) => ({
       ...withDistance(prov, userLat, userLng),
       avatar: getRelatableProviderAvatar(prov),
     }));
@@ -158,7 +159,7 @@ export const discoveryService = {
     // and the nearest-first ordering happens below.
     const { data, error } = await sb.from("places").select("*").eq("status", "ACTIVE").limit(200);
     throwIfError(error);
-    const rows = (data ?? []).map((r) => toCamel<Place>(r));
+    const rows = await visibleMarketplaceEntries(toCamel<Place[]>(data ?? []));
     if (!p.lat || !p.lng) return rows;
     const userLat = p.lat, userLng = p.lng;
     const withDist = rows.map((r) => ({ ...r, distanceKm: (r.lat && r.lng) ? haversineKm(userLat, userLng, r.lat, r.lng) : Infinity }));
@@ -169,7 +170,7 @@ export const discoveryService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("places").select("*").eq("id", id).maybeSingle();
     throwIfError(error);
-    return data ? toCamel<Place>(data) : undefined;
+    return data ? (await visibleMarketplaceEntries([toCamel<Place>(data)]))[0] : undefined;
   },
 
   async getBusiness(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
@@ -184,6 +185,7 @@ export const discoveryService = {
     throwIfError(error);
     if (!data) return undefined;
     const b = toCamel<Business>(data);
+    if (!(await visibleMarketplaceEntries([b])).length) return undefined;
     b.distanceKm = (lat && lng && b.lat && b.lng) ? haversineKm(lat, lng, b.lat, b.lng) : 0;
     return b;
   },
@@ -198,6 +200,7 @@ export const discoveryService = {
     throwIfError(error);
     if (!data) return undefined;
     const prov = toCamel<Provider>(data);
+    if (!(await visibleMarketplaceEntries([prov])).length) return undefined;
     prov.distanceKm = (lat && lng && prov.lat && prov.lng) ? haversineKm(lat, lng, prov.lat, prov.lng) : 0;
     return prov;
   },
@@ -243,7 +246,14 @@ export const discoveryService = {
           data: rows,
           page: { next_cursor: rows.length === limit ? String(from + limit) : null, has_more: rows.length === limit },
         });
-        return { businesses: pageOf(bizRows, bizFrom, bizLimit), providers: pageOf(provRows, provFrom, provLimit) };
+        const businesses = pageOf(bizRows, bizFrom, bizLimit);
+        const providers = pageOf(provRows, provFrom, provLimit);
+        // Keep cursors based on the unfiltered server pages.
+        [businesses.data, providers.data] = await Promise.all([
+          visibleMarketplaceEntries(businesses.data),
+          visibleMarketplaceEntries(providers.data),
+        ]);
+        return { businesses, providers };
       }
       // Fall through to the filter search if the functions aren't deployed yet.
     }
@@ -259,14 +269,14 @@ export const discoveryService = {
     const userLng = opts.lng ?? DEFAULT_LNG;
 
     const bizPage = toPage<Business>(bizRes.data, bizRes.count, bizFrom, bizLimit);
-    bizPage.data = bizPage.data.map((b) => ({
+    bizPage.data = (await visibleMarketplaceEntries(bizPage.data)).map((b) => ({
       ...withDistance(b, userLat, userLng),
       coverImage: getRelatableBusinessCover(b),
       gallery: getRelatableBusinessGallery(b),
     }));
 
     const provPage = toPage<Provider>(provRes.data, provRes.count, provFrom, provLimit);
-    provPage.data = provPage.data.map((prov) => ({ ...withDistance(prov, userLat, userLng), avatar: getRelatableProviderAvatar(prov) }));
+    provPage.data = (await visibleMarketplaceEntries(provPage.data)).map((prov) => ({ ...withDistance(prov, userLat, userLng), avatar: getRelatableProviderAvatar(prov) }));
 
     return { businesses: bizPage, providers: provPage };
   },

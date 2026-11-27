@@ -91,6 +91,13 @@ function once(opts: PositionOptions): Promise<GeolocationPosition> {
 }
 
 async function acquire(options?: PositionOptions): Promise<GeolocationPosition> {
+  if (options?.enableHighAccuracy) {
+    try {
+      return await once(phase2Opts(options));
+    } catch (e) {
+      throw toWebError(classify(e), messageOf(e) || "Failed to retrieve location");
+    }
+  }
   try {
     return await once(PHASE1);
   } catch (e1) {
@@ -114,13 +121,26 @@ export function resetGeolocationForTests() {
   inflight = null;
 }
 
+const DEFAULT_CALIBRATION_MS = 4500;
+const DEFAULT_TARGET_ACCURACY_M = 25;
+
+export interface CalibrationOptions {
+  maxDurationMs?: number;
+  targetAccuracyM?: number;
+}
+
 export const nativeGeolocation = {
   getCurrentPosition: (
     successCallback: PositionCallback,
     errorCallback?: PositionErrorCallback | null,
     options?: PositionOptions,
   ) => {
-    if (lastFix && Date.now() - lastFix.at < FRESH_FIX_MS) {
+    const wantsFine = !!options?.enableHighAccuracy;
+    const cacheIsFine =
+      lastFix != null &&
+      typeof lastFix.pos.coords.accuracy === "number" &&
+      lastFix.pos.coords.accuracy <= 60;
+    if (lastFix && Date.now() - lastFix.at < FRESH_FIX_MS && (!wantsFine || cacheIsFine)) {
       const pos = lastFix.pos;
       queueMicrotask(() => successCallback(pos));
       return;
@@ -134,14 +154,15 @@ export const nativeGeolocation = {
       run();
     };
 
-    // Join the request already in flight, or start one. If it has hung, the watchdog below frees the slot so the NEXT
-    // caller starts fresh instead of joining a request that will never answer.
-    const mine = inflight ?? (() => {
-      const id = ++seq;
-      const promise = acquire(options).finally(() => { if (inflight?.id === id) inflight = null; });
-      inflight = { promise, id };
-      return inflight;
-    })();
+    // Join the request already in flight when coarse/default, or start a fresh high-accuracy fix.
+    const mine = !wantsFine && inflight
+      ? inflight
+      : (() => {
+          const id = ++seq;
+          const promise = acquire(options).finally(() => { if (inflight?.id === id) inflight = null; });
+          if (!wantsFine) inflight = { promise, id };
+          return { promise, id };
+        })();
 
     const watchdog = setTimeout(() => {
       if (inflight?.id === mine.id) inflight = null;
@@ -156,6 +177,178 @@ export const nativeGeolocation = {
       (err) => finish(() => errorCallback?.(
         typeof err?.code === "number" && err?.PERMISSION_DENIED ? err : toWebError(classify(err), messageOf(err) || "Failed to retrieve location"),
       )),
+    );
+  },
+
+  /**
+   * Multi-sample calibration window: watches high-accuracy samples up to `maxDurationMs`,
+   * keeping the sharpest accuracy sample and resolving immediately once `targetAccuracyM` is met.
+   */
+  getCalibratedPosition: (
+    successCallback: PositionCallback,
+    errorCallback?: PositionErrorCallback | null,
+    options?: CalibrationOptions,
+  ) => {
+    const maxDurationMs = options?.maxDurationMs ?? DEFAULT_CALIBRATION_MS;
+    const targetAccuracyM = options?.targetAccuracyM ?? DEFAULT_TARGET_ACCURACY_M;
+    let settled = false;
+    let best: GeolocationPosition | null = null;
+    let nativeWatchId: string | null = null;
+    let webWatchId: number | null = null;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      if (nativeWatchId !== null) {
+        const id = nativeWatchId;
+        nativeWatchId = null;
+        void Geolocation.clearWatch({ id }).catch(() => {});
+      }
+      if (webWatchId !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(webWatchId);
+        webWatchId = null;
+      }
+    };
+
+    const resolveBest = (pos: GeolocationPosition) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      lastFix = { pos, at: Date.now() };
+      successCallback(pos);
+    };
+
+    const fail = (err: GeolocationPositionError) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      errorCallback?.(err);
+    };
+
+    const considerSample = (raw: Position | GeolocationPosition) => {
+      const pos = "timestamp" in raw && typeof (raw as GeolocationPosition).coords?.latitude === "number"
+        ? toWebPosition(raw as Position)
+        : (raw as GeolocationPosition);
+      const acc = typeof pos.coords.accuracy === "number" ? pos.coords.accuracy : Infinity;
+      const bestAcc = best && typeof best.coords.accuracy === "number" ? best.coords.accuracy : Infinity;
+      if (!best || acc < bestAcc) {
+        best = pos;
+      }
+      if (acc <= targetAccuracyM) {
+        resolveBest(best);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (best) {
+        resolveBest(best);
+      } else {
+        fail(toWebError(3, "Timed out calibrating GPS position"));
+      }
+    }, maxDurationMs);
+
+    const watchOpts: PositionOptions = { enableHighAccuracy: true, timeout: maxDurationMs, maximumAge: 0 };
+    if (Capacitor.isNativePlatform()) {
+      void Geolocation.watchPosition(watchOpts as any, (pos, err) => {
+        if (settled) return;
+        if (err) {
+          const code = classify(err);
+          if (code === 1 || code === 2) {
+            fail(toWebError(code, messageOf(err) || "Failed to retrieve calibrated location"));
+          }
+          return;
+        }
+        if (pos) considerSample(pos);
+      })
+        .then((id) => {
+          if (settled) {
+            void Geolocation.clearWatch({ id }).catch(() => {});
+          } else {
+            nativeWatchId = id;
+          }
+        })
+        .catch((err) => {
+          fail(toWebError(classify(err), messageOf(err) || "Failed to start GPS calibration"));
+        });
+    } else if (typeof navigator !== "undefined" && navigator.geolocation) {
+      webWatchId = navigator.geolocation.watchPosition(
+        (pos) => considerSample(pos),
+        (err) => {
+          const code = classify(err);
+          if (code === 1 || code === 2) {
+            fail(toWebError(code, messageOf(err) || "Failed to retrieve calibrated location"));
+          }
+        },
+        watchOpts,
+      );
+    } else {
+      fail(toWebError(2, "Geolocation is not available on this device"));
+    }
+  },
+
+  /**
+   * Quick / non-intrusive position read: checks cached fix or network/coarse fix
+   * without forcing a cold high-accuracy GPS prompt when the user already picked
+   * approximate location.
+   */
+  getQuickPosition: (
+    successCallback: PositionCallback,
+    errorCallback?: PositionErrorCallback | null,
+  ) => {
+    if (lastFix && Date.now() - lastFix.at < FRESH_FIX_MS) {
+      const pos = lastFix.pos;
+      queueMicrotask(() => successCallback(pos));
+      return;
+    }
+    once(PHASE1).then(
+      (pos) => {
+        lastFix = { pos, at: Date.now() };
+        successCallback(pos);
+      },
+      (err) => {
+        errorCallback?.(
+          typeof err?.code === "number" && err?.PERMISSION_DENIED
+            ? err
+            : toWebError(classify(err), messageOf(err) || "Failed to retrieve location"),
+        );
+      },
+    );
+  },
+
+  /**
+   * Explicit user-requested precise GPS fix (e.g. double-tap on map locate button):
+   * bypasses the 15s cached fix and asks for fresh high-accuracy coordinates.
+   */
+  getPrecisePosition: (
+    successCallback: PositionCallback,
+    errorCallback?: PositionErrorCallback | null,
+    options?: PositionOptions,
+  ) => {
+    const opts = phase2Opts(options);
+    let settled = false;
+    const finish = (run: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      run();
+    };
+    const watchdog = setTimeout(() => {
+      finish(() => errorCallback?.(toWebError(3, "Timed out waiting for precise GPS")));
+    }, (opts.timeout ?? 10_000) + WATCHDOG_PAD_MS);
+
+    once(opts).then(
+      (pos) => {
+        lastFix = { pos, at: Date.now() };
+        finish(() => successCallback(pos));
+      },
+      (err) => {
+        finish(() =>
+          errorCallback?.(
+            typeof err?.code === "number" && err?.PERMISSION_DENIED
+              ? err
+              : toWebError(classify(err), messageOf(err) || "Failed to retrieve precise location"),
+          ),
+        );
+      },
     );
   },
 };

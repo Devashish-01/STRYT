@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { BookmarkTarget, Role, CurrentUser } from "@/types";
 import type { BookmarkKey, FollowKey, UserList } from "@/store/sliceTypes";
+import type { LiveNotificationAlert } from "@/store/useNotificationBadges";
 
 export type ContextType = "customer" | "business" | "provider" | "delivery";
 export interface ActiveContext {
@@ -141,9 +142,13 @@ export interface AppState {
   profileLoadError: boolean;
   offerNotificationPermission: () => Promise<void>;
 
-  // chat unread count
+  // chat & notification unread badges + realtime foreground banner
   chatUnread: number;
   setChatUnread: (n: number) => void;
+  notifUnread: number;
+  refreshNotifBadges: () => void;
+  liveNotification: LiveNotificationAlert | null;
+  dismissLiveNotification: () => void;
 
   // toast
   toast: string | null;

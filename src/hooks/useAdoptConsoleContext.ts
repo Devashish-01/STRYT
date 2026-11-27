@@ -14,19 +14,25 @@ import { businessService, providerService } from "@/services";
  * Call from the console guards once access (and any password) has been verified. Uses the same cache keys as the
  * console screens, so it adds no request.
  */
-export function useAdoptConsoleContext(type: "business" | "provider", id: string, enabled: boolean) {
+export function useAdoptConsoleContext(type: "business" | "provider" | "delivery", id: string, enabled: boolean) {
   const { activeContext, setContext } = useApp();
+  const entityId = type === "delivery" ? null : id;
   const { data } = useQuery<{ name?: string; displayName?: string } | undefined>(
-    () => (type === "business" ? businessService.get(id) : providerService.get(id)),
+    () =>
+      type === "business" ? businessService.get(id)
+      : type === "provider" ? providerService.get(id)
+      : Promise.resolve(undefined),
     [type, id],
-    `${type}:${id}`,
+    type === "delivery" ? undefined : `${type}:${id}`,
   );
-  const name = (type === "business" ? data?.name : data?.displayName) ?? "";
+  const name =
+    type === "delivery" ? "Delivery"
+    : ((type === "business" ? data?.name : data?.displayName) ?? "");
 
   useEffect(() => {
-    if (!enabled || !id) return;
-    const sameEntity = activeContext.type === type && activeContext.id === id;
+    if (!enabled || (type !== "delivery" && !id)) return;
+    const sameEntity = activeContext.type === type && activeContext.id === entityId;
     if (sameEntity && (activeContext.name || !name)) return;
-    setContext({ type, id, name: name || (sameEntity ? activeContext.name : "") });
-  }, [enabled, type, id, name, activeContext.type, activeContext.id, activeContext.name, setContext]);
+    setContext({ type, id: entityId, name: name || (sameEntity ? activeContext.name : "") });
+  }, [enabled, type, id, entityId, name, activeContext.type, activeContext.id, activeContext.name, setContext]);
 }

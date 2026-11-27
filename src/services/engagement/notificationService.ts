@@ -34,18 +34,78 @@ function toNotif(row: Record<string, unknown>): AppNotification {
  *  rows that have no scope. Omit entirely for the unfiltered "everything" view. */
 export type NotifScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER" | "DELIVERY"; id?: string };
 
+export type ClassifiedNotifScope =
+  | { scope: "CUSTOMER" }
+  | { scope: "DELIVERY" }
+  | { scope: "BUSINESS"; id: string }
+  | { scope: "PROVIDER"; id: string };
+
+export interface UnreadBreakdown {
+  all: number;
+  personal: number;
+  delivery: number;
+  /** Keyed by filter key (`"personal"`, `"delivery"`, `"business:<id>"`, `"provider:<id>"`). */
+  byKey: Record<string, number>;
+}
+
+const CUSTOMER_DISCOVERY_TYPES = new Set(["NEW_BUSINESS", "NEW_PROVIDER", "NEW_PLACE", "OFFER"]);
+
+/** Canonical scope classifier used for unread breakdowns and resilient live-alert routing. */
+export function classifyNotificationScope(row: {
+  type?: string | null;
+  deep_link?: string | null;
+  deepLink?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  metadata?: NotificationMetadata | null;
+}): ClassifiedNotifScope {
+  const entityType = row.entity_type ?? null;
+  const entityId = row.entity_id ?? null;
+  const deepLink = row.deep_link ?? row.deepLink ?? "";
+  const type = row.type ?? "";
+
+  if (entityType === "DELIVERY" || deepLink.startsWith("/delivery")) {
+    return { scope: "DELIVERY" };
+  }
+  if (CUSTOMER_DISCOVERY_TYPES.has(type) || entityType === "PLACE") {
+    return { scope: "CUSTOMER" };
+  }
+  if (entityType === "BUSINESS" && entityId) {
+    return { scope: "BUSINESS", id: entityId };
+  }
+  if (entityType === "PROVIDER" && entityId) {
+    return { scope: "PROVIDER", id: entityId };
+  }
+  const metaBizId = (row.metadata as Record<string, unknown> | null | undefined)?.businessId;
+  if (entityType === "bulk_deal" && typeof metaBizId === "string" && metaBizId) {
+    return { scope: "BUSINESS", id: metaBizId };
+  }
+  return { scope: "CUSTOMER" };
+}
+
 /** How many notifications one page holds (NOTIF-5: the list used to stop at this many, with no way to see older). */
 export const NOTIFICATION_PAGE_SIZE = 50;
 
 function applyScope(q: any, scope?: NotifScope) {
   if (!scope) return q;
-  // The rider's work: its notifications are filed under the rider, not under a shop, so they are found by where they open.
-  if (scope.scope === "DELIVERY") return q.like("deep_link", "/delivery%");
-  if (scope.scope === "BUSINESS" || scope.scope === "PROVIDER") {
-    return q.eq("entity_type", scope.scope).eq("entity_id", scope.id ?? "");
+  // The rider's work: accept explicit DELIVERY rows plus legacy/20261005 /delivery links stamped PROVIDER.
+  if (scope.scope === "DELIVERY") {
+    return q.or("entity_type.eq.DELIVERY,deep_link.like./delivery%");
   }
-  // CUSTOMER: personal + legacy rows that predate scoping.
-  return q.or("entity_type.is.null,entity_type.eq.CUSTOMER");
+  if (scope.scope === "BUSINESS" || scope.scope === "PROVIDER") {
+    let scoped = q
+      .eq("entity_type", scope.scope)
+      .eq("entity_id", scope.id ?? "")
+      .not("type", "in", "(NEW_BUSINESS,NEW_PROVIDER,OFFER)");
+    if (scope.scope === "PROVIDER") {
+      scoped = scoped.not("deep_link", "like", "/delivery%");
+    }
+    return scoped;
+  }
+  // CUSTOMER: personal + legacy null + discovery broadcasts addressed to nearby customers.
+  return q.or(
+    "entity_type.is.null,entity_type.eq.CUSTOMER,entity_type.eq.PLACE,and(entity_type.in.(BUSINESS,PROVIDER),type.in.(NEW_BUSINESS,NEW_PROVIDER,OFFER))",
+  );
 }
 
 const HANDLED_BOOKING: Record<string, { statusPill: string; tone: string }> = {
@@ -127,6 +187,39 @@ export const notificationService = {
     const { count, error } = await q;
     if (error) throw error;
     return count ?? 0;
+  },
+
+  /** Compute per-hat unread totals from all unread rows for the current user in one round trip. */
+  async getUnreadBreakdown(): Promise<UnreadBreakdown> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return { all: 0, personal: 0, delivery: 0, byKey: {} };
+    const { data, error } = await sb
+      .from("notifications")
+      .select("id, type, deep_link, entity_type, entity_id, metadata")
+      .eq("user_id", uid)
+      .eq("is_read", false)
+      .limit(500);
+    if (error) throw error;
+    const byKey: Record<string, number> = {};
+    let personal = 0;
+    let delivery = 0;
+    const rows = data ?? [];
+    for (const row of rows) {
+      const classified = classifyNotificationScope(row as Record<string, unknown>);
+      const key =
+        classified.scope === "CUSTOMER"
+          ? "personal"
+          : classified.scope === "DELIVERY"
+            ? "delivery"
+            : classified.scope === "BUSINESS"
+              ? `business:${classified.id}`
+              : `provider:${classified.id}`;
+      byKey[key] = (byKey[key] ?? 0) + 1;
+      if (classified.scope === "CUSTOMER") personal += 1;
+      else if (classified.scope === "DELIVERY") delivery += 1;
+    }
+    return { all: rows.length, personal, delivery, byKey };
   },
 
   // Throws on failure (like remove() below) rather than swallowing the error.

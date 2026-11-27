@@ -24,6 +24,7 @@ import { usePartNavigation } from "./hooks/usePartNavigation";
 import { returnTo } from "./lib/returnTo";
 import { clearDeliveredNotifications } from "./lib/pushNotifications";
 import { contextHomePath } from "./lib/contextHome";
+import { isPersonalOnlyRoute } from "./lib/partNavigation";
 import { accountGate, isAuthCallbackUrl } from "./lib/machines/accountGate";
 import { schedulePrefetch } from "./lib/prefetchRoutes";
 import { useI18n, type Lang } from "./lib/i18n";
@@ -531,11 +532,61 @@ function getRouteDocumentTitle(pathname: string): string {
 
 export default function App() {
   const location = useLocation();
-  const { toast, notifExplainerPending, confirmNotifExplainer, dismissNotifExplainer } = useApp();
+  const {
+    toast,
+    notifExplainerPending,
+    confirmNotifExplainer,
+    dismissNotifExplainer,
+    isAuthed,
+    profileReady,
+    user,
+    activeContext,
+    pendingContextSwitch,
+    setContext,
+  } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
+  // One-way console adoption leaves activeContext stuck on Business/Provider/Delivery
+  // after hardware/browser Back, deep-links, or dismissing a PIN sheet onto /home or /profile.
+  // Exlusively-personal routes are never pinned to a seller hat, so reconcile back to Customer.
+  useEffect(() => {
+    if (!isAuthed || !profileReady || pendingContextSwitch) return;
+    if (activeContext.type === "customer") return;
+    if (!isPersonalOnlyRoute(location.pathname, location.search)) return;
+    setContext({ type: "customer", id: null, name: user.name || "Personal" });
+  }, [
+    isAuthed,
+    profileReady,
+    pendingContextSwitch,
+    activeContext.type,
+    location.pathname,
+    location.search,
+    user.name,
+    setContext,
+  ]);
+
   const navigate = useNavigate();
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const openLink = (raw: string) => {
+      try {
+        const url = new URL(raw);
+        let path: string;
+        if (url.protocol === "https:" && (url.hostname === "stryt.in" || url.hostname === "www.stryt.in")) {
+          path = url.pathname;
+        } else if (url.protocol === "stryt:" || url.protocol === "in.stryt.app:") {
+          if (url.hostname === "auth") return;
+          path = `/${url.hostname}${url.pathname}`;
+        } else return;
+        if (path.startsWith("//")) return;
+        navigate(`${path}${url.search}${url.hash}`);
+      } catch { /* Ignore malformed external links. */ }
+    };
+    const listener = CapApp.addListener("appUrlOpen", ({ url }) => openLink(url));
+    void CapApp.getLaunchUrl().then((result) => { if (result?.url) openLink(result.url); });
+    return () => { void listener.then((handle) => handle.remove()); };
+  }, [navigate]);
   // A push tap that points into another part of the app (a shop's console from the personal side, say) asks first.
   const { go: goGuarded, sheet: partSheet } = usePartNavigation();
 
@@ -762,8 +813,8 @@ export default function App() {
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
             <Route path="/agreement/:id" element={<AgreementScreen />} />
             <Route path="/agreements" element={<Agreements />} />
-            <Route path="/appointments" element={<MyAppointments initialSwimlane="SERVICES" />} />
-            <Route path="/orders" element={<MyAppointments initialSwimlane="ORDERS" />} />
+            <Route path="/appointments" element={<MyAppointments />} />
+            <Route path="/orders" element={<Navigate to="/agreements?section=orders" replace />} />
             <Route path="/rate/:id" element={<RateScreen />} />
 
             <Route path="/onboard/business" element={<BusinessOnboard />} />

@@ -21,12 +21,46 @@ interface QueryState<T> {
 // this is what makes navigating back to an already-visited screen feel
 // instant instead of re-showing a skeleton every time.
 const queryCache = new Map<string, unknown>();
+let queryCacheEpoch = 0;
+
+/** Remove data fetched for the previous account before another user signs in. */
+export function clearQueryCache(): void {
+  queryCacheEpoch += 1;
+  queryCache.clear();
+}
 
 /** Drop a cached entry (e.g. after a mutation). Optional bust clears in-flight
  *  coalesced GETs in businessService/providerService so refetch is fresh. */
 export function invalidateQueryCache(key: string, bustInflight?: () => void) {
   queryCache.delete(key);
   bustInflight?.();
+}
+
+/** Drop every cached entry whose key starts with `prefix` (e.g. "notif:"). */
+export function invalidateQueryCacheByPrefix(prefix: string) {
+  for (const key of Array.from(queryCache.keys())) {
+    if (key.startsWith(prefix)) queryCache.delete(key);
+  }
+}
+
+/** Read a query cache entry synchronously if present (distinguishing cached undefined via hasQueryCache). */
+export function hasQueryCache(key: string): boolean {
+  return queryCache.has(key);
+}
+
+/** Read a query cache entry synchronously without triggering a fetch. */
+export function peekQueryCache<T>(key: string): T | undefined {
+  return queryCache.get(key) as T | undefined;
+}
+
+/** Find the first match across cached entries sharing a prefix (e.g. "my-businesses:"). */
+export function findInQueryCacheByPrefix<T>(prefix: string, picker: (value: unknown) => T | undefined): T | undefined {
+  for (const [key, value] of queryCache.entries()) {
+    if (!key.startsWith(prefix)) continue;
+    const hit = picker(value);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
 }
 
 export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey?: string): QueryState<T> {
@@ -47,6 +81,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey
 
   const run = useCallback((isInitial = false) => {
     let active = true;
+    const requestEpoch = queryCacheEpoch;
     const key = keyRef.current;
     const hit = key ? queryCache.has(key) : false;
     if (hit) {
@@ -63,7 +98,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey
       fnRef
         .current()
         .then((res) => {
-          if (active) {
+          if (active && requestEpoch === queryCacheEpoch) {
             setData(res);
             if (key) queryCache.set(key, res);
           }

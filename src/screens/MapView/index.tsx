@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPinPlus } from "@/components/Icons";
+import { Check, MapPin, X } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import type { Map as MaplibreMap, StyleSpecification } from "maplibre-gl";
@@ -13,6 +13,8 @@ import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { RADIUS_OPTIONS, WORLD_RADIUS_KM } from "@/utils/constants";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import { haversineKm, reverseGeocode } from "@/lib/geocode";
+import PreciseLocationSheet, { type PreciseIssueMode } from "@/components/PreciseLocationSheet";
 
 import type { Layer as MapLayer } from "./mapIcons";
 import { meIconHtml } from "./mapIcons";
@@ -42,6 +44,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import { useMapViewport } from "./useMapViewport";
 import { track, EVENTS } from "@/lib/analytics";
 import { paletteFor, retintFor } from "./mapPalette";
+import { RESTRICTED_ANDROID_MARKETPLACE } from "@/lib/marketplaceScope";
 
 // The default basemap — OpenFreeMap's open-source vector style, built from
 // OpenStreetMap data. Mapbox is a fallback only (see FALLBACK_TIMEOUT_MS
@@ -78,6 +81,17 @@ const FALLBACK_TIMEOUT_MS = 8_000;
  * support a given property throws in MapLibre, and one unexpected layer must
  * never take down the whole retint.
  */
+function hideBasemapPointsOfInterest(map: MaplibreMap) {
+  if (!RESTRICTED_ANDROID_MARKETPLACE) return;
+  for (const layer of map.getStyle()?.layers ?? []) {
+    const sourceLayer = "source-layer" in layer ? layer["source-layer"] : undefined;
+    if (sourceLayer !== "poi" && !/^poi(?:[\s_-]|$)/i.test(layer.id)) continue;
+    if (map.getLayoutProperty(layer.id, "visibility") !== "none") {
+      map.setLayoutProperty(layer.id, "visibility", "none");
+    }
+  }
+}
+
 function applyBasemapRetint(map: MaplibreMap, lampGlow: number) {
   const layers = map.getStyle()?.layers;
   if (!layers) return;
@@ -167,8 +181,11 @@ function circleGeoJSON(lat: number, lng: number, radiusKm: number, points = 72):
 }
 
 export default function MapView() {
-  const { user, area, refreshUser, showToast, isGuest } = useApp();
+  const { user, area, refreshUser, showToast, isGuest, setArea, setGuestLocation } = useApp();
   const [areaPickerOpen, setAreaPickerOpen] = useState(false);
+  const [preciseIssue, setPreciseIssue] = useState<PreciseIssueMode | null>(null);
+  const [driftFix, setDriftFix] = useState<{ lat: number; lng: number; area: string; accuracy?: number } | null>(null);
+  const [savingDrift, setSavingDrift] = useState(false);
   const { t, tf } = useI18n();
   const pin = useLocationPinDrop(refreshUser, showToast, (lat, lng) =>
     viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })
@@ -676,38 +693,76 @@ export default function MapView() {
             />
           )}
 
-          {/* The old "N places" badge and the RadiusStrip are retired (radius
-              derives from zoom by default — see useMapViewport; an explicit
-              override is now inside MapFilterStrip's popover). Guests keep
-              their notice; the 1 km cap itself is applied to the searched
-              area, not just to a hidden control. */}
-          {isGuest && <MapBottomDock><GuestRadiusNotice /></MapBottomDock>}
-
-          {/* Labelled, while Re-centre stays a bare icon — the two used to be
-              identical glass circles distinguishable only by a `title`, which
-              is a desktop hover tooltip and therefore renders NOTHING on the
-              phone this app is mostly used on. Two anonymous purple circles,
-              one above the other, and no way to tell which was which.
-
-              They are not two flavours of the same thing, so they should not
-              look alike: Re-centre is a VIEW action (move the camera, costs
-              nothing, tap it constantly) and follows the arrow-in-a-circle
-              convention every map app shares. This one is a DATA action — it
-              changes the location saved on your profile, which is what the
-              whole app filters by. The unfamiliar, consequential one is the
-              one that gets words. */}
-          <button
-            type="button"
-            className="chip-pill map-glass-panel map-fab-pin"
-            aria-label={t("map_set_location_aria")}
-            title={t("map_set_location_manually")}
-            /* Wrapped, not passed by reference — enterPickMode now takes an
-               optional start point and would otherwise receive the click event. */
-            onClick={() => pin.enterPickMode()}
-          >
-            <MapPinPlus size={15} color="var(--brand-600)" />
-            <span>{t("map_set_location_cta")}</span>
-          </button>
+          {(isGuest || driftFix) && (
+            <MapBottomDock>
+              {isGuest && <GuestRadiusNotice />}
+              {driftFix && (
+                <div className="map-drift-banner">
+                  <div className="row between center-v gap-8">
+                    <div className="row gap-6 center-v" style={{ minWidth: 0 }}>
+                      <MapPin size={15} color="var(--brand-600)" style={{ flexShrink: 0 }} />
+                      <span className="small semi ellipsis" style={{ color: "var(--ink-900)" }}>
+                        {typeof driftFix.accuracy === "number"
+                          ? tf("map_drift_title", { area: driftFix.area, m: Math.max(1, Math.round(driftFix.accuracy)) })
+                          : tf("map_drift_title_no_m", { area: driftFix.area })}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-btn-sm"
+                      onClick={() => setDriftFix(null)}
+                      aria-label={t("search_cancel")}
+                      style={{ background: "var(--ink-100)", color: "var(--ink-600)", flexShrink: 0 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="row gap-8">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm grow row center gap-6"
+                      disabled={savingDrift}
+                      onClick={async () => {
+                        setSavingDrift(true);
+                        try {
+                          if (isGuest) {
+                            setGuestLocation({ lat: driftFix.lat, lng: driftFix.lng });
+                            setArea(driftFix.area);
+                            showToast(`Showing places near ${driftFix.area}`);
+                          } else {
+                            await userService.setLocation(driftFix.lat, driftFix.lng, driftFix.area);
+                            await refreshUser();
+                            setArea(driftFix.area);
+                            showToast(`Location set — ${driftFix.area} ✓`);
+                          }
+                          setDriftFix(null);
+                        } catch {
+                          showToast("Couldn't set location — try again");
+                        } finally {
+                          setSavingDrift(false);
+                        }
+                      }}
+                    >
+                      <Check size={14} />
+                      <span>{t("map_drift_save_cta")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm row center gap-6"
+                      onClick={() => {
+                        const pt = { lat: driftFix.lat, lng: driftFix.lng };
+                        setDriftFix(null);
+                        pin.enterPickMode(pt);
+                      }}
+                    >
+                      <MapPin size={14} />
+                      <span>{t("map_drift_adjust_cta")}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </MapBottomDock>
+          )}
         </>
       )}
 
@@ -722,6 +777,7 @@ export default function MapView() {
         transformRequest={transformRequest}
         workerUrl={maplibreWorkerUrl}
         onLoad={handleMapLoad}
+        onStyleData={RESTRICTED_ANDROID_MARKETPLACE ? (event) => hideBasemapPointsOfInterest(event.target) : undefined}
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a
         // query — see useMapViewport.
@@ -759,7 +815,18 @@ export default function MapView() {
         {!pin.pickMode && (
           <RecenterButton
             radiusKm={initialRadiusKm}
-            onRecentered={(lat, lng) => viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })}
+            onRecentered={(lat, lng, accuracy) => {
+              viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm });
+              const movedFar = !user.lat || !user.lng || haversineKm(user.lat, user.lng, lat, lng) > 0.15;
+              if (movedFar) {
+                void reverseGeocode(lat, lng).then((resolved) => {
+                  setDriftFix({ lat, lng, area: resolved || area || "Current location", accuracy });
+                });
+              } else {
+                setDriftFix(null);
+              }
+            }}
+            onPermissionIssue={(issue) => setPreciseIssue(issue)}
           />
         )}
         {!pin.pickMode && (
@@ -905,9 +972,24 @@ export default function MapView() {
       {areaPickerOpen && (
         <LocationPickerSheet
           onClose={() => setAreaPickerOpen(false)}
-          onLocationChanged={(lat, lng) =>
-            viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })
-          }
+          onLocationChanged={(lat, lng) => {
+            setDriftFix(null);
+            viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm });
+          }}
+          onPickOnMap={() => pin.enterPickMode()}
+        />
+      )}
+
+      {preciseIssue && (
+        <PreciseLocationSheet
+          mode={preciseIssue}
+          onRetry={() => {
+            setPreciseIssue(null);
+            const btn = document.querySelector<HTMLButtonElement>(".map-fab-recenter");
+            btn?.click();
+          }}
+          onPickOnMap={() => pin.enterPickMode()}
+          onClose={() => setPreciseIssue(null)}
         />
       )}
 

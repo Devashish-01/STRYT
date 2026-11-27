@@ -102,11 +102,15 @@ function Tracker({ userId }: { userId: string }) {
   const [disclosureOpen, setDisclosureOpen] = useState(false);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
   const trackingRef = useRef(false);
+  // Once the user says "Not now" or denies in this session, don't keep popping
+  // the disclosure modal automatically — only explicit retry/double-tap re-asks.
+  const declinedDisclosureRef = useRef(false);
   const failuresRef = useRef(0);
   const lastFixRef = useRef<number | null>(null);
 
   const ensureDisclosure = useCallback(async (): Promise<boolean> => {
     if (!(await backgroundLocation.needsBackgroundDisclosure())) return true;
+    if (declinedDisclosureRef.current) return false;
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;
       setDisclosureOpen(true);
@@ -119,6 +123,7 @@ function Tracker({ userId }: { userId: string }) {
     setTrackingState({ status: "starting" });
     const allowed = await ensureDisclosure();
     if (!allowed) {
+      declinedDisclosureRef.current = true;
       trackingRef.current = false;
       setTrackingState({ status: "declined" });
       return;
@@ -205,6 +210,7 @@ function Tracker({ userId }: { userId: string }) {
   // The banner's "turn on" button: ask again from scratch.
   useEffect(() => {
     trackingControl.retry = () => {
+      declinedDisclosureRef.current = false;
       if (trackingRef.current) { void backgroundLocation.stop("delivery"); trackingRef.current = false; }
       setTrackingState({ status: "idle" });
       if (targetsRef.current.batchIds.length > 0 || targetsRef.current.soloIds.length > 0) void begin();

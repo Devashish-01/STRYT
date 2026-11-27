@@ -25,7 +25,7 @@ STRYT transforms how you discover, connect, and transact with local shops, skill
 📍 HYPERLOCAL DISCOVERY & REAL-TIME MAP
 • Discover nearby stores, food stalls, home-based businesses, and artisans within walking distance.
 • Real-time availability: See who is open right now, view live product catalogs, and check service menus before you step out.
-• Smart neighborhood filtering: Search by groceries, street food, salon, repair, fitness, and more.
+• Smart neighborhood filtering: Search by groceries, street food, salons, and home repair.
 
 🤝 STREET REQUESTS & LIVE BARGAINING
 • Need something specific? Post a street request to nearby shops in seconds.
@@ -33,7 +33,7 @@ STRYT transforms how you discover, connect, and transact with local shops, skill
 • Negotiate fair prices with live offers — bringing authentic street bargaining into the digital era without middlemen cuts.
 
 ✂️ INSTANT APPOINTMENT BOOKINGS
-• Book haircuts, salon treatments, repair consultations, and wellness sessions with zero waiting.
+• Book appointments for haircuts, salon services, and home repairs.
 • Interactive slot picker: Choose your preferred day and time with real-time slot verification.
 • Instant booking confirmations, reminders, and directions to the vendor's doorstep.
 

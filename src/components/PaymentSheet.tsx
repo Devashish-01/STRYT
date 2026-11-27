@@ -64,6 +64,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
 
   return (
     <div
+      className="overlay"
       style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", animation: "fadeIn .2s" }}
       onClick={onClose}
     >

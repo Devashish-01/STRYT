@@ -4,7 +4,8 @@ import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell
 import { notificationService, appointmentService, deliveryService, bulkService, locationService, customPaymentService, walletService, requestService } from "@/services";
 import { openCalendarEvent } from "@/lib/calendarExport";
 import { NOTIFICATION_PAGE_SIZE, type NotifScope } from "@/services/engagement/notificationService";
-import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
+import { useQueryWithRealtime, invalidateQueryCacheByPrefix } from "@/hooks/useApi";
+import { clearDeliveredNotifications } from "@/lib/pushNotifications";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, PullToRefreshIndicator } from "@/components/common";
 import { NoNotificationsIllustration } from "@/components/illustrations";
@@ -133,7 +134,7 @@ function groupByDay(items: AppNotification[], lang: string, todayLabel: string, 
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { showToast, user } = useApp();
+  const { showToast, user, refreshNotifBadges } = useApp();
   const { t, lang } = useI18n();
   const [params] = useSearchParams();
   // Tapping a notification that belongs to another part of the app asks "Switch to X?" first instead of just going there.
@@ -171,31 +172,43 @@ export default function Notifications() {
     }
     return list;
   }, [options, t]);
-  // Same cache-key convention the origin screen's own unread-count query uses
-  // (Home.tsx/Profile.tsx "notif:customer", ManageDashboard.tsx
-  // `notif:business:${id}`, ProviderDashboard.tsx `notif:provider:${id}`) — so
-  // marking read here can invalidate exactly that badge's cache, rather than
-  // waiting on the realtime channel to eventually resync it.
+  // Once the user opens Notifications, any queued OS tray banners have been seen — clear them here rather than
+  // blindly wiping the tray whenever any screen enters foreground.
+  useEffect(() => {
+    void clearDeliveredNotifications();
+  }, []);
+
+  const { data: breakdown } = useQueryWithRealtime(
+    () => (user.id ? notificationService.getUnreadBreakdown() : Promise.resolve({ all: 0, personal: 0, delivery: 0, byKey: {} as Record<string, number> })),
+    "notifications",
+    [user.id],
+    user.id ? `user_id=eq.${user.id}` : undefined,
+    `notif:breakdown:${user.id || "guest"}`,
+  );
+
   const badgeCacheKey =
     scope?.scope === "BUSINESS" ? `notif:business:${scope.id}`
     : scope?.scope === "PROVIDER" ? `notif:provider:${scope.id}`
-    // No ?scope= is the customer's own bell (Home, Profile, desktop sidebar), which is the badge to refresh —
-    // leaving it undefined meant marking read here never updated it (NOTIF-4).
+    : scope?.scope === "DELIVERY" ? "notif:delivery"
     : "notif:customer";
-  // The unfiltered view spans every part, so every part's badge changes with it.
+
+  // Clear every notification cache key (lists, per-hat counts, home/profile/console badges) in one sweep
+  // and kick the global badge counter so Home / Profile / Delivery / Consoles update immediately.
   const invalidateBadges = () => {
-    if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    if (!scope) for (const o of options) if (o.id && (o.type === "business" || o.type === "provider")) invalidateQueryCache(`notif:${o.type}:${o.id}`);
+    invalidateQueryCacheByPrefix("notif:");
+    refreshNotifBadges();
   };
   const subtitle = scope?.scope === "BUSINESS" ? t("for_this_business")
     : scope?.scope === "PROVIDER" ? t("for_this_service")
+    : scope?.scope === "DELIVERY" ? t("part_delivery")
     : scope?.scope === "CUSTOMER" ? t("personal_word") : undefined;
 
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => notificationService.list(scope),
     "notifications",
-    [scopeKey],
+    [scopeKey, user.id],
     user.id ? `user_id=eq.${user.id}` : undefined,
+    `notif:list:${scopeKey}:${user.id || "guest"}`,
   );
   const [items, setItems] = useState<AppNotification[]>([]);
   // Pages older than the newest 50, kept separately so a realtime refetch of the first page doesn't drop them.
@@ -313,6 +326,7 @@ export default function Notifications() {
     const run = notificationActions[action];
     if (!run) return;
     await run({ n, meta, nav: guardedNav, showToast, t, setItems, refetch, badgeCacheKey, setDeclining, setDeclineNote });
+    invalidateBadges();
   }
 
   async function confirmDecline() {
@@ -378,18 +392,27 @@ export default function Notifications() {
       />
       {chips.length > 1 && (
         <div className="hscroll" role="tablist" aria-label={t("notif_filter_label")} style={{ flexShrink: 0, gap: 8, padding: "8px 16px" }}>
-          {chips.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              role="tab"
-              aria-selected={filter === c.key}
-              className={`chip ${filter === c.key ? "active" : ""}`}
-              onClick={() => { haptics.selection(); setFilter(c.key); }}
-            >
-              {c.label}
-            </button>
-          ))}
+          {chips.map((c) => {
+            const chipUnread =
+              c.key === "all"
+                ? (breakdown?.all ?? 0)
+                : (breakdown?.byKey?.[c.key] ?? 0);
+            return (
+              <button
+                key={c.key}
+                type="button"
+                role="tab"
+                aria-selected={filter === c.key}
+                className={`chip ${filter === c.key ? "active" : ""}`}
+                onClick={() => { haptics.selection(); setFilter(c.key); }}
+              >
+                <span>{c.label}</span>
+                {chipUnread > 0 && (
+                  <span className="chip-count-pill">{chipUnread > 99 ? "99+" : chipUnread}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
       <div ref={containerRef} className="screen-scroll">

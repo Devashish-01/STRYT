@@ -5,7 +5,7 @@ import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Pack
 import { ActionIconBadge } from "@/components/ActionIconBadge";
 import { useApp } from "@/store";
 import { hasNoLocation } from "@/lib/locationPrompt";
-import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService, bulkService } from "@/services";
+import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
@@ -30,7 +30,7 @@ import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable } from "@/lib/queueMath";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { LiveOrderEta, LiveOrderHeadline } from "@/components/delivery/LiveOrderBits";
-import { isLiveOrder } from "@/lib/orderLists";
+import { isLiveOrder, isOrderActivity, myDealsOrderUrl } from "@/lib/orderLists";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { MyQueueEntry } from "@/types";
 
@@ -347,7 +347,7 @@ function EmptyStreetCard({
 export default function Home() {
   const nav = useNavigate();
   const { t, tf } = useI18n();
-  const { area: rawArea, chatUnread, user, manageableBusinessIds, offerNotificationPermission } = useApp();
+  const { area: rawArea, chatUnread, notifUnread, user, manageableBusinessIds, offerNotificationPermission } = useApp();
   // One business per owner is a hard DB constraint — don't invite someone who
   // already manages a business (owned or delegated) to list a brand-new one.
   const hasAnyBusiness = manageableBusinessIds.length > 0;
@@ -388,7 +388,6 @@ export default function Home() {
   const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
   const { data: myBulkPledges, refetch: refetchBulkPledges } = useQuery(() => bulkService.myPledgedDeals(user.lat || 0, user.lng || 0), [user.id, user.lat, user.lng], `home:bulk-pledges:${user.id}`);
   const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `home:pending-loc:${user.id}`);
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:customer:${user.id || "guest"}`);
 
   const handleRefresh = async () => {
     await Promise.allSettled([
@@ -432,16 +431,18 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [nearbyRailLoading, offerNotificationPermission, scanner, locationOpen, payingQueueToken]);
 
-  // Home-delivery orders in progress get their own live card ("Your order"), and count as upcoming for as long as they are live —
-  // however late they run — rather than only while their scheduled time is still ahead.
+  // Home-delivery orders in progress get their own live card ("Your order"), and live store orders
+  // belong in My Deals → Store Orders. Appointments counts only scheduled bookings/services.
   const liveDeliveries = DELIVERY_AGENT_ENABLED
     ? (myAppointments ?? []).filter((a) => a.fulfillmentType === "DELIVERY" && isLiveOrder(a))
     : [];
-  // Upcoming = still-live bookings scheduled in the future.
+  const liveStoreOrdersCount = (myAppointments ?? []).filter((a) => isOrderActivity(a) && isLiveOrder(a)).length;
+  const dealsAndOrdersCount = activeAgreements.length + liveStoreOrdersCount;
+  // Upcoming = still-live scheduled bookings/services (excluding store orders, which live in My Deals).
   const upcomingAppointments = (myAppointments ?? [])
-    .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now() && !(DELIVERY_AGENT_ENABLED && a.fulfillmentType === "DELIVERY"))
+    .filter((a) => !isOrderActivity(a) && isLiveOrder(a))
     .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
-  const upcomingCount = upcomingAppointments.length + liveDeliveries.length;
+  const upcomingCount = upcomingAppointments.length;
   const nextAppointment = upcomingAppointments[0];
 
   // "Your day" — every live customer state, consolidated into one glanceable
@@ -459,7 +460,7 @@ export default function Home() {
       title: o.targetName,
       stat: <LiveOrderHeadline apt={o} />,
       sub: <LiveOrderEta apt={o} />,
-      onClick: () => nav("/orders"),
+      onClick: () => nav(myDealsOrderUrl(o)),
     });
   }
   for (const q of activeQueues) {
@@ -546,7 +547,7 @@ export default function Home() {
     { emoji: "🏘️", label: t("community"), sub: t("street_feed"), tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
     // Deals/appointments are personal — a guest has none, so these are sign-in
     // prompts rather than tiles that bounce off ProtectedLayout unexplained.
-    { emoji: "🤝", label: t("my_deals"), sub: activeAgreements.length > 0 ? `${activeAgreements.length}${t("active_suffix")}` : t("requests"), tint: "var(--green-100)", color: "var(--green-500)", onClick: requireAuth(() => nav("/agreements"), "Sign in to see your deals"), badge: activeAgreements.length || undefined },
+    { emoji: "🤝", label: t("my_deals"), sub: dealsAndOrdersCount > 0 ? `${dealsAndOrdersCount}${t("active_suffix")}` : t("requests"), tint: "var(--green-100)", color: "var(--green-500)", onClick: requireAuth(() => nav("/agreements"), "Sign in to see your deals"), badge: dealsAndOrdersCount || undefined },
     { emoji: "📅", label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount}${t("upcoming_suffix")}` : t("your_bookings"), tint: "var(--brand-50)", color: "var(--brand-600)", onClick: requireAuth(() => nav("/appointments"), "Sign in to see your bookings"), badge: upcomingCount || undefined },
   ];
 
@@ -590,11 +591,11 @@ export default function Home() {
                   width: 38,
                   height: 38,
                 }}
-                onClick={() => nav("/notifications?scope=CUSTOMER")}
+                onClick={() => nav("/notifications")}
                 aria-label="Notifications"
               >
                 <Bell size={19} />
-                {(custUnread ?? 0) > 0 && (
+                {notifUnread > 0 && (
                   <span style={{
                     position: "absolute", top: 5, right: 5,
                     width: 8, height: 8, background: "var(--accent-500)",
@@ -929,9 +930,9 @@ export default function Home() {
               <Search size={16} />
               <span>{t("search_placeholder")}</span>
             </button>
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "var(--white)", border: "none", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "var(--white)", border: "none", position: "relative" }} onClick={() => nav("/notifications")} aria-label="Notifications">
               <Bell size={18} />
-              {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+              {notifUnread > 0 && <span className="count-badge btn-badge count-badge-accent">{notifUnread > 9 ? "9+" : notifUnread}</span>}
             </button>
             <MyPeopleToggle size={18} />
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.22)", color: "var(--white)", border: "none" }} onClick={() => setScanner(true)} aria-label="Scan QR">

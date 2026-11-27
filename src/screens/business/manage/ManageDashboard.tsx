@@ -3,23 +3,24 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Calendar, Camera, Check, ChevronRight, HelpCircle,
   Megaphone, Play, QrCode, Search, Star,
-  Users, Wallet, X as XIcon, Zap, Package, MapPin, CheckCircle2,
+  Users, Wallet, X as XIcon, Zap,
 } from "@/components/Icons";
-import { enrichOrderLinesWithStock } from "@/lib/orderStockEnrichment";
 import {
   appointmentService, businessService, bulkService, deliveryService, bustBusinessGetCache, communityService,
   customPaymentService, notificationService, requestService,
 } from "@/services";
+import type { AppointmentDelivery } from "@/services/engagement/deliveryService";
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
-import { AppBar, SafeImg } from "@/components/common";
+import { AppBar } from "@/components/common";
 import { inr } from "@/lib/format";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
+import { claimContextKey, partitionDashboardWork } from "@/lib/dashboardOrders";
 import ManageNav from "./ManageNav";
 import BusinessConsoleHeader from "@/components/console/BusinessConsoleHeader";
 import { buildBusinessCapabilities, todaysAppointments, upcomingAppointments } from "@/features/business-home/capabilities";
@@ -34,11 +35,12 @@ import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useBusinessAccess } from "@/lib/businessAccess";
 import { errorMessage } from "@/lib/errorMessage";
+import DashboardOrderCard from "@/components/orders/DashboardOrderCard";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { showToast, user } = useApp();
+  const { showToast, user, notifUnread } = useApp();
   const { t, tf } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
   // TMA-006 — no RequireScope on this route: it sits directly under
@@ -68,6 +70,17 @@ export default function ManageDashboard() {
   );
   const { data: appointments, loading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
+  );
+  const deliveryOrderIds = (appointments ?? [])
+    .filter((a) => a.status === "ACCEPTED" && a.fulfillmentType === "DELIVERY")
+    .map((a) => a.id);
+  const { data: deliveryMap, refetch: refetchDeliveryMap } = useQuery(
+    () =>
+      DELIVERY_AGENT_ENABLED && deliveryOrderIds.length > 0
+        ? deliveryService.forAppointments(deliveryOrderIds)
+        : Promise.resolve({} as Record<string, AppointmentDelivery>),
+    [deliveryOrderIds.join(",")],
+    `dashboard:delivery-map:${id}`,
   );
   const { data: customPayments, loading: customLoading, error: customError, refetch: refetchCustom } = useQueryWithRealtime(
     () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
@@ -152,24 +165,18 @@ export default function ManageDashboard() {
   }
 
   const appts = (appointments ?? []) as AppointmentRecord[];
-  const pendingAppointments = appts.filter((item) => item.status === "PENDING");
   const queueTokens: QueueOwnerToken[] = [
     ...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? []),
   ];
-  const { appointmentClaims, queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
+  const { appointmentClaims: rawAppointmentClaims, queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
+  const { ordersRightNow, pendingBookings, standaloneAppointmentClaims } = partitionDashboardWork(appts, rawAppointmentClaims);
   const unanswered = (questions ?? []).filter((item) => !item.answer);
   const bulkDepositClaims = pendingBulkDeposits ?? [];
-  // Scoped to what this session can actually act on — a team member without
-  // 'appointments' shouldn't see a badge count that includes booking claims
-  // they can't open (the items themselves are filtered the same way below).
+  // Scoped to what this session can actually act on — order claims stay inside Orders Right Now above.
   const actionCount =
-    // customClaims scoped the same as appointmentClaims: select_custom_payments
-    // RLS requires 'appointments' scope for a delegate, so gate the badge to match.
-    (hasScope("appointments") ? pendingAppointments.length + appointmentClaims.length + customClaims.length : 0) +
+    (hasScope("appointments") ? pendingBookings.length + standaloneAppointmentClaims.length + customClaims.length : 0) +
     (hasScope("queue") ? queueClaims.length : 0) +
     (hasScope("leads") ? unanswered.length : 0) +
-    // bulk-deal management sits under the 'catalog' scope (write_bulk_deals'
-    // own RLS check), matching BulkDealsManager's own access gate.
     (hasScope("catalog") ? bulkDepositClaims.length : 0);
   const range = business?.broadcastRadius ?? 5;
   // Read-only reach shown in the header; editing lives on the dedicated
@@ -182,9 +189,6 @@ export default function ManageDashboard() {
 
   const todayAppointments = todaysAppointments(appts);
   const upcomingList = upcomingAppointments(appts);
-  const activeFulfillmentOrders = appts.filter(
-    (a) => a.status === "ACCEPTED" && (a.fulfillmentType === "DELIVERY" || (a.items && a.items.length > 0))
-  );
 
   async function markPacked(aptId: string) {
     if (packingId) return;
@@ -193,10 +197,55 @@ export default function ManageDashboard() {
       await deliveryService.markOrderReady(aptId);
       showToast(t("dlv_marked_packed") || "Order marked packed & ready!");
       refetchAppointments();
+      refetchDeliveryMap();
     } catch (e) {
       showToast(errorMessage(e, "Couldn't update order"));
     } finally {
       setPackingId(null);
+    }
+  }
+
+  async function acceptAndPack(item: AppointmentRecord) {
+    if (busyId) return;
+    setBusyId(item.id);
+    try {
+      if (item.fulfillmentType === "DELIVERY") {
+        await appointmentService.acceptWithEta(item.id, "30-45 min");
+      } else {
+        await appointmentService.updateStatus(item.id, "ACCEPTED");
+      }
+      try {
+        await deliveryService.markOrderReady(item.id);
+      } catch (err) {
+        console.warn("Could not mark order ready immediately", err);
+      }
+      showToast(t("mdash_accepted_packed_toast"));
+      refetchAppointments();
+      refetchDeliveryMap();
+    } catch (e: any) {
+      showToast(errorMessage(e, t("mdash_appointment_failed")));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function acceptWithPayment(item: AppointmentRecord) {
+    if (busyId) return;
+    setBusyId(item.id);
+    try {
+      await appointmentService.confirmPayment(item.id);
+      if (item.fulfillmentType === "DELIVERY") {
+        await appointmentService.acceptWithEta(item.id, "30-45 min");
+      } else {
+        await appointmentService.updateStatus(item.id, "ACCEPTED");
+      }
+      showToast(t("mdash_accepted_paid_toast"));
+      refetchAppointments();
+      refetchDeliveryMap();
+    } catch (e: any) {
+      showToast(errorMessage(e, t("mdash_appointment_failed")));
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -379,6 +428,7 @@ export default function ManageDashboard() {
         ambient={ambient}
         subtitle={headerSubtitle}
         notificationUnread={notificationUnread ?? 0}
+        totalNotificationUnread={notifUnread}
         chatUnread={chatUnread ?? 0}
         onShare={() => setShare(true)}
       />
@@ -446,6 +496,57 @@ export default function ManageDashboard() {
           </section>
         )}
 
+        {hasScope("appointments") && ordersRightNow.length > 0 && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="row between center-v" style={{ marginBottom: 8 }}>
+              <span className="small semi" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>{t("mdash_orders_right_now")}</span>
+                <span className="badge badge-purple" style={{ fontSize: 10, padding: "1px 6px" }}>{ordersRightNow.length}</span>
+              </span>
+              <button type="button" className="see-all" onClick={() => nav(`${base}/deliveries`)}>
+                {t("mdash_live_board")}
+              </button>
+            </div>
+            <div className="col gap-10">
+              {ordersRightNow.slice(0, 6).map((item) => (
+                <DashboardOrderCard
+                  key={item.id}
+                  item={item}
+                  businessId={id}
+                  catalog={business?.catalog}
+                  currentUserId={user.id}
+                  preloadedDelivery={deliveryMap ? ((deliveryMap as Record<string, AppointmentDelivery>)[item.id] ?? null) : undefined}
+                  busy={busyId === item.id}
+                  packing={packingId === item.id}
+                  onAccept={(ord) => updateAppointment(ord, "ACCEPTED")}
+                  onAcceptAndPack={acceptAndPack}
+                  onAcceptWithPayment={acceptWithPayment}
+                  onDecline={(ord) => updateAppointment(ord, "REJECTED")}
+                  onMarkPacked={markPacked}
+                  onCompletePickup={(ord) => updateAppointment(ord, "COMPLETED")}
+                  onPaymentDecision={updateAppointmentPayment}
+                  onOpenLiveBoard={() => nav(`${base}/deliveries`)}
+                  onOpenSelfRun={() => nav(`${base}/my-deliveries`)}
+                  onOpenDetails={() => nav(`${base}/appointments?tab=deliveries`)}
+                  onDeliveryChanged={() => {
+                    refetchAppointments();
+                    refetchDeliveryMap();
+                  }}
+                />
+              ))}
+              {ordersRightNow.length > 6 && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm btn-block"
+                  onClick={() => nav(`${base}/appointments?tab=deliveries`)}
+                >
+                  {tf("mdash_view_all_orders", { n: ordersRightNow.length })}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
         {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (() => {
           const triageError = !!(appointmentsError || queueError || customError || bulkError || questionsError);
           const triageLoading = (appointmentsLoading && !appointments) || (queueLoading && !queue) || (customLoading && !customPayments) || (bulkLoading && !pendingBulkDeposits) || (questionsLoading && !questions);
@@ -457,13 +558,19 @@ export default function ManageDashboard() {
             refetchBulkDeposits();
             refetchQuestions();
           };
+          const showCaughtUp = actionCount === 0 && ordersRightNow.length === 0 && !triageError;
+          if (!triageLoading && !triageError && actionCount === 0 && !showCaughtUp && !(isOwner && (reviews?.length ?? 0) > 0)) {
+            return null;
+          }
 
           return (
             <section className="page-pad" style={{ paddingTop: 0 }}>
-              <div className="row between center-v" style={{ marginBottom: 8 }}>
-                <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>{t("mdash_action_needed")}</span>
-                {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
-              </div>
+              {(actionCount > 0 || showCaughtUp || triageError || triageLoading) && (
+                <div className="row between center-v" style={{ marginBottom: 8 }}>
+                  <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>{t("mdash_action_needed")}</span>
+                  {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
+                </div>
+              )}
 
               {triageError && !hasAnyActionData ? (
                 <div className="card col center gap-8" style={{ padding: 18 }}>
@@ -484,72 +591,39 @@ export default function ManageDashboard() {
                     </div>
                   )}
 
-                  {actionCount === 0 && !triageError ? (
+                  {showCaughtUp ? (
                     <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">{t("mdash_all_caught_up")}</span></div>
                   ) : actionCount === 0 && triageError ? (
                     <div className="card col center gap-8" style={{ padding: 18 }}>
                       <span className="small muted">Couldn't verify pending actions</span>
                       <button className="btn btn-outline btn-sm" onClick={refetchTriage}>Retry</button>
                     </div>
-                  ) : (
+                  ) : actionCount > 0 ? (
                     <div className="col gap-10">
-                      {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => {
-                        const isDelivery = item.fulfillmentType === "DELIVERY";
-                        const enrichedLines = enrichOrderLinesWithStock(item.items, business?.catalog);
-                        return (
-                          <TodayAction
-                            key={`appointment-${item.id}`}
-                            icon={<Calendar size={18} color="var(--brand-600)" />}
-                            title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`}
-                            subtitle={item.packageName ?? item.dateLabel}
-                            badge={
-                              <span className={`badge ${isDelivery ? "badge-purple" : "badge-gray"}`} style={{ fontSize: 9.5 }}>
-                                {isDelivery ? "🛵 Delivery" : "🛍️ Store Pickup"}
-                              </span>
-                            }
-                            content={
-                              (item.items && item.items.length > 0) || item.deliveryAddressLine || item.notes ? (
-                                <div className="col gap-6" style={{ background: "var(--ink-50)", padding: "8px 10px", borderRadius: 8, marginTop: 4 }}>
-                                  {enrichedLines.length > 0 && (
-                                    <div className="col gap-4">
-                                      {enrichedLines.map((line, idx) => (
-                                        <div key={idx} className="row between center-v tiny">
-                                          <span className="semi" style={{ color: "var(--ink-800)" }}>
-                                            <span style={{ color: "var(--brand-700)", fontWeight: 700 }}>{line.quantity}×</span> {line.name}
-                                          </span>
-                                          <span style={{ fontSize: 10 }}>
-                                            {line.stockHealth === "OUT_OF_STOCK" && <span style={{ color: "var(--red-600)", fontWeight: 700 }}>❌ Out of stock</span>}
-                                            {line.stockHealth === "SHORTAGE" && <span style={{ color: "var(--red-600)", fontWeight: 700 }}>⚠️ Shortage ({line.availableQuantity} in stock)</span>}
-                                            {line.stockHealth === "LOW_STOCK" && <span style={{ color: "var(--amber-800)", fontWeight: 600 }}>⚡ Only {line.availableQuantity} left</span>}
-                                            {line.stockHealth === "IN_STOCK" && line.availableQuantity != null && <span style={{ color: "var(--green-700)", fontWeight: 600 }}>✓ {line.availableQuantity} in stock</span>}
-                                            {line.stockHealth === "IN_STOCK" && line.availableQuantity == null && <span style={{ color: "var(--green-700)", fontWeight: 600 }}>✓ In stock</span>}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {item.deliveryAddressLine && (
-                                    <div className="tiny" style={{ color: "var(--ink-600)" }}>
-                                      📍 {item.deliveryAddressLine}
-                                    </div>
-                                  )}
-                                  {item.notes && (
-                                    <div className="tiny" style={{ color: "var(--ink-600)", fontStyle: "italic" }}>
-                                      📝 {item.notes}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : null
-                            }
-                          >
-                            <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
-                            <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
-                          </TodayAction>
-                        );
-                      })}
+                      {hasScope("appointments") && pendingBookings.slice(0, 3).map((item) => (
+                        <TodayAction
+                          key={`appointment-${item.id}`}
+                          icon={<Calendar size={18} color="var(--brand-600)" />}
+                          title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`}
+                          subtitle={item.packageName ?? item.dateLabel}
+                          content={item.notes ? <div className="tiny muted" style={{ fontStyle: "italic" }}>📝 {item.notes}</div> : undefined}
+                        >
+                          <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
+                          <button className="btn btn-outline btn-sm" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
+                        </TodayAction>
+                      ))}
 
-                      {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
-                        <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
+                      {hasScope("appointments") && standaloneAppointmentClaims.slice(0, 3).map((item) => (
+                        <TodayAction
+                          key={`appointment-payment-${item.id}`}
+                          icon={<Wallet size={18} color="var(--amber-600)" />}
+                          title={tf("mdash_claims_row", { name: ownerVisibleCustomerName(item), amount: inr(item.paymentAmount ?? item.packagePrice ?? 0) })}
+                          subtitle={
+                            item.paymentReference
+                              ? tf("mdash_ref_code", { ref: item.paymentReference })
+                              : t(claimContextKey(item))
+                          }
+                        >
                           <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>{t("confirm")}</button>
                           <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>{t("mdash_reject")}</button>
                         </TodayAction>
@@ -578,88 +652,13 @@ export default function ManageDashboard() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                 </>
               )}
               {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">{t("mdash_reviews_link")}</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
             </section>
           );
         })()}
-
-        {bookingsOn && hasScope("appointments") && activeFulfillmentOrders.length > 0 && (
-          <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="row between center-v" style={{ marginBottom: 8 }}>
-              <span className="small semi" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span>⚡ Active Orders to Fulfill</span>
-                <span className="badge badge-purple" style={{ fontSize: 10, padding: "1px 6px" }}>{activeFulfillmentOrders.length}</span>
-              </span>
-              <button className="see-all" onClick={() => nav(`${base}/appointments?tab=deliveries`)}>
-                {t("mdash_view_all")}
-              </button>
-            </div>
-            <div className="col gap-10">
-              {activeFulfillmentOrders.slice(0, 3).map((item) => {
-                const isPacked = !!item.readyAt;
-                const isDelivery = item.fulfillmentType === "DELIVERY";
-                return (
-                  <div key={item.id} className="card col gap-8" style={{ padding: 12, borderLeft: `3px solid ${isPacked ? "var(--green-500)" : "var(--brand-500)"}` }}>
-                    <div className="row between center-v">
-                      <div className="row gap-8 center-v">
-                        <SafeImg src={item.customerAvatar} variant="avatar" style={{ width: 34, height: 34, borderRadius: 10 }} />
-                        <div>
-                          <div className="small semi">{ownerVisibleCustomerName(item)}</div>
-                          <div className="tiny muted">{isDelivery ? "🛵 Home Delivery" : "🛍️ Store Pickup"} · {item.timeLabel}</div>
-                        </div>
-                      </div>
-                      <span className={`badge ${isPacked ? "badge-green" : "badge-purple"}`} style={{ fontSize: 9.5 }}>
-                        {isPacked ? "Ready to Dispatch" : "Preparing / Packing"}
-                      </span>
-                    </div>
-
-                    {item.items && item.items.length > 0 && (
-                      <div className="tiny" style={{ color: "var(--ink-700)", background: "var(--ink-50)", padding: "6px 8px", borderRadius: 6 }}>
-                        {item.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
-                      </div>
-                    )}
-
-                    <div className="row gap-8" style={{ marginTop: 2 }}>
-                      {!isPacked ? (
-                        <button
-                          className="btn btn-green btn-sm grow row gap-6 center"
-                          disabled={packingId === item.id}
-                          onClick={() => markPacked(item.id)}
-                        >
-                          <Package size={14} /> Mark Packed &amp; Ready
-                        </button>
-                      ) : isDelivery ? (
-                        <button
-                          className="btn btn-delivery btn-sm grow row gap-6 center"
-                          onClick={() => nav(`${base}/appointments?tab=deliveries`)}
-                        >
-                          <span>🛵</span> Assign Delivery / Deliver
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-green btn-sm grow row gap-6 center"
-                          onClick={() => updateAppointment(item, "COMPLETED")}
-                        >
-                          <CheckCircle2 size={14} /> Complete Handover
-                        </button>
-                      )}
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ fontSize: 12 }}
-                        onClick={() => nav(`${base}/appointments`)}
-                      >
-                        Details
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>

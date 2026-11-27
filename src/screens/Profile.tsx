@@ -1,22 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { isAgreementClosed } from "@/lib/machines/agreement";
 import { useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import {
-  Bell, Settings, Store, FileText,
-  ChevronRight, Share2, Pencil,
-  Award, Users, UserCircle,
-  MessageSquare, Image, ListChecks, Clock,
-  Calendar, Globe, Lock, Handshake, MapPin
+  Award, Bell, Bookmark, Calendar, ChevronRight, Clock, Download, FileText,
+  Globe, Handshake, HelpCircle, Image, Key, ListChecks, Lock, LogOut, MapPin,
+  MessageSquare, Pencil, Share2, Shield, Sliders, Store, UserCircle, UserPlus, Users,
 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import { displayName } from "@/lib/publicName";
 import HatSwitcherCard from "@/components/HatSwitcherCard";
+import AccountSwitcher from "@/components/AccountSwitcher";
 import AvatarRing from "@/components/AvatarRing";
 import AvatarActionSheet from "@/components/AvatarActionSheet";
 import PhotoViewer from "@/components/PhotoViewer";
-import { requestService, socialService, businessService, notificationService, appointmentService } from "@/services";
+import CustomerDirectory from "@/components/profile/CustomerDirectory";
+import type { DirectoryGroup } from "@/components/profile/directoryFilter";
+import { requestService, socialService, businessService, appointmentService } from "@/services";
+import { isLiveOrder, isOrderActivity } from "@/lib/orderLists";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import ShareCard from "@/components/ShareCard";
@@ -24,30 +27,28 @@ import type { ShareSubject } from "@/lib/share";
 import { StoryViewer } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
+import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 
-
-/** Hand a tile/row its two theme tokens as custom properties (never raw hex). */
+/** Hand a live row its two theme tokens as custom properties (never raw hex). */
 function themed(tint: string, accent: string): React.CSSProperties {
   return { "--pf-tint": tint, "--pf-accent": accent } as React.CSSProperties;
 }
 
-type Tile = {
-  icon: React.ReactNode; label: string; sub: string;
-  tint: string; accent: string; badge?: number; onClick: () => void;
-};
-
 export default function Profile() {
   const nav = useNavigate();
-  const { user, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread, notifUnread, signOut } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "customer");
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const [share, setShare] = useState(false);
+  const [switcher, setSwitcher] = useState(false);
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [avatarSheet, setAvatarSheet] = useState(false);
   const [viewingAvatarPhoto, setViewingAvatarPhoto] = useState(false);
-  const manageBizId = ownedBusinessIds[0];
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
   const hasAlias = !!user.alias;
+  const isAdmin =
+    (user.roles as string[]).includes("admin") ||
+    (user.roles as string[]).includes("super_admin");
 
   const getFirstName = (name: string) => name.split(" ")[0] || "My";
 
@@ -58,9 +59,8 @@ export default function Profile() {
   );
 
   // One subject per identity you can share as. Each carries its OWN
-  // capabilities now, so picking "Shop Profile" surfaces that shop's counter
-  // stand and payment QR while "Personal Profile" correctly offers neither —
-  // previously the chips only swapped the card's text.
+  // capabilities so picking "Shop Profile" surfaces that shop's counter
+  // stand and payment QR while "Personal Profile" offers neither.
   const shareSubjects: ShareSubject[] = [
     {
       kind: "person",
@@ -73,15 +73,12 @@ export default function Profile() {
     },
   ];
 
-  // Up to 5 businesses per owner (trg_enforce_business_owner_limit) — one
-  // share entry per business, not just the first, each with its real name
-  // once myBizList has loaded (falls back to a generic label until then).
   ownedBusinessIds.forEach((bizId, i) => {
     const biz = (myBizList ?? []).find((b) => b.id === bizId);
     shareSubjects.push({
       kind: "business",
       id: bizId,
-      viewerManages: true, // these are ownedBusinessIds — owned by definition
+      viewerManages: true,
       upiId: biz?.upiId,
       label: ownedBusinessIds.length > 1 ? (biz?.name ?? `Shop Profile ${i + 1}`) : "Shop Profile",
       title: biz?.name ?? `${getFirstName(displayName(user.name, "My"))}'s Shop`,
@@ -105,79 +102,331 @@ export default function Profile() {
   }
 
   const { data: agreementsData } = useQuery(() => requestService.agreements(), [], `home:agreements:${user.id}`);
-  const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id], `profile:followers:${user.id}`);
+  const { data: followersData } = useQuery(() => (user.id ? socialService.followers(user.id) : Promise.resolve([])), [user.id], `profile:followers:${user.id}`);
   const followersCount = followersData?.length ?? 0;
   const activeAgreements = (agreementsData ?? []).filter((a) => !isAgreementClosed(a.status));
-  const totalAgreements  = agreementsData?.length ?? 0;
+  const totalAgreements = agreementsData?.length ?? 0;
 
-  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
+  const { data: myQueuesData } = useQueryWithRealtime(
+    () => businessService.myQueues(),
+    "queue_tokens",
+    [user.id],
+    user.id ? `customer_user_id=eq.${user.id}` : undefined,
+    `home:queues:${user.id}`
+  );
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
-  // Tile subtitles are only worth showing if they're TRUE — a tile that says
-  // "2 upcoming" and is wrong is worse than one that says nothing. So the two
-  // counts that need a fetch get one, and everything else uses a static
-  // descriptor rather than a number we haven't actually loaded.
-  const { data: myAppointments } = useQuery(() => user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([]), [user.id], `home:appointments:${user.id}`);
-  const upcomingCount = (myAppointments ?? []).filter(
-    (a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now()
-  ).length;
+  const { data: myAppointments } = useQuery(
+    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id],
+    `home:appointments:${user.id}`
+  );
+  const upcomingCount = (myAppointments ?? []).filter((a) => !isOrderActivity(a) && isLiveOrder(a)).length;
+  const activeOrdersCount = (myAppointments ?? []).filter((a) => isOrderActivity(a) && isLiveOrder(a)).length;
+  const totalOrdersCount = (myAppointments ?? []).filter(isOrderActivity).length;
 
-  const { data: myRequests } = useQuery(() => user.id ? requestService.mine() : Promise.resolve([]), [user.id], `profile:my-requests:${user.id}`);
+  const { data: myRequests } = useQuery(() => (user.id ? requestService.mine() : Promise.resolve([])), [user.id], `profile:my-requests:${user.id}`);
   const openRequestCount = (myRequests ?? []).filter((r) => r.status === "OPEN").length;
 
-  // Mirrors what the Achievements screen itself says in its own subtitle
-  // ("X of Y unlocked") so the tile and the destination can't disagree.
   const { data: achievementsData } = useQuery(() => socialService.achievements(), [user.id], `profile:achievements:${user.id}`);
-  const badgeSub = achievementsData
-    ? `${achievementsData.filter((a) => a.unlocked).length} of ${achievementsData.length} unlocked`
-    : "Your achievements";
-
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:customer:${user.id || "guest"}`);
+  const unlockedCount = achievementsData ? achievementsData.filter((a) => a.unlocked).length : 0;
+  const badgeValue = achievementsData ? `${unlockedCount}/${achievementsData.length}` : undefined;
 
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id], `profile:highlights:${user.id}`);
   const highlights = highlightsData ?? [];
 
-  // Destinations, split into two labelled groups instead of one undifferentiated
-  // 6-up. "Your activity" is things with live state (a count that changes);
-  // "You on STRYT" is your identity/content. Same tile shape for both, so the
-  // whole page speaks ONE visual language for "go somewhere".
-  //
-  // Map is deliberately excluded — it already lives in the bottom nav.
-  const activityTiles: Tile[] = [
-    { icon: <Calendar size={20} />, label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "None upcoming", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/appointments") },
-    // "My requests" + ?tab=requests&view=mine: the count below is YOUR open
-    // requests (requestService.mine), so the tile must land Explore's
-    // Requests tab on its "mine" view — the default "nearby" view is
-    // everyone else's feed, which made the number and the destination
-    // describe two different lists.
-    { icon: <FileText size={20} />, label: "My requests", sub: openRequestCount > 0 ? `${openRequestCount} open` : "None open", tint: "var(--brand-50)", accent: "var(--brand-700)", onClick: () => nav("/explore?tab=requests&view=mine") },
-    { icon: <Clock size={20} />, label: "Queues", sub: activeQueues.length > 0 ? `${activeQueues.length} active` : "Not in line", tint: "var(--amber-100)", accent: "var(--amber-700)", badge: activeQueues.length || undefined, onClick: () => nav("/queues") },
-    { icon: <Award size={20} />, label: t("badges"), sub: badgeSub, tint: "var(--green-100)", accent: "var(--green-600)", onClick: () => nav("/achievements") },
-  ];
+  const activeDealsCount = activeAgreements.length + activeOrdersCount;
+  const totalDealsCount = totalAgreements + totalOrdersCount;
 
-  const youTiles: Tile[] = [
-    { icon: <Users size={20} />, label: t("community"), sub: "Neighbourhood feed", tint: "var(--pink-100)", accent: "var(--pink-600)", onClick: () => nav("/community-hub") },
-    { icon: <Image size={20} />, label: "My activity", sub: "Stories & posts", tint: "var(--pink-100)", accent: "var(--pink-600)", onClick: () => nav("/my-activity") },
-    // Counts `lists`, not `bookmarks` — /lists renders user-created lists, a
-    // different collection entirely. Showing the bookmark count here meant
-    // "7 saved" could open a completely empty screen. Bookmarks have their own
-    // entry: the "Saved" stat above, which goes to /bookmarks.
-    { icon: <ListChecks size={20} />, label: "My lists", sub: lists.length > 0 ? `${lists.length} ${lists.length === 1 ? "list" : "lists"}` : "No lists yet", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/lists") },
-    { icon: <UserCircle size={20} />, label: "Public profile", sub: "How neighbours see you", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav(`/u/${user.id}`) },
-  ];
+  const directoryGroups = useMemo<DirectoryGroup[]>(() => {
+    const buildGroups = (includeHatSlot: boolean): DirectoryGroup[] => [
+      {
+        id: "account",
+        title: t("prof_sec_account"),
+        rows: [
+          {
+            id: "account-center",
+            icon: <UserCircle size={21} color="var(--brand-600)" />,
+            label: t("prof_account_center"),
+            hint: t("prof_account_center_hint"),
+            keywords: "account settings privacy password security notifications discovery language data delete",
+            onClick: () => nav("/account"),
+          },
+          {
+            id: "edit-profile",
+            icon: <Pencil size={19} />,
+            label: "Edit profile",
+            keywords: "name alias handle avatar area bio",
+            onClick: () => nav("/profile/edit"),
+          },
+          {
+            id: "public-profile",
+            icon: user.showNamePublicly ? <Globe size={19} /> : <Lock size={19} />,
+            label: t("prof_view_public"),
+            value: user.showNamePublicly ? "Public" : "Private",
+            keywords: "public profile privacy visibility name",
+            onClick: () => nav(`/u/${user.id}`),
+          },
+        ],
+      },
+      {
+        id: "activity",
+        title: t("prof_sec_how_use"),
+        rows: [
+          {
+            id: "saved",
+            icon: <Bookmark size={19} />,
+            label: t("prof_row_saved"),
+            value: bookmarks.length > 0 ? String(bookmarks.length) : undefined,
+            keywords: "bookmarks favorites shops saved",
+            onClick: () => nav("/bookmarks"),
+          },
+          {
+            id: "lists",
+            icon: <ListChecks size={19} />,
+            label: t("prof_row_lists"),
+            value: lists.length > 0 ? String(lists.length) : undefined,
+            keywords: "collections custom lists curated",
+            onClick: () => nav("/lists"),
+          },
+          {
+            id: "my-activity",
+            icon: <Image size={19} />,
+            label: t("prof_row_activity"),
+            hint: t("prof_row_activity_hint"),
+            keywords: "stories archive posts reactions highlights",
+            onClick: () => nav("/my-activity"),
+          },
+          {
+            id: "appointments",
+            icon: <Calendar size={19} />,
+            label: t("appointments"),
+            hint: t("prof_row_orders_hint"),
+            badge: upcomingCount > 0 ? tf("prof_upcoming_count", { n: upcomingCount }) : undefined,
+            badgeTone: "brand",
+            keywords: "bookings schedules orders delivery",
+            onClick: () => nav("/appointments"),
+          },
+          {
+            id: "agreements",
+            icon: <Handshake size={19} />,
+            label: t("prof_row_deals"),
+            hint: t("prof_row_deals_hint"),
+            badge: activeDealsCount > 0 ? tf("prof_active_count", { n: activeDealsCount }) : undefined,
+            badgeTone: "green",
+            value: activeDealsCount === 0 && totalDealsCount > 0 ? String(totalDealsCount) : undefined,
+            keywords: "agreements proposals orders receipts history",
+            onClick: () => nav("/agreements"),
+          },
+          {
+            id: "queues",
+            icon: <Clock size={19} />,
+            label: t("prof_row_queues"),
+            hint: t("prof_row_queues_hint"),
+            badge: activeQueues.length > 0 ? tf("prof_active_count", { n: activeQueues.length }) : undefined,
+            badgeTone: "amber",
+            keywords: "walk-in line tokens wait status",
+            onClick: () => nav("/queues"),
+          },
+          {
+            id: "requests",
+            icon: <FileText size={19} />,
+            label: t("prof_row_requests"),
+            hint: t("prof_row_requests_hint"),
+            badge: openRequestCount > 0 ? tf("prof_open_count", { n: openRequestCount }) : undefined,
+            badgeTone: "brand",
+            keywords: "ask quote help needs requests",
+            onClick: () => nav("/explore?tab=requests&view=mine"),
+          },
+          {
+            id: "notifications",
+            icon: <Bell size={19} />,
+            label: t("notifications"),
+            badge: notifUnread > 0 ? String(notifUnread > 9 ? "9+" : notifUnread) : undefined,
+            badgeTone: "red",
+            keywords: "alerts bell unread updates",
+            onClick: () => nav("/notifications"),
+          },
+        ],
+      },
+      {
+        id: "community",
+        title: t("prof_sec_community"),
+        rows: [
+          {
+            id: "community-hub",
+            icon: <Users size={19} />,
+            label: t("community"),
+            hint: t("prof_row_community_hint"),
+            keywords: "feed deals street updates",
+            onClick: () => nav("/community-hub"),
+          },
+          {
+            id: "achievements",
+            icon: <Award size={19} />,
+            label: t("badges"),
+            value: badgeValue,
+            keywords: "achievements awards streaks unlocked",
+            onClick: () => nav("/achievements"),
+          },
+          {
+            id: "followers",
+            icon: <UserPlus size={19} />,
+            label: t("prof_row_followers"),
+            value: followersCount + follows.length > 0 ? `${followersCount} / ${follows.length}` : undefined,
+            keywords: "followers following people social",
+            onClick: () => nav("/followers"),
+          },
+        ],
+      },
+      {
+        id: "profiles",
+        title: t("prof_sec_profiles"),
+        slot: includeHatSlot ? <HatSwitcherCard /> : undefined,
+        rows: [
+          {
+            id: "manage-spaces",
+            icon: <Store size={19} color="var(--orange-500)" />,
+            label: hasSellerProfile ? t("prof_manage_business") : t("prof_start_selling"),
+            hint: hasSellerProfile ? undefined : t("prof_start_selling_hint"),
+            keywords: "shop provider seller store dashboard console",
+            onClick: () => nav("/manage"),
+          },
+          {
+            id: "team-access",
+            icon: <Key size={19} />,
+            label: t("prof_row_team_access"),
+            hint: t("prof_row_team_access_hint"),
+            keywords: "staff delegate permissions business access",
+            onClick: () => nav("/account/business-access"),
+          },
+          {
+            id: "staff-login",
+            icon: <Store size={19} />,
+            label: t("prof_row_staff_login"),
+            hint: t("prof_row_staff_login_hint"),
+            keywords: "shared shop login employee staff",
+            onClick: () => nav("/business-login"),
+          },
+        ],
+      },
+      {
+        id: "support",
+        title: t("prof_sec_support"),
+        rows: [
+          {
+            id: "safety",
+            icon: <Shield size={19} color="var(--green-600)" />,
+            label: t("prof_row_safety"),
+            hint: t("prof_row_safety_hint"),
+            keywords: "sos emergency contacts live location safety",
+            onClick: () => nav("/safety"),
+          },
+          {
+            id: "privacy",
+            icon: <Lock size={19} />,
+            label: t("prof_row_privacy"),
+            hint: t("prof_row_privacy_hint"),
+            keywords: "privacy visibility location sharing muted stories",
+            onClick: () => nav("/settings/privacy"),
+          },
+          {
+            id: "preferences",
+            icon: <Sliders size={19} />,
+            label: t("prof_row_preferences"),
+            hint: t("prof_row_preferences_hint"),
+            keywords: "notifications discovery feed language hindi marathi english",
+            onClick: () => nav("/account"),
+          },
+          ...(hasSellerProfile ? [{
+            id: "security",
+            icon: <Key size={19} />,
+            label: t("prof_row_security"),
+            hint: t("prof_row_security_hint"),
+            keywords: "pin password recovery seller security",
+            onClick: () => nav("/settings/security"),
+          }] : []),
+          {
+            id: "help",
+            icon: <HelpCircle size={19} />,
+            label: t("prof_row_help"),
+            hint: t("prof_row_help_hint"),
+            keywords: "help support faq guide bug report contact",
+            onClick: () => nav("/support?tab=contact"),
+          },
+          {
+            id: "legal-data",
+            icon: <FileText size={19} />,
+            label: t("prof_row_legal_data"),
+            hint: t("prof_row_legal_data_hint"),
+            keywords: "legal terms privacy export download delete account",
+            onClick: () => nav("/settings/data"),
+          },
+          ...(!Capacitor.isNativePlatform() ? [{
+            id: "download-apk",
+            icon: <Download size={19} color="var(--green-600)" />,
+            label: t("prof_row_download_app"),
+            hint: t("prof_row_download_app_hint"),
+            keywords: "android apk app install native",
+            onClick: () => {
+              const link = document.createElement("a");
+              link.href = APK_DOWNLOAD_URL;
+              link.download = APK_FILENAME;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            },
+          }] : []),
+          ...(isAdmin ? [{
+            id: "admin",
+            icon: <Shield size={19} />,
+            label: t("prof_row_admin"),
+            keywords: "admin console moderation",
+            onClick: () => nav("/admin"),
+          }] : []),
+        ],
+      },
+      {
+        id: "login",
+        title: t("prof_sec_login"),
+        rows: [
+          {
+            id: "add-switch",
+            label: t("prof_add_profile"),
+            tone: "accent",
+            hideChevron: true,
+            keywords: "switch add account profile hat",
+            onClick: () => setSwitcher(true),
+          },
+          {
+            id: "logout",
+            icon: <LogOut size={18} color="var(--red-600)" />,
+            label: t("prof_logout"),
+            tone: "danger",
+            hideChevron: true,
+            keywords: "sign out log out exit",
+            onClick: () => {
+              signOut();
+              nav("/");
+            },
+          },
+        ],
+      },
+    ];
+    return buildGroups(true);
+  }, [
+    t, tf, nav, user.id, user.showNamePublicly, bookmarks.length, lists.length,
+    upcomingCount, activeDealsCount, totalDealsCount, activeQueues.length,
+    openRequestCount, notifUnread, badgeValue, followersCount, follows.length,
+    hasSellerProfile, isAdmin, signOut,
+  ]);
 
-  // The identity block: username-first. Your @handle is what neighbours see and
-  // search for, so it leads; the real name sits under it, quiet and clearly
-  // "yours only".
-  //
-  // This block is DELIBERATELY not tappable. It used to be one big button to
-  // /profile/edit, so glancing at your own name — or trying to select it —
-  // threw you into an edit form you hadn't asked for. Editing has its own
-  // explicit button ("Edit profile", below), which is the only route now.
-  //
-  // The one exception is a user with no @handle yet: that sub-line is a real
-  // call to action rather than a label, so it stays a button. Everyone on the
-  // current DB has an alias, so this is the rare path.
+  // Desktop renders HatSwitcherCard in its left rail, so omit the duplicate embedded card inside the directory.
+  const desktopGroups = useMemo(
+    () => directoryGroups.map((g) => (g.id === "profiles" ? { ...g, slot: undefined } : g)),
+    [directoryGroups]
+  );
+
   const IdentityBlock = () => (
     <div className="pf-identity">
       <AvatarRing size={112} onClick={() => setAvatarSheet(true)} ariaLabel="Profile photo options">
@@ -188,8 +437,6 @@ export default function Profile() {
       </AvatarRing>
       <div style={{ minWidth: 0, width: "100%" }}>
         <div className="row gap-6 center" style={{ minWidth: 0 }}>
-          {/* No pencil icon here any more — it advertised a tap target that
-              should not exist on the name itself. */}
           <span className="pf-hero-name ellipsis">
             {hasAlias ? `@${user.alias}` : displayName(user.name)}
           </span>
@@ -217,7 +464,7 @@ export default function Profile() {
       { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
       { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
       { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
-      { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
+      { n: totalDealsCount, l: "Deals", onClick: () => nav("/agreements"), active: activeDealsCount },
     ] as const;
 
     return (
@@ -311,20 +558,6 @@ export default function Profile() {
     );
   };
 
-  const SettingsRow = () => (
-    <button className="pf-row" onClick={() => nav("/account")}>
-      <span className="pf-row-icon"><Settings size={19} /></span>
-      <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
-      <span className="tiny">{t("prof_settings_hint")}</span>
-      <ChevronRight size={18} color="var(--ink-300)" />
-    </button>
-  );
-
-  // paddingBottom deliberately omitted below — see Home.tsx's identical fix:
-  // the old shorthand `padding: 0` here overrode .with-nav's bottom clearance
-  // for the fixed nav bar (inline styles always win over a class for the same
-  // property), so Profile's last content — the version footer — rendered
-  // underneath the nav bar.
   return (
     <div className="screen with-nav" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
       {/* ==========================================================
@@ -332,7 +565,7 @@ export default function Profile() {
          ========================================================== */}
       <div className="mobile-only screen-boxed" style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         <div className="screen-scroll">
-          {/* ── Identity ────────────────────────────────────────────────── */}
+          {/* ── Identity ── */}
           <div className="pf-hero living-sky-header" style={{ background: ambient.headerGradient }}>
             <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
             <div className="pf-hero-content">
@@ -341,19 +574,14 @@ export default function Profile() {
                   <MessageSquare size={18} />
                   {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
                 </button>
-                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications")} aria-label={t("notifications")}>
                   <Bell size={18} />
-                  {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+                  {notifUnread > 0 && <span className="count-badge btn-badge count-badge-accent">{notifUnread > 9 ? "9+" : notifUnread}</span>}
                 </button>
               </div>
 
               <IdentityBlock />
 
-              {/* Leads with what the row DOES (opens your public profile).
-                  The name-privacy state rides along as a status, not as the
-                  label — worded as a state with a Globe/Lock it read like a
-                  toggle, but tapping it never changed anything (that switch
-                  lives in Edit profile → Privacy). */}
               <button className="pf-glass-row" onClick={() => nav(`/u/${user.id}`)} aria-label={t("prof_view_public")}>
                 <UserCircle size={15} />
                 <span className="pf-glass-row-label grow">{t("prof_view_public")}</span>
@@ -374,40 +602,22 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Stats — on a real card so the dark block stays about identity. */}
           <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
             <ProfileStats />
           </div>
 
-          {/* Highlights — your own story reel, so it belongs with identity. */}
           <HighlightsSection />
-
-          {/* ── Right now ────────────────────────────────────────────────── */}
           <RightNowSection />
 
-          {/* ── Your activity ── */}
-          <div className="page-pad" style={{ paddingBottom: 0 }}>
-            <div className="profile-eyebrow">{t("prof_your_activity")}</div>
-            <TileGrid tiles={activityTiles} />
-          </div>
+          {/* ── Searchable Instagram-inspired Menu Directory ── */}
+          <CustomerDirectory
+            groups={directoryGroups}
+            searchPlaceholder={t("prof_search_placeholder")}
+            searchClearLabel={t("prof_clear_search")}
+            searchEmptyMessage={(q) => tf("prof_search_empty", { q })}
+          />
 
-          {/* ── You on STRYT ── */}
-          <div className="page-pad" style={{ paddingBottom: 0 }}>
-            <div className="profile-eyebrow">{t("prof_you_on_stryt")}</div>
-            <TileGrid tiles={youTiles} />
-          </div>
-
-          {/* ── Selling / hat switching ── */}
-          <div className="page-pad" style={{ paddingBottom: 0 }}>
-            <HatSwitcherCard />
-          </div>
-
-          {/* Settings — quiet, and last. */}
-          <div className="page-pad">
-            <SettingsRow />
-          </div>
-
-          <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>
+          <p className="tiny muted" style={{ textAlign: "center", padding: "14px 0 28px" }}>
             STRYT v{__APP_VERSION__} · Made for your street
           </p>
         </div>
@@ -417,8 +627,6 @@ export default function Profile() {
           DESKTOP-ONLY VIEW
          ========================================================== */}
       <div className="desktop-only" style={{ display: "flex", flexDirection: "column", width: "100%", padding: "24px 32px", boxSizing: "border-box", background: ambient.bgGradient, minHeight: "100vh", overflowY: "auto" }}>
-        
-        {/* Living Sky Card Header */}
         <header className="living-sky-header" style={{
           position: "relative",
           overflow: "hidden",
@@ -437,21 +645,16 @@ export default function Profile() {
                 <MessageSquare size={18} />
                 {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
               </button>
-              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
+              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications")} aria-label={t("notifications")}>
                 <Bell size={18} />
-                {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+                {notifUnread > 0 && <span className="count-badge btn-badge count-badge-accent">{notifUnread > 9 ? "9+" : notifUnread}</span>}
               </button>
             </div>
           </div>
         </header>
 
-        {/* Dashboard Content Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 24, alignItems: "start" }}>
-          
-          {/* Left Column: Profile Card & Role Switcher */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            
-            {/* Premium Profile Card */}
             <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", borderRadius: 20 }}>
               <AvatarRing size={96} onClick={() => setAvatarSheet(true)} ariaLabel="Profile photo options" style={{ marginBottom: 16 }}>
                 <SafeImg
@@ -497,59 +700,24 @@ export default function Profile() {
             <HatSwitcherCard />
           </div>
 
-          {/* Right Column: Stats, Highlights, Actions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            
-            {/* Stats strip */}
             <ProfileStats isDesktop />
-
-            {/* Right now — same live rows as mobile, one shared vocabulary. */}
             <RightNowSection isDesktop />
-
-            {/* Highlights */}
             <HighlightsSection isDesktop title={t("prof_my_highlights")} />
 
-            {/* Same two groups as mobile — one shared vocabulary across both. */}
-            <div className="card" style={{ padding: 24, borderRadius: 20 }}>
-              <div className="profile-eyebrow">{t("prof_your_activity")}</div>
-              <TileGrid tiles={activityTiles} />
-              <div className="profile-eyebrow" style={{ marginTop: 20 }}>{t("prof_you_on_stryt")}</div>
-              <TileGrid tiles={youTiles} />
-            </div>
+            <CustomerDirectory
+              groups={desktopGroups}
+              searchPlaceholder={t("prof_search_placeholder")}
+              searchClearLabel={t("prof_clear_search")}
+              searchEmptyMessage={(q) => tf("prof_search_empty", { q })}
+              isDesktop
+            />
 
-            {/* Seller entry + settings — genuinely different destinations.
-                Both states render on both platforms: a seller gets "Manage",
-                a non-seller gets the invite. Previously desktop only had the
-                first and mobile only had the second, so a desktop customer had
-                no way into selling at all from this screen. */}
-            <div className="col gap-10">
-              {hasSellerProfile ? (
-                <button className="pf-row" style={themed("var(--orange-100)", "var(--orange-500)")} onClick={() => nav("/manage")}>
-                  <span className="pf-row-icon"><Store size={19} /></span>
-                  <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_manage_business")}</span>
-                  <ChevronRight size={18} color="var(--ink-300)" />
-                </button>
-              ) : (
-                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/manage")}>
-                  <span className="pf-row-icon"><Store size={19} /></span>
-                  <span className="col grow" style={{ gap: 2, textAlign: "left" }}>
-                    <span className="semi" style={{ fontSize: 14 }}>{t("prof_start_selling")}</span>
-                    <span className="tiny" style={{ fontWeight: 500 }}>{t("prof_start_selling_hint")}</span>
-                  </span>
-                  <ChevronRight size={18} color="var(--brand-300)" />
-                </button>
-              )}
-              <SettingsRow />
-            </div>
-
-            <p className="tiny muted" style={{ textAlign: "center", padding: "12px 0 20px" }}>
+            <p className="tiny muted" style={{ textAlign: "center", padding: "4px 0 20px" }}>
               STRYT v{__APP_VERSION__} · Made for your street
             </p>
-
           </div>
-
         </div>
-
       </div>
 
       {viewingHighlight !== null && (
@@ -567,25 +735,9 @@ export default function Profile() {
       {share && (
         <ShareCard subjects={shareSubjects} onClose={() => setShare(false)} />
       )}
-    </div>
-  );
-}
-
-/** A destination tile. Left-aligned with a subtitle, so you know what's inside
- *  before you tap. The icon sits in a tinted chip themed by two tokens. */
-function TileGrid({ tiles }: { tiles: Tile[] }) {
-  return (
-    <div className="pf-tiles">
-      {tiles.map((t) => (
-        <button key={t.label} onClick={t.onClick} className="pf-tile" style={themed(t.tint, t.accent)}>
-          {t.badge ? <span className="count-badge feature-card-badge">{t.badge}</span> : null}
-          <span className="pf-tile-icon">{t.icon}</span>
-          <span className="pf-tile-body">
-            <span className="pf-tile-label ellipsis">{t.label}</span>
-            <span className="pf-tile-sub ellipsis">{t.sub}</span>
-          </span>
-        </button>
-      ))}
+      {switcher && (
+        <AccountSwitcher onClose={() => setSwitcher(false)} />
+      )}
     </div>
   );
 }
