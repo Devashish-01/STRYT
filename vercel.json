@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/system-handoff-play": false
+    }
+  },
   "headers": [
     {
       "source": "/sw.js",
